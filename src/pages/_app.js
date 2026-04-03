@@ -1,10 +1,20 @@
+import dynamic from 'next/dynamic';
 import { CartProvider } from '../context/CartContext';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import CartDrawer from '../components/CartDrawer';
 
+const MoonPayProvider = dynamic(
+  () => import('@moonpay/moonpay-react').then((mod) => mod.MoonPayProvider),
+  { ssr: false }
+);
+
 export default function App({ Component, pageProps }) {
   return (
+    <MoonPayProvider
+      apiKey={process.env.NEXT_PUBLIC_MOONPAY_API_KEY || 'pk_test_placeholder'}
+      debug
+    >
     <CartProvider>
       <div style={{
         minHeight: '100vh',
@@ -39,5 +49,6 @@ export default function App({ Component, pageProps }) {
         }
       `}</style>
     </CartProvider>
+    </MoonPayProvider>
   );
 }

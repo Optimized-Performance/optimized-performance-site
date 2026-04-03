@@ -1,6 +1,8 @@
+import { useRouter } from 'next/router';
 import { useCart } from '../context/CartContext';
 
 export default function CartDrawer() {
+  const router = useRouter();
   const {
     cartItems,
     isCartOpen,
@@ -84,8 +86,8 @@ export default function CartDrawer() {
               <button
                 style={styles.checkoutBtn}
                 onClick={() => {
-                  // TODO: Integrate with VERIFIED Crypto Checkout or your chosen processor
-                  alert('Checkout will be connected to your crypto payment processor. See the setup guide!');
+                  setIsCartOpen(false);
+                  router.push('/checkout');
                 }}
               >
                 Proceed to Checkout
