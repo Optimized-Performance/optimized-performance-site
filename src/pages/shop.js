@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import ProductCard from '../components/ProductCard';
 import products from '../data/products';
-import { getAllInventory } from '../lib/inventory';
+import { supabaseAdmin } from '../lib/supabase';
 
 const CATEGORIES = ['All', 'Peptides', 'GH Peptides', 'Combos', 'Supplements'];
 
@@ -91,8 +91,21 @@ export default function Shop({ inventory }) {
 }
 
 export async function getServerSideProps() {
-  const inventory = await getAllInventory();
-  return { props: { inventory } };
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('inventory')
+      .select('product_id, stock')
+    if (error) throw error
+    const inventory = {}
+    data.forEach(item => { inventory[item.product_id] = item.stock })
+    return { props: { inventory } }
+  } catch {
+    // Fallback to product defaults if Supabase is unreachable
+    const inventory = {}
+    const products = require('../data/products').default
+    products.forEach(p => { inventory[p.id] = p.stock })
+    return { props: { inventory } }
+  }
 }
 
 const styles = {
