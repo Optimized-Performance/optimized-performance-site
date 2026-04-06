@@ -18,15 +18,15 @@
   </g>
   <text x="52" y="96" text-anchor="middle" font-family="'Helvetica Neue', Arial, sans-serif" font-size="8" font-weight="700" fill="#0D1B2A" letter-spacing="1.5">OPTIMIZED</text>
   <text x="52" y="106" text-anchor="middle" font-family="'Helvetica Neue', Arial, sans-serif" font-size="6" font-weight="400" fill="#0D1B2A" letter-spacing="2" opacity="0.7">PERFORMANCE</text>
-  <text x="118" y="38" font-family="'Helvetica Neue', Arial, sans-serif" font-size="28" font-weight="800" fill="#0D1B2A" letter-spacing="1.5">PT-141</text>
+  <text x="118" y="38" font-family="'Helvetica Neue', Arial, sans-serif" font-size="22" font-weight="800" fill="#0D1B2A" letter-spacing="1.5">Retatrutide</text>
   <line x1="118" y1="46" x2="320" y2="46" stroke="#0D1B2A" stroke-width="0.75" opacity="0.35"/>
-  <text x="118" y="62" font-family="'Helvetica Neue', Arial, sans-serif" font-size="9" font-weight="400" fill="#0D1B2A" opacity="0.65" letter-spacing="0.5">Bremelanotide</text>
-  <text x="118" y="80" font-family="'Helvetica Neue', Arial, sans-serif" font-size="12" font-weight="700" fill="#0D1B2A" letter-spacing="0.5">10 mg</text>
-  <text x="175" y="80" font-family="'Helvetica Neue', Arial, sans-serif" font-size="9" font-weight="400" fill="#0D1B2A" opacity="0.6">Lyophilized Powder</text>
-  <text x="118" y="96" font-family="'Helvetica Neue', Arial, sans-serif" font-size="9" font-weight="600" fill="#0D1B2A" opacity="0.75" letter-spacing="0.3">Purity: &gt;98%</text>
+  <text x="118" y="62" font-family="'Helvetica Neue', Arial, sans-serif" font-size="9" font-weight="400" fill="#0D1B2A" opacity="0.65" letter-spacing="0.5">GLP-1/GIP/Glucagon Triple Agonist</text>
+  <text x="118" y="80" font-family="'Helvetica Neue', Arial, sans-serif" font-size="12" font-weight="700" fill="#0D1B2A" letter-spacing="0.5">20 mg</text>
+  <text x="170" y="80" font-family="'Helvetica Neue', Arial, sans-serif" font-size="9" font-weight="400" fill="#0D1B2A" opacity="0.6">Lyophilized Powder</text>
+  <text x="118" y="96" font-family="'Helvetica Neue', Arial, sans-serif" font-size="9" font-weight="600" fill="#0D1B2A" opacity="0.75" letter-spacing="0.3">Purity: &gt;99%</text>
   <text x="220" y="96" font-family="'Helvetica Neue', Arial, sans-serif" font-size="8" font-weight="400" fill="#0D1B2A" opacity="0.55">Store at -20&#xB0;C</text>
   <line x1="118" y1="106" x2="420" y2="106" stroke="#0D1B2A" stroke-width="0.5" opacity="0.25"/>
   <text x="118" y="120" font-family="'Helvetica Neue', Arial, sans-serif" font-size="7" font-weight="600" fill="#0D1B2A" opacity="0.6" letter-spacing="0.8">FOR RESEARCH USE ONLY</text>
   <text x="118" y="133" font-family="'Helvetica Neue', Arial, sans-serif" font-size="7" font-weight="400" fill="#0D1B2A" opacity="0.45">Lot: __________</text>
-  <text x="420" y="133" text-anchor="end" font-family="'Helvetica Neue', Arial, sans-serif" font-size="7" font-weight="400" fill="#0D1B2A" opacity="0.45">2 mL vial</text>
+  <text x="420" y="133" text-anchor="end" font-family="'Helvetica Neue', Arial, sans-serif" font-size="6" font-weight="400" fill="#0D1B2A" opacity="0.4">OP-RET-20MG | 2 mL vial</text>
 </svg>
