@@ -8,11 +8,8 @@
     "start": "next start"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.39.0",
-    "nodemailer": "^6.9.8",
-    "twilio": "^5.0.0",
     "@moonpay/moonpay-react": "^1.10.6",
-    "@upstash/redis": "^1.37.0",
+    "@supabase/supabase-js": "^2.101.1",
     "next": "^14.2.0",
     "react": "^18.3.0",
     "react-dom": "^18.3.0",
