@@ -251,7 +251,7 @@ const products = [
     vialSize: '10 x 2 mL Vials',
     inStock: true,
     badge: 'HERO',
-    stock: 50,
+    stock: 150,
   },
   {
     id: 'mt2-5mg',
