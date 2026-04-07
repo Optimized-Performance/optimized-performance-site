@@ -18,8 +18,8 @@ export default function AffiliatesTab({ showSaveMsg }) {
       name: '',
       email: '',
       code: '',
-      discountPct: 5,
-      commissionPct: 2.5,
+      discountPct: 10,
+      commissionPct: 5,
       active: true,
       notes: '',
     };
