@@ -16,10 +16,10 @@ export default async function handler(req, res) {
   if (!rateLimit(req, { maxRequests: 10, windowMs: 60000 })) return res.status(429).json({ error: 'Too many requests' })
 
   try {
-    const { name, email, address, city, state, zip, items, subtotal, total } = req.body
+    const { name, email, address, city, state, zip, items, subtotal, total, discount, affiliateCode, affiliateCommissionPct } = req.body
 
     if (!validateString(name) || !validateEmail(email) || !validateString(address) ||
-        !validateString(city) || !validateString(state, { maxLength: 2 }) || !validateZip(zip) ||
+        !validateString(city) || !validateString(state, { minLength: 1, maxLength: 50 }) || !validateZip(zip) ||
         !Array.isArray(items) || !items.length || items.length > 50) {
       return res.status(400).json({ error: 'Invalid or missing required fields' })
     }
@@ -30,21 +30,30 @@ export default async function handler(req, res) {
 
     const orderNumber = generateOrderNumber()
 
+    const insertData = {
+      order_number: orderNumber,
+      customer_name: name,
+      customer_email: email,
+      shipping_address: address,
+      city,
+      state,
+      zip,
+      items,
+      subtotal,
+      total,
+      payment_status: 'pending',
+    }
+
+    // Include affiliate data if present
+    if (affiliateCode) {
+      insertData.affiliate_code = affiliateCode
+      insertData.discount = discount || 0
+      insertData.affiliate_commission_pct = affiliateCommissionPct || 0
+    }
+
     const { data: order, error } = await supabaseAdmin
       .from('orders')
-      .insert({
-        order_number: orderNumber,
-        customer_name: name,
-        customer_email: email,
-        shipping_address: address,
-        city,
-        state,
-        zip,
-        items,
-        subtotal,
-        total,
-        payment_status: 'pending',
-      })
+      .insert(insertData)
       .select()
       .single()
 
