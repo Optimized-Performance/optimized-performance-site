@@ -130,7 +130,7 @@ export default function Checkout() {
       setOrderNumber(data.order_number);
       setShowMoonPay(true);
     } catch (err) {
-      alert('Order error: ' + err.message);
+      alert('Something went wrong creating your order. Please try again.');
       console.error(err);
     }
     setSubmitting(false);
