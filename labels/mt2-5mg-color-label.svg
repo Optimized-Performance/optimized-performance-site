@@ -28,16 +28,16 @@
   <text x="56" y="144" text-anchor="middle" font-family="'Helvetica Neue', Arial, sans-serif" font-size="6.5" font-weight="400" fill="#90CAF9" letter-spacing="2.2">PERFORMANCE</text>
 
   <!-- Product name -->
-  <text x="128" y="52" font-family="'Helvetica Neue', Arial, sans-serif" font-size="30" font-weight="800" fill="#FFFFFF" letter-spacing="1.5">GLP-3</text>
+  <text x="128" y="52" font-family="'Helvetica Neue', Arial, sans-serif" font-size="30" font-weight="800" fill="#FFFFFF" letter-spacing="1.5">MT-2</text>
 
   <!-- Cyan accent line -->
   <line x1="128" y1="60" x2="300" y2="60" stroke="#00B4D8" stroke-width="1.5" opacity="0.6"/>
 
   <!-- Descriptor -->
-  <text x="128" y="80" font-family="'Helvetica Neue', Arial, sans-serif" font-size="10" font-weight="400" fill="#90CAF9" letter-spacing="0.5">Triple Agonist Peptide</text>
+  <text x="128" y="80" font-family="'Helvetica Neue', Arial, sans-serif" font-size="10" font-weight="400" fill="#90CAF9" letter-spacing="0.5">Melanotan II</text>
 
   <!-- Dosage + format -->
-  <text x="128" y="104" font-family="'Helvetica Neue', Arial, sans-serif" font-size="14" font-weight="700" fill="#00B4D8" letter-spacing="0.5">10 mg</text>
+  <text x="128" y="104" font-family="'Helvetica Neue', Arial, sans-serif" font-size="14" font-weight="700" fill="#00B4D8" letter-spacing="0.5">5 mg</text>
   <text x="178" y="104" font-family="'Helvetica Neue', Arial, sans-serif" font-size="10" font-weight="400" fill="#7BA3C4">Lyophilized Powder</text>
 
   <!-- Purity + storage -->
@@ -52,5 +52,5 @@
 
   <!-- Lot + SKU -->
   <text x="128" y="176" font-family="'Helvetica Neue', Arial, sans-serif" font-size="8" font-weight="400" fill="#7BA3C4" opacity="0.5">Lot: __________</text>
-  <text x="420" y="176" text-anchor="end" font-family="'Helvetica Neue', Arial, sans-serif" font-size="7" font-weight="400" fill="#7BA3C4" opacity="0.4">OP-GLP3-10MG | 2 mL vial</text>
+  <text x="420" y="176" text-anchor="end" font-family="'Helvetica Neue', Arial, sans-serif" font-size="7" font-weight="400" fill="#7BA3C4" opacity="0.4">OP-MT2-5MG | 2 mL vial</text>
 </svg>
