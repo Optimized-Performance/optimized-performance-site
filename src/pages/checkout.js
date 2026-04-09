@@ -56,10 +56,10 @@ export default function Checkout() {
 
   if (cartItems.length === 0 && !orderPlaced) {
     return (
-      <div style={styles.emptyContainer}>
-        <h1 style={styles.emptyTitle}>Your cart is empty</h1>
-        <p style={styles.emptyText}>Add some products before checking out.</p>
-        <button style={styles.shopBtn} onClick={() => router.push('/shop')}>
+      <div className="flex flex-col items-center justify-center py-24 px-5 text-center">
+        <h1 className="text-2xl font-heading font-bold text-brand-cream mb-3">Your cart is empty</h1>
+        <p className="text-brand-muted mb-6">Add some products before checking out.</p>
+        <button className="btn-primary" onClick={() => router.push('/shop')}>
           Browse Products
         </button>
       </div>
@@ -68,21 +68,21 @@ export default function Checkout() {
 
   if (orderPlaced) {
     return (
-      <div style={styles.emptyContainer}>
-        <div style={styles.successIcon}>
+      <div className="flex flex-col items-center justify-center py-24 px-5 text-center">
+        <div className="mb-6">
           <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#00B4D8" strokeWidth="2">
             <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
             <polyline points="22 4 12 14.01 9 11.01"/>
           </svg>
         </div>
-        <h1 style={styles.emptyTitle}>Payment Complete!</h1>
+        <h1 className="text-2xl font-heading font-bold text-brand-cream mb-2">Payment Complete!</h1>
         {orderNumber && (
-          <p style={styles.orderNum}>Order #{orderNumber}</p>
+          <p className="text-sm font-semibold text-brand-cyan mb-2">Order #{orderNumber}</p>
         )}
-        <p style={styles.emptyText}>
+        <p className="text-brand-muted mb-6">
           Your order has been placed. You will receive a confirmation email shortly.
         </p>
-        <button style={styles.shopBtn} onClick={() => router.push('/')}>
+        <button className="btn-primary" onClick={() => router.push('/')}>
           Back to Home
         </button>
       </div>
@@ -137,112 +137,82 @@ export default function Checkout() {
   };
 
   return (
-    <div style={styles.container}>
+    <div className="max-w-[960px] mx-auto px-5 py-10 pb-16">
       <SEO title="Checkout" description="Complete your order — secure payment via MoonPay." path="/checkout" />
-      <h1 style={styles.title}>Checkout</h1>
+      <h1 className="text-2xl font-heading font-bold text-brand-cream mb-8">Checkout</h1>
 
-      <div style={styles.grid}>
-        {/* Shipping info form */}
-        <div style={styles.formSection}>
-          <h2 style={styles.sectionTitle}>Shipping Information</h2>
+      <div className="flex gap-8 flex-wrap">
+        {/* Shipping form */}
+        <div className="flex-[1_1_400px] card-premium p-8">
+          <h2 className="text-lg font-heading font-bold text-brand-cream mb-5">Shipping Information</h2>
           <form onSubmit={handleCheckout}>
-            <div style={styles.field}>
-              <label style={styles.label}>Full Name</label>
-              <input
-                style={styles.input}
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="John Doe"
-              />
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-brand-platinum mb-1.5">Full Name</label>
+              <input className="input-field" type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="John Doe" />
             </div>
-            <div style={styles.field}>
-              <label style={styles.label}>Email</label>
-              <input
-                style={styles.input}
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com"
-              />
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-brand-platinum mb-1.5">Email</label>
+              <input className="input-field" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
             </div>
-            <div style={styles.field}>
-              <label style={styles.label}>Address</label>
-              <input
-                style={styles.input}
-                type="text"
-                value={address}
-                onChange={(e) => setAddress(e.target.value)}
-                placeholder="123 Main St"
-              />
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-brand-platinum mb-1.5">Address</label>
+              <input className="input-field" type="text" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="123 Main St" />
             </div>
-            <div style={styles.row}>
-              <div style={{ ...styles.field, flex: 2 }}>
-                <label style={styles.label}>City</label>
-                <input
-                  style={styles.input}
-                  type="text"
-                  value={city}
-                  onChange={(e) => setCity(e.target.value)}
-                  placeholder="City"
-                />
+            <div className="flex gap-3 mb-4">
+              <div className="flex-[2]">
+                <label className="block text-sm font-medium text-brand-platinum mb-1.5">City</label>
+                <input className="input-field" type="text" value={city} onChange={(e) => setCity(e.target.value)} placeholder="City" />
               </div>
-              <div style={{ ...styles.field, flex: 1 }}>
-                <label style={styles.label}>State</label>
-                <input
-                  style={styles.input}
-                  type="text"
-                  value={state}
-                  onChange={(e) => setState(e.target.value)}
-                  placeholder="CA"
-                />
+              <div className="flex-1">
+                <label className="block text-sm font-medium text-brand-platinum mb-1.5">State</label>
+                <input className="input-field" type="text" value={state} onChange={(e) => setState(e.target.value)} placeholder="CA" />
               </div>
-              <div style={{ ...styles.field, flex: 1 }}>
-                <label style={styles.label}>ZIP</label>
-                <input
-                  style={styles.input}
-                  type="text"
-                  value={zip}
-                  onChange={(e) => setZip(e.target.value)}
-                  placeholder="90210"
-                />
+              <div className="flex-1">
+                <label className="block text-sm font-medium text-brand-platinum mb-1.5">ZIP</label>
+                <input className="input-field" type="text" value={zip} onChange={(e) => setZip(e.target.value)} placeholder="90210" />
               </div>
             </div>
 
-            <div style={{ ...styles.field, marginTop: 8 }}>
-              <label style={styles.label}>Affiliate / Promo Code</label>
-              <div style={{ display: 'flex', gap: 8 }}>
+            <div className="mb-4 mt-2">
+              <label className="block text-sm font-medium text-brand-platinum mb-1.5">Affiliate / Promo Code</label>
+              <div className="flex gap-2">
                 <input
-                  style={{ ...styles.input, flex: 1, textTransform: 'uppercase', fontFamily: 'monospace', fontWeight: 600 }}
+                  className="input-field flex-1 uppercase font-mono font-semibold"
                   type="text"
                   value={affiliateCode}
                   onChange={(e) => { setAffiliateCode(e.target.value); setAffiliateApplied(null); setAffiliateError(''); }}
                   placeholder="Enter code"
                 />
-                <button type="button" onClick={applyAffiliateCode} style={{ ...styles.payBtn, width: 'auto', padding: '10px 18px', fontSize: 13, marginTop: 0 }}>
+                <button
+                  type="button"
+                  onClick={applyAffiliateCode}
+                  className="btn-primary px-5 py-2.5 text-sm whitespace-nowrap"
+                >
                   Apply
                 </button>
               </div>
               {affiliateApplied && (
-                <p style={{ fontSize: 12, color: '#16a34a', fontWeight: 600, marginTop: 6, fontFamily: "'Helvetica Neue', Arial, sans-serif" }}>
-                  Code "{affiliateApplied.code}" applied — {affiliateApplied.discountPct}% off!
+                <p className="text-xs font-semibold text-emerald-400 mt-1.5">
+                  Code &ldquo;{affiliateApplied.code}&rdquo; applied — {affiliateApplied.discountPct}% off!
                 </p>
               )}
               {affiliateError && (
-                <p style={{ fontSize: 12, color: '#dc2626', fontWeight: 600, marginTop: 6, fontFamily: "'Helvetica Neue', Arial, sans-serif" }}>
-                  {affiliateError}
-                </p>
+                <p className="text-xs font-semibold text-red-400 mt-1.5">{affiliateError}</p>
               )}
             </div>
 
-            <button type="submit" style={styles.payBtn} disabled={submitting}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ verticalAlign: 'middle', marginRight: 8 }}>
+            <button
+              type="submit"
+              className="w-full btn-primary py-4 text-base mt-2"
+              disabled={submitting}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="inline-block align-middle mr-2">
                 <rect x="1" y="4" width="22" height="16" rx="2" ry="2"/>
                 <line x1="1" y1="10" x2="23" y2="10"/>
               </svg>
               {submitting ? 'Processing...' : `Pay $${discountedTotal.toFixed(2)} with Card`}
             </button>
-            <p style={styles.payNote}>
+            <p className="text-[11px] text-brand-muted text-center mt-3 leading-relaxed">
               Your card payment is securely converted to USDC via MoonPay.
               <br />A ~4% processing fee applies.
             </p>
@@ -250,41 +220,41 @@ export default function Checkout() {
         </div>
 
         {/* Order summary */}
-        <div style={styles.summarySection}>
-          <h2 style={styles.sectionTitle}>Order Summary</h2>
-          <div style={styles.summaryItems}>
+        <div className="flex-[0_1_320px] card-premium p-8 self-start">
+          <h2 className="text-lg font-heading font-bold text-brand-cream mb-5">Order Summary</h2>
+          <div className="mb-4">
             {cartItems.map((item) => (
-              <div key={item.id} style={styles.summaryItem}>
+              <div key={item.id} className="flex justify-between items-center py-2 border-b border-white/[0.06]">
                 <div>
-                  <span style={styles.summaryName}>{item.name}</span>
-                  <span style={styles.summaryDosage}> - {item.dosage}</span>
-                  <span style={styles.summaryQty}> x{item.quantity}</span>
+                  <span className="text-sm font-semibold text-brand-cream">{item.name}</span>
+                  <span className="text-xs text-brand-muted"> - {item.dosage}</span>
+                  <span className="text-xs text-brand-muted"> x{item.quantity}</span>
                 </div>
-                <span style={styles.summaryPrice}>
+                <span className="text-sm font-semibold text-brand-cream">
                   ${(item.price * item.quantity).toFixed(2)}
                 </span>
               </div>
             ))}
           </div>
-          <div style={styles.summaryDivider} />
+          <div className="h-px bg-white/10 my-3" />
           {affiliateApplied && (
             <>
-              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', marginBottom: 4 }}>
-                <span style={{ fontSize: 13, color: '#5A7D9A', fontFamily: "'Helvetica Neue', Arial, sans-serif" }}>Subtotal</span>
-                <span style={{ fontSize: 13, color: '#5A7D9A', fontFamily: "'Helvetica Neue', Arial, sans-serif" }}>${cartTotal.toFixed(2)}</span>
+              <div className="flex justify-between py-1 mb-1">
+                <span className="text-sm text-brand-muted">Subtotal</span>
+                <span className="text-sm text-brand-muted">${cartTotal.toFixed(2)}</span>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', marginBottom: 8 }}>
-                <span style={{ fontSize: 13, color: '#16a34a', fontWeight: 600, fontFamily: "'Helvetica Neue', Arial, sans-serif" }}>Discount ({affiliateApplied.discountPct}% — {affiliateApplied.code})</span>
-                <span style={{ fontSize: 13, color: '#16a34a', fontWeight: 600, fontFamily: "'Helvetica Neue', Arial, sans-serif" }}>-${discountAmount.toFixed(2)}</span>
+              <div className="flex justify-between py-1 mb-2">
+                <span className="text-sm font-semibold text-emerald-400">Discount ({affiliateApplied.discountPct}% — {affiliateApplied.code})</span>
+                <span className="text-sm font-semibold text-emerald-400">-${discountAmount.toFixed(2)}</span>
               </div>
             </>
           )}
-          <div style={styles.summaryTotal}>
-            <span style={styles.totalLabel}>Total</span>
-            <span style={styles.totalAmount}>${discountedTotal.toFixed(2)}</span>
+          <div className="flex justify-between items-center">
+            <span className="text-base font-semibold text-brand-cream">Total</span>
+            <span className="text-xl font-bold text-brand-cream font-heading">${discountedTotal.toFixed(2)}</span>
           </div>
-          <div style={styles.disclaimer}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00B4D8" strokeWidth="2" style={{ verticalAlign: 'middle', marginRight: 6, flexShrink: 0 }}>
+          <div className="flex items-start gap-2 text-[11px] text-brand-muted mt-4 p-3 bg-brand-dark/50 rounded-lg leading-relaxed">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00B4D8" strokeWidth="2" className="shrink-0 mt-0.5">
               <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
               <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
             </svg>
@@ -293,7 +263,7 @@ export default function Checkout() {
         </div>
       </div>
 
-      {/* MoonPay Widget - shows as overlay when triggered */}
+      {/* MoonPay Widget */}
       <MoonPayBuyWidget
         variant="overlay"
         baseCurrencyCode="usd"
@@ -304,7 +274,6 @@ export default function Checkout() {
         onCloseOverlay={() => setShowMoonPay(false)}
         onTransactionCompleted={() => {
           setShowMoonPay(false);
-          // Update affiliate stats if code was used
           if (affiliateApplied) {
             try {
               const saved = localStorage.getItem('op_affiliates');
@@ -329,202 +298,3 @@ export default function Checkout() {
     </div>
   );
 }
-
-const styles = {
-  container: {
-    maxWidth: 960,
-    margin: '0 auto',
-    padding: '40px 20px 60px',
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 700,
-    color: '#0D1B2A',
-    marginBottom: 32,
-    fontFamily: "'Helvetica Neue', Arial, sans-serif",
-  },
-  grid: {
-    display: 'flex',
-    gap: 32,
-    flexWrap: 'wrap',
-  },
-  formSection: {
-    flex: '1 1 400px',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 32,
-    boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
-  },
-  summarySection: {
-    flex: '0 1 320px',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 32,
-    boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
-    alignSelf: 'flex-start',
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 700,
-    color: '#0D1B2A',
-    marginBottom: 20,
-    fontFamily: "'Helvetica Neue', Arial, sans-serif",
-  },
-  field: {
-    marginBottom: 16,
-  },
-  label: {
-    display: 'block',
-    fontSize: 13,
-    fontWeight: 600,
-    color: '#5A7D9A',
-    marginBottom: 6,
-    fontFamily: "'Helvetica Neue', Arial, sans-serif",
-  },
-  input: {
-    width: '100%',
-    padding: '10px 14px',
-    border: '1px solid #D8E4EE',
-    borderRadius: 8,
-    fontSize: 14,
-    fontFamily: "'Helvetica Neue', Arial, sans-serif",
-    color: '#0D1B2A',
-    outline: 'none',
-    transition: 'border-color 0.2s',
-  },
-  row: {
-    display: 'flex',
-    gap: 12,
-  },
-  payBtn: {
-    width: '100%',
-    backgroundColor: '#00B4D8',
-    color: '#fff',
-    border: 'none',
-    borderRadius: 8,
-    padding: '16px 20px',
-    fontSize: 16,
-    fontWeight: 700,
-    cursor: 'pointer',
-    fontFamily: "'Helvetica Neue', Arial, sans-serif",
-    letterSpacing: 0.5,
-    marginTop: 8,
-  },
-  payNote: {
-    fontSize: 11,
-    color: '#6B7B8D',
-    textAlign: 'center',
-    marginTop: 12,
-    lineHeight: 1.5,
-    fontFamily: "'Helvetica Neue', Arial, sans-serif",
-  },
-  summaryItems: {
-    marginBottom: 16,
-  },
-  summaryItem: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: '8px 0',
-    borderBottom: '1px solid #F0F4F8',
-  },
-  summaryName: {
-    fontSize: 14,
-    fontWeight: 600,
-    color: '#0D1B2A',
-    fontFamily: "'Helvetica Neue', Arial, sans-serif",
-  },
-  summaryDosage: {
-    fontSize: 12,
-    color: '#5A7D9A',
-    fontFamily: "'Helvetica Neue', Arial, sans-serif",
-  },
-  summaryQty: {
-    fontSize: 12,
-    color: '#6B7B8D',
-    fontFamily: "'Helvetica Neue', Arial, sans-serif",
-  },
-  summaryPrice: {
-    fontSize: 14,
-    fontWeight: 600,
-    color: '#0D1B2A',
-    fontFamily: "'Helvetica Neue', Arial, sans-serif",
-  },
-  summaryDivider: {
-    height: 1,
-    backgroundColor: '#E8F0F6',
-    margin: '8px 0 12px',
-  },
-  summaryTotal: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  totalLabel: {
-    fontSize: 16,
-    fontWeight: 600,
-    color: '#0D1B2A',
-    fontFamily: "'Helvetica Neue', Arial, sans-serif",
-  },
-  totalAmount: {
-    fontSize: 22,
-    fontWeight: 700,
-    color: '#0D1B2A',
-    fontFamily: "'Helvetica Neue', Arial, sans-serif",
-  },
-  disclaimer: {
-    display: 'flex',
-    alignItems: 'flex-start',
-    fontSize: 11,
-    color: '#5A7D9A',
-    marginTop: 16,
-    padding: '12px',
-    backgroundColor: '#F5F8FA',
-    borderRadius: 8,
-    lineHeight: 1.4,
-    fontFamily: "'Helvetica Neue', Arial, sans-serif",
-  },
-  emptyContainer: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: '80px 20px',
-    textAlign: 'center',
-  },
-  successIcon: {
-    marginBottom: 24,
-  },
-  orderNum: {
-    fontSize: 14,
-    fontWeight: 600,
-    color: '#00B4D8',
-    marginBottom: 8,
-    fontFamily: "'Helvetica Neue', Arial, sans-serif",
-    letterSpacing: 1,
-  },
-  emptyTitle: {
-    fontSize: 24,
-    fontWeight: 700,
-    color: '#0D1B2A',
-    marginBottom: 12,
-    fontFamily: "'Helvetica Neue', Arial, sans-serif",
-  },
-  emptyText: {
-    fontSize: 15,
-    color: '#6B7B8D',
-    marginBottom: 24,
-    fontFamily: "'Helvetica Neue', Arial, sans-serif",
-  },
-  shopBtn: {
-    backgroundColor: '#0D1B2A',
-    color: '#fff',
-    border: 'none',
-    borderRadius: 8,
-    padding: '12px 28px',
-    fontSize: 14,
-    fontWeight: 600,
-    cursor: 'pointer',
-    fontFamily: "'Helvetica Neue', Arial, sans-serif",
-  },
-};
