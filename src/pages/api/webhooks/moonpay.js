@@ -48,18 +48,29 @@ export default async function handler(req, res) {
 
     const event = JSON.parse(rawBody)
     const { type, data } = event
+    const eventId = event.id || `${type}-${data?.id}-${data?.externalTransactionId}`
 
     // Only process completed transactions
     if (type !== 'transaction_completed' && data?.status !== 'completed') {
       return res.status(200).json({ received: true, action: 'ignored' })
     }
 
-    const txId = data?.id || data?.externalTransactionId
+    const txId = String(data?.id || data?.externalTransactionId || '')
     const orderNumber = data?.externalTransactionId
 
-    if (!orderNumber) {
-      console.error('MoonPay webhook missing externalTransactionId')
+    if (!orderNumber || !txId) {
+      console.error('MoonPay webhook missing externalTransactionId or tx id')
       return res.status(200).json({ received: true, action: 'no_order_ref' })
+    }
+
+    // REPLAY PROTECTION: record the webhook event; duplicate inserts will fail
+    const { error: replayError } = await supabaseAdmin
+      .from('webhook_events')
+      .insert({ provider: 'moonpay', event_id: eventId, tx_id: txId })
+
+    if (replayError && replayError.code === '23505') {
+      console.warn('MoonPay webhook replay detected, ignoring:', eventId)
+      return res.status(200).json({ received: true, action: 'replay_ignored' })
     }
 
     // Find the pending order
@@ -75,15 +86,20 @@ export default async function handler(req, res) {
       return res.status(200).json({ received: true, action: 'order_not_found' })
     }
 
-    // Update order status to completed
-    await supabaseAdmin
+    // Update order status to completed (UNIQUE constraint on moonpay_tx_id also prevents replays)
+    const { error: updateError } = await supabaseAdmin
       .from('orders')
       .update({
         payment_status: 'completed',
-        moonpay_tx_id: String(txId),
+        moonpay_tx_id: txId,
         updated_at: new Date().toISOString(),
       })
       .eq('id', order.id)
+
+    if (updateError && updateError.code === '23505') {
+      console.warn('MoonPay tx_id already recorded, ignoring:', txId)
+      return res.status(200).json({ received: true, action: 'tx_replay_ignored' })
+    }
 
     // Decrement inventory for each item (kits deduct from parent SKU)
     const products = require('../../../data/products').default
@@ -116,6 +132,27 @@ export default async function handler(req, res) {
         lowStockItems.push({ ...invItem, stock: newStock, level: 'critical' })
       } else if (newStock <= invItem.reorder_threshold) {
         lowStockItems.push({ ...invItem, stock: newStock, level: 'reorder' })
+      }
+    }
+
+    // Update affiliate stats if an affiliate code was used
+    if (order.affiliate_code) {
+      const commission = Number(order.total || 0) * Number(order.affiliate_commission_pct || 0) / 100
+      const { data: aff } = await supabaseAdmin
+        .from('affiliates')
+        .select('id, total_sales, total_revenue, total_commission')
+        .eq('code', order.affiliate_code)
+        .single()
+      if (aff) {
+        await supabaseAdmin
+          .from('affiliates')
+          .update({
+            total_sales: (aff.total_sales || 0) + 1,
+            total_revenue: Number(aff.total_revenue || 0) + Number(order.total || 0),
+            total_commission: Number(aff.total_commission || 0) + commission,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', aff.id)
       }
     }
 

@@ -1,17 +1,34 @@
 import { useState, useEffect } from 'react';
 
-const AFFILIATES_KEY = 'op_affiliates';
-
 export default function AffiliatesTab({ showSaveMsg }) {
   const [affiliates, setAffiliates] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState(emptyForm());
 
   useEffect(() => {
-    const saved = localStorage.getItem(AFFILIATES_KEY);
-    if (saved) setAffiliates(JSON.parse(saved));
+    fetchAffiliates();
   }, []);
+
+  function authHeaders() {
+    return {
+      'Content-Type': 'application/json',
+      'x-admin-token': sessionStorage.getItem('op_admin_token') || '',
+    };
+  }
+
+  async function fetchAffiliates() {
+    setLoading(true);
+    try {
+      const res = await fetch('/api/admin/affiliates', { headers: authHeaders() });
+      if (res.ok) {
+        const data = await res.json();
+        setAffiliates(data);
+      }
+    } catch { /* silently fail */ }
+    setLoading(false);
+  }
 
   function emptyForm() {
     return {
@@ -25,47 +42,38 @@ export default function AffiliatesTab({ showSaveMsg }) {
     };
   }
 
-  function save(updated) {
-    setAffiliates(updated);
-    localStorage.setItem(AFFILIATES_KEY, JSON.stringify(updated));
-  }
-
   function resetForm() {
     setForm(emptyForm());
     setEditingId(null);
   }
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault();
     const code = form.code.toUpperCase().replace(/[^A-Z0-9]/g, '');
     if (!code) return;
 
-    // Check for duplicate codes
-    if (!editingId && affiliates.some(a => a.code === code)) {
-      showSaveMsg('Code already exists.');
-      return;
-    }
+    const body = { ...form, code };
+    const method = editingId ? 'PATCH' : 'POST';
+    if (editingId) body.id = editingId;
 
-    const entry = {
-      ...form,
-      code,
-      id: editingId || Date.now().toString(),
-      discountPct: parseFloat(form.discountPct) || 5,
-      commissionPct: parseFloat(form.commissionPct) || 2.5,
-      createdAt: editingId ? affiliates.find(a => a.id === editingId)?.createdAt : new Date().toISOString(),
-      totalSales: editingId ? affiliates.find(a => a.id === editingId)?.totalSales || 0 : 0,
-      totalRevenue: editingId ? affiliates.find(a => a.id === editingId)?.totalRevenue || 0 : 0,
-      totalCommission: editingId ? affiliates.find(a => a.id === editingId)?.totalCommission || 0 : 0,
-    };
-
-    if (editingId) {
-      save(affiliates.map(a => a.id === editingId ? entry : a));
-    } else {
-      save([entry, ...affiliates]);
+    try {
+      const res = await fetch('/api/admin/affiliates', {
+        method,
+        headers: authHeaders(),
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        showSaveMsg(err.error || 'Save failed');
+        return;
+      }
+      await fetchAffiliates();
+      resetForm();
+      setShowForm(false);
+      showSaveMsg(editingId ? 'Affiliate updated.' : 'Affiliate created.');
+    } catch (err) {
+      showSaveMsg('Save failed');
     }
-    resetForm();
-    setShowForm(false);
-    showSaveMsg(editingId ? 'Affiliate updated.' : 'Affiliate created.');
   }
 
   function handleEdit(aff) {
@@ -73,8 +81,8 @@ export default function AffiliatesTab({ showSaveMsg }) {
       name: aff.name,
       email: aff.email,
       code: aff.code,
-      discountPct: aff.discountPct,
-      commissionPct: aff.commissionPct,
+      discountPct: aff.discount_pct,
+      commissionPct: aff.commission_pct,
       active: aff.active,
       notes: aff.notes || '',
     });
@@ -82,22 +90,35 @@ export default function AffiliatesTab({ showSaveMsg }) {
     setShowForm(true);
   }
 
-  function toggleActive(id) {
-    save(affiliates.map(a => a.id === id ? { ...a, active: !a.active } : a));
+  async function toggleActive(aff) {
+    try {
+      await fetch('/api/admin/affiliates', {
+        method: 'PATCH',
+        headers: authHeaders(),
+        body: JSON.stringify({ id: aff.id, active: !aff.active }),
+      });
+      await fetchAffiliates();
+    } catch { /* fail */ }
   }
 
-  function handleDelete(id) {
-    if (window.confirm('Delete this affiliate?')) {
-      save(affiliates.filter(a => a.id !== id));
-    }
+  async function handleDelete(id) {
+    if (!window.confirm('Delete this affiliate?')) return;
+    try {
+      await fetch('/api/admin/affiliates', {
+        method: 'DELETE',
+        headers: authHeaders(),
+        body: JSON.stringify({ id }),
+      });
+      await fetchAffiliates();
+    } catch { /* fail */ }
   }
 
   function exportCSV() {
     const headers = ['Name', 'Email', 'Code', 'Discount %', 'Commission %', 'Active', 'Total Sales', 'Total Revenue', 'Total Commission', 'Created'];
     const rows = affiliates.map(a => [
-      a.name, a.email, a.code, a.discountPct, a.commissionPct, a.active ? 'Yes' : 'No',
-      a.totalSales || 0, (a.totalRevenue || 0).toFixed(2), (a.totalCommission || 0).toFixed(2),
-      new Date(a.createdAt).toLocaleDateString(),
+      a.name, a.email, a.code, a.discount_pct, a.commission_pct, a.active ? 'Yes' : 'No',
+      a.total_sales || 0, Number(a.total_revenue || 0).toFixed(2), Number(a.total_commission || 0).toFixed(2),
+      new Date(a.created_at).toLocaleDateString(),
     ]);
     const csv = [headers, ...rows].map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
@@ -109,9 +130,9 @@ export default function AffiliatesTab({ showSaveMsg }) {
     URL.revokeObjectURL(url);
   }
 
-  const totalRevenue = affiliates.reduce((s, a) => s + (a.totalRevenue || 0), 0);
-  const totalCommOwed = affiliates.reduce((s, a) => s + (a.totalCommission || 0), 0);
-  const totalSales = affiliates.reduce((s, a) => s + (a.totalSales || 0), 0);
+  const totalRevenue = affiliates.reduce((s, a) => s + Number(a.total_revenue || 0), 0);
+  const totalCommOwed = affiliates.reduce((s, a) => s + Number(a.total_commission || 0), 0);
+  const totalSales = affiliates.reduce((s, a) => s + (a.total_sales || 0), 0);
 
   return (
     <>
@@ -128,7 +149,6 @@ export default function AffiliatesTab({ showSaveMsg }) {
         </div>
       </div>
 
-      {/* Stats */}
       <div style={s.statsRow}>
         <div style={s.statCard}><div style={s.statValue}>{affiliates.length}</div><div style={s.statLabel}>Affiliates</div></div>
         <div style={s.statCard}><div style={s.statValue}>{affiliates.filter(a => a.active).length}</div><div style={s.statLabel}>Active</div></div>
@@ -137,7 +157,6 @@ export default function AffiliatesTab({ showSaveMsg }) {
         <div style={s.statCard}><div style={{ ...s.statValue, color: '#d97706' }}>${totalCommOwed.toFixed(2)}</div><div style={s.statLabel}>Commission Owed</div></div>
       </div>
 
-      {/* Form */}
       {showForm && (
         <div style={{ ...s.tableWrap, padding: 24, marginBottom: 20 }}>
           <h3 style={{ margin: '0 0 16px', fontSize: 16, fontWeight: 600, color: '#0D1B2A', fontFamily: f }}>
@@ -166,9 +185,12 @@ export default function AffiliatesTab({ showSaveMsg }) {
         </div>
       )}
 
-      {/* Table */}
       <div style={s.tableWrap}>
-        {affiliates.length === 0 ? (
+        {loading ? (
+          <div style={{ textAlign: 'center', padding: '48px 24px' }}>
+            <p style={{ fontSize: 14, color: '#9AAAB8', margin: 0 }}>Loading...</p>
+          </div>
+        ) : affiliates.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '48px 24px' }}>
             <p style={{ fontSize: 15, color: '#5A7D9A', margin: 0 }}>No affiliates yet</p>
             <p style={{ fontSize: 12, color: '#9AAAB8', marginTop: 4 }}>Click "+ New Affiliate" to create your first affiliate code</p>
@@ -196,13 +218,13 @@ export default function AffiliatesTab({ showSaveMsg }) {
                     <div style={{ fontSize: 11, color: '#9AAAB8' }}>{aff.email}</div>
                   </td>
                   <td style={{ ...s.td, fontFamily: 'monospace', fontWeight: 700, fontSize: 14, color: '#00B4D8' }}>{aff.code}</td>
-                  <td style={{ ...s.td, textAlign: 'center' }}>{aff.discountPct}%</td>
-                  <td style={{ ...s.td, textAlign: 'center' }}>{aff.commissionPct}%</td>
-                  <td style={{ ...s.td, textAlign: 'center', fontWeight: 600 }}>{aff.totalSales || 0}</td>
-                  <td style={{ ...s.td, textAlign: 'right', fontWeight: 600 }}>${(aff.totalRevenue || 0).toFixed(2)}</td>
-                  <td style={{ ...s.td, textAlign: 'right', fontWeight: 600, color: '#d97706' }}>${(aff.totalCommission || 0).toFixed(2)}</td>
+                  <td style={{ ...s.td, textAlign: 'center' }}>{aff.discount_pct}%</td>
+                  <td style={{ ...s.td, textAlign: 'center' }}>{aff.commission_pct}%</td>
+                  <td style={{ ...s.td, textAlign: 'center', fontWeight: 600 }}>{aff.total_sales || 0}</td>
+                  <td style={{ ...s.td, textAlign: 'right', fontWeight: 600 }}>${Number(aff.total_revenue || 0).toFixed(2)}</td>
+                  <td style={{ ...s.td, textAlign: 'right', fontWeight: 600, color: '#d97706' }}>${Number(aff.total_commission || 0).toFixed(2)}</td>
                   <td style={{ ...s.td, textAlign: 'center' }}>
-                    <span style={{ ...s.statusBadge, backgroundColor: aff.active ? '#dcfce7' : '#fee2e2', color: aff.active ? '#16a34a' : '#dc2626', cursor: 'pointer' }} onClick={() => toggleActive(aff.id)}>
+                    <span style={{ ...s.statusBadge, backgroundColor: aff.active ? '#dcfce7' : '#fee2e2', color: aff.active ? '#16a34a' : '#dc2626', cursor: 'pointer' }} onClick={() => toggleActive(aff)}>
                       {aff.active ? 'Active' : 'Inactive'}
                     </span>
                   </td>

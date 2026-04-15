@@ -1,7 +1,5 @@
 import { useState, useEffect } from 'react';
 
-const LOTS_STORAGE_KEY = 'op_supply_lots';
-
 function generateLotNumber(productId) {
   const prefix = productId.replace(/-/g, '').toUpperCase().slice(0, 4);
   const d = new Date();
@@ -12,18 +10,34 @@ function generateLotNumber(productId) {
 
 export default function SupplyTab({ products }) {
   const [lots, setLots] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState(emptyForm(products));
 
   useEffect(() => {
-    const saved = localStorage.getItem(LOTS_STORAGE_KEY);
-    if (saved) setLots(JSON.parse(saved));
+    fetchLots();
   }, []);
+
+  function authHeaders() {
+    return {
+      'Content-Type': 'application/json',
+      'x-admin-token': sessionStorage.getItem('op_admin_token') || '',
+    };
+  }
+
+  async function fetchLots() {
+    setLoading(true);
+    try {
+      const res = await fetch('/api/admin/lots', { headers: authHeaders() });
+      if (res.ok) setLots(await res.json());
+    } catch { /* fail */ }
+    setLoading(false);
+  }
 
   function emptyForm() {
     return {
-      product: products[0]?.id || '',
+      productId: products[0]?.id || '',
       lotNumber: '',
       supplierLot: '',
       dateReceived: new Date().toISOString().split('T')[0],
@@ -34,56 +48,71 @@ export default function SupplyTab({ products }) {
     };
   }
 
-  function saveLots(updated) {
-    setLots(updated);
-    if (updated.length > 0) localStorage.setItem(LOTS_STORAGE_KEY, JSON.stringify(updated));
-    else localStorage.removeItem(LOTS_STORAGE_KEY);
-  }
-
   function resetForm() {
     setForm(emptyForm());
     setEditingId(null);
   }
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault();
-    const entry = {
-      ...form,
-      id: editingId || Date.now().toString(),
+    const body = {
+      productId: form.productId,
+      lotNumber: form.lotNumber,
+      supplierLot: form.supplierLot,
+      dateReceived: form.dateReceived,
       qtyVials: parseInt(form.qtyVials) || 0,
       qtyRemaining: parseInt(form.qtyRemaining) || parseInt(form.qtyVials) || 0,
+      coaOnFile: form.coaOnFile,
+      notes: form.notes,
     };
-    if (editingId) saveLots(lots.map((l) => (l.id === editingId ? entry : l)));
-    else saveLots([entry, ...lots]);
-    resetForm();
-    setShowForm(false);
+    const method = editingId ? 'PATCH' : 'POST';
+    if (editingId) body.id = editingId;
+
+    try {
+      await fetch('/api/admin/lots', {
+        method,
+        headers: authHeaders(),
+        body: JSON.stringify(body),
+      });
+      await fetchLots();
+      resetForm();
+      setShowForm(false);
+    } catch { /* fail */ }
   }
 
   function handleEdit(lot) {
     setForm({
-      product: lot.product,
-      lotNumber: lot.lotNumber,
-      supplierLot: lot.supplierLot,
-      dateReceived: lot.dateReceived,
-      qtyVials: String(lot.qtyVials),
-      qtyRemaining: String(lot.qtyRemaining),
-      coaOnFile: lot.coaOnFile,
-      notes: lot.notes,
+      productId: lot.product_id,
+      lotNumber: lot.lot_number,
+      supplierLot: lot.supplier_lot || '',
+      dateReceived: lot.date_received,
+      qtyVials: String(lot.qty_vials),
+      qtyRemaining: String(lot.qty_remaining),
+      coaOnFile: lot.coa_on_file,
+      notes: lot.notes || '',
     });
     setEditingId(lot.id);
     setShowForm(true);
   }
 
-  function handleDelete(id) {
-    if (window.confirm('Delete this lot entry?')) saveLots(lots.filter((l) => l.id !== id));
+  async function handleDelete(id) {
+    if (!window.confirm('Delete this lot entry?')) return;
+    try {
+      await fetch('/api/admin/lots', {
+        method: 'DELETE',
+        headers: authHeaders(),
+        body: JSON.stringify({ id }),
+      });
+      await fetchLots();
+    } catch { /* fail */ }
   }
 
   function getName(id) {
-    const p = products.find((p) => p.id === id);
+    const p = products.find(p => p.id === id);
     return p ? p.name : id;
   }
 
-  const totalVials = lots.reduce((sum, l) => sum + (l.qtyRemaining || 0), 0);
+  const totalVials = lots.reduce((sum, l) => sum + (l.qty_remaining || 0), 0);
 
   return (
     <>
@@ -100,8 +129,8 @@ export default function SupplyTab({ products }) {
       <div style={s.statsRow}>
         <div style={s.statCard}><div style={s.statValue}>{lots.length}</div><div style={s.statLabel}>Total Lots</div></div>
         <div style={s.statCard}><div style={s.statValue}>{totalVials}</div><div style={s.statLabel}>Vials Remaining</div></div>
-        <div style={s.statCard}><div style={s.statValue}>{lots.filter((l) => l.coaOnFile).length}</div><div style={s.statLabel}>COAs on File</div></div>
-        <div style={s.statCard}><div style={s.statValue}>{new Set(lots.map((l) => l.product)).size}</div><div style={s.statLabel}>Products Tracked</div></div>
+        <div style={s.statCard}><div style={s.statValue}>{lots.filter(l => l.coa_on_file).length}</div><div style={s.statLabel}>COAs on File</div></div>
+        <div style={s.statCard}><div style={s.statValue}>{new Set(lots.map(l => l.product_id)).size}</div><div style={s.statLabel}>Products Tracked</div></div>
       </div>
 
       {showForm && (
@@ -113,43 +142,42 @@ export default function SupplyTab({ products }) {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14, marginBottom: 16 }}>
               <div>
                 <label style={s.label}>Product</label>
-                <select style={s.input} value={form.product} onChange={(e) => setForm({ ...form, product: e.target.value })}>
-                  {products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-                  <option value="glp-3">GLP-3</option>
+                <select style={s.input} value={form.productId} onChange={e => setForm({ ...form, productId: e.target.value })}>
+                  {products.filter(p => !p.isKit).map(p => <option key={p.id} value={p.id}>{p.name} {p.dosage}</option>)}
                 </select>
               </div>
               <div>
                 <label style={s.label}>Your Lot #</label>
                 <div style={{ display: 'flex', gap: 6 }}>
-                  <input style={{ ...s.input, flex: 1 }} value={form.lotNumber} onChange={(e) => setForm({ ...form, lotNumber: e.target.value })} placeholder="e.g. GLP3-040626-001" required />
-                  <button type="button" style={s.autoBtn} onClick={() => setForm({ ...form, lotNumber: generateLotNumber(form.product) })}>Auto</button>
+                  <input style={{ ...s.input, flex: 1 }} value={form.lotNumber} onChange={e => setForm({ ...form, lotNumber: e.target.value })} placeholder="e.g. GLP3-040626-001" required />
+                  <button type="button" style={s.autoBtn} onClick={() => setForm({ ...form, lotNumber: generateLotNumber(form.productId) })}>Auto</button>
                 </div>
               </div>
               <div>
                 <label style={s.label}>Supplier Lot #</label>
-                <input style={s.input} value={form.supplierLot} onChange={(e) => setForm({ ...form, supplierLot: e.target.value })} placeholder="From supplier COA" required />
+                <input style={s.input} value={form.supplierLot} onChange={e => setForm({ ...form, supplierLot: e.target.value })} placeholder="From supplier COA" />
               </div>
               <div>
                 <label style={s.label}>Date Received</label>
-                <input type="date" style={s.input} value={form.dateReceived} onChange={(e) => setForm({ ...form, dateReceived: e.target.value })} required />
+                <input type="date" style={s.input} value={form.dateReceived} onChange={e => setForm({ ...form, dateReceived: e.target.value })} required />
               </div>
               <div>
                 <label style={s.label}>Qty Vials (Total)</label>
-                <input type="number" style={s.input} value={form.qtyVials} onChange={(e) => setForm({ ...form, qtyVials: e.target.value, qtyRemaining: form.qtyRemaining || e.target.value })} min="0" required />
+                <input type="number" style={s.input} value={form.qtyVials} onChange={e => setForm({ ...form, qtyVials: e.target.value, qtyRemaining: form.qtyRemaining || e.target.value })} min="0" required />
               </div>
               <div>
                 <label style={s.label}>Qty Remaining</label>
-                <input type="number" style={s.input} value={form.qtyRemaining} onChange={(e) => setForm({ ...form, qtyRemaining: e.target.value })} min="0" required />
+                <input type="number" style={s.input} value={form.qtyRemaining} onChange={e => setForm({ ...form, qtyRemaining: e.target.value })} min="0" required />
               </div>
               <div style={{ display: 'flex', alignItems: 'center', paddingTop: 20 }}>
                 <label style={{ ...s.label, margin: 0, cursor: 'pointer' }}>
-                  <input type="checkbox" checked={form.coaOnFile} onChange={(e) => setForm({ ...form, coaOnFile: e.target.checked })} style={{ marginRight: 8 }} />
+                  <input type="checkbox" checked={form.coaOnFile} onChange={e => setForm({ ...form, coaOnFile: e.target.checked })} style={{ marginRight: 8 }} />
                   COA on File
                 </label>
               </div>
               <div>
                 <label style={s.label}>Notes</label>
-                <input style={s.input} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Optional" />
+                <input style={s.input} value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} placeholder="Optional" />
               </div>
             </div>
             <button type="submit" style={s.btn}>{editingId ? 'Update Lot' : 'Add Lot'}</button>
@@ -158,7 +186,11 @@ export default function SupplyTab({ products }) {
       )}
 
       <div style={s.tableWrap}>
-        {lots.length === 0 ? (
+        {loading ? (
+          <div style={{ textAlign: 'center', padding: '48px 24px' }}>
+            <p style={{ fontSize: 14, color: '#9AAAB8', margin: 0 }}>Loading...</p>
+          </div>
+        ) : lots.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '48px 24px' }}>
             <p style={{ fontSize: 15, color: '#5A7D9A', margin: 0 }}>No lots tracked yet</p>
             <p style={{ fontSize: 12, color: '#9AAAB8', marginTop: 4 }}>Click "+ New Lot" to add your first supply entry</p>
@@ -180,19 +212,19 @@ export default function SupplyTab({ products }) {
             </thead>
             <tbody>
               {lots.map((lot, i) => {
-                const low = lot.qtyRemaining <= Math.ceil(lot.qtyVials * 0.2);
+                const low = lot.qty_remaining <= Math.ceil((lot.qty_vials || 1) * 0.2);
                 return (
                   <tr key={lot.id} style={{ ...s.tr, backgroundColor: i % 2 === 0 ? '#fff' : '#F9FBFC' }}>
-                    <td style={s.td}><span style={s.chip}>{getName(lot.product)}</span></td>
-                    <td style={{ ...s.td, fontFamily: 'monospace', fontSize: 12, fontWeight: 600 }}>{lot.lotNumber}</td>
-                    <td style={{ ...s.td, fontFamily: 'monospace', fontSize: 12, color: '#5A7D9A' }}>{lot.supplierLot}</td>
-                    <td style={s.td}>{lot.dateReceived}</td>
-                    <td style={{ ...s.td, textAlign: 'center' }}>{lot.qtyVials}</td>
+                    <td style={s.td}><span style={s.chip}>{getName(lot.product_id)}</span></td>
+                    <td style={{ ...s.td, fontFamily: 'monospace', fontSize: 12, fontWeight: 600 }}>{lot.lot_number}</td>
+                    <td style={{ ...s.td, fontFamily: 'monospace', fontSize: 12, color: '#5A7D9A' }}>{lot.supplier_lot}</td>
+                    <td style={s.td}>{lot.date_received}</td>
+                    <td style={{ ...s.td, textAlign: 'center' }}>{lot.qty_vials}</td>
                     <td style={{ ...s.td, textAlign: 'center' }}>
-                      <span style={{ ...s.badge, backgroundColor: low ? '#fef3c7' : '#dcfce7', color: low ? '#d97706' : '#16a34a' }}>{lot.qtyRemaining}</span>
+                      <span style={{ ...s.badge, backgroundColor: low ? '#fef3c7' : '#dcfce7', color: low ? '#d97706' : '#16a34a' }}>{lot.qty_remaining}</span>
                     </td>
                     <td style={{ ...s.td, textAlign: 'center' }}>
-                      <span style={{ color: lot.coaOnFile ? '#16a34a' : '#dc2626', fontWeight: 600 }}>{lot.coaOnFile ? 'Yes' : 'No'}</span>
+                      <span style={{ color: lot.coa_on_file ? '#16a34a' : '#dc2626', fontWeight: 600 }}>{lot.coa_on_file ? 'Yes' : 'No'}</span>
                     </td>
                     <td style={{ ...s.td, color: '#6B7B8D', fontSize: 12 }}>{lot.notes || '-'}</td>
                     <td style={s.td}>

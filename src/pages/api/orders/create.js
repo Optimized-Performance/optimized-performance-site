@@ -20,7 +20,7 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'Database not configured' })
     }
 
-    const { name, email, address, city, state, zip, items, subtotal, total, discount, affiliateCode, affiliateCommissionPct } = req.body
+    const { name, email, address, city, state, zip, items, affiliateCode } = req.body
 
     if (!validateString(name) || !validateEmail(email) || !validateString(address) ||
         !validateString(city) || !validateString(state, { minLength: 1, maxLength: 50 }) || !validateZip(zip) ||
@@ -28,8 +28,45 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Invalid or missing required fields' })
     }
 
-    if (typeof subtotal !== 'number' || typeof total !== 'number' || total <= 0 || total > 50000) {
-      return res.status(400).json({ error: 'Invalid order totals' })
+    // SERVER-SIDE CALCULATION: recalculate totals from cart items to prevent tampering
+    const products = require('../../../data/products').default
+    let subtotal = 0
+    for (const item of items) {
+      const product = products.find(p => p.sku === item.sku || p.id === item.id)
+      if (!product) {
+        return res.status(400).json({ error: `Unknown product: ${item.sku || item.id}` })
+      }
+      const qty = parseInt(item.quantity) || 0
+      if (qty < 1 || qty > 100) {
+        return res.status(400).json({ error: 'Invalid item quantity' })
+      }
+      subtotal += product.price * qty
+    }
+
+    // Validate affiliate code server-side (cannot trust client-supplied discount/commission)
+    let discount = 0
+    let validatedAffiliateCode = null
+    let validatedCommissionPct = 0
+    if (affiliateCode && typeof affiliateCode === 'string') {
+      const { data: aff } = await supabaseAdmin
+        .from('affiliates')
+        .select('code, discount_pct, commission_pct, active')
+        .eq('code', affiliateCode.toUpperCase().trim())
+        .eq('active', true)
+        .maybeSingle()
+      if (aff) {
+        validatedAffiliateCode = aff.code
+        validatedCommissionPct = Number(aff.commission_pct)
+        discount = subtotal * (Number(aff.discount_pct) / 100)
+      }
+    }
+
+    const discountedTotal = subtotal - discount
+    // Add 4% MoonPay processing fee (matches client display)
+    const total = Math.ceil(discountedTotal * 1.04 * 100) / 100
+
+    if (total <= 0 || total > 50000) {
+      return res.status(400).json({ error: 'Invalid order total' })
     }
 
     const orderNumber = generateOrderNumber()
@@ -48,10 +85,10 @@ export default async function handler(req, res) {
       payment_status: 'pending',
     }
 
-    if (affiliateCode) {
-      insertData.affiliate_code = affiliateCode
-      insertData.discount = discount || 0
-      insertData.affiliate_commission_pct = affiliateCommissionPct || 0
+    if (validatedAffiliateCode) {
+      insertData.affiliate_code = validatedAffiliateCode
+      insertData.discount = discount
+      insertData.affiliate_commission_pct = validatedCommissionPct
     }
 
     const { data: order, error } = await supabaseAdmin
@@ -68,6 +105,8 @@ export default async function handler(req, res) {
     return res.status(200).json({
       order_number: orderNumber,
       order_id: order.id,
+      total,
+      discount,
     })
   } catch (err) {
     console.error('Order creation failed:', err)

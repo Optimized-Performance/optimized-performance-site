@@ -24,9 +24,10 @@ export default function Checkout() {
   const [affiliateCode, setAffiliateCode] = useState('');
   const [affiliateApplied, setAffiliateApplied] = useState(null);
   const [affiliateError, setAffiliateError] = useState('');
+  const [serverTotal, setServerTotal] = useState(null);
   const router = useRouter();
 
-  function applyAffiliateCode() {
+  async function applyAffiliateCode() {
     if (!affiliateCode.trim()) {
       setAffiliateApplied(null);
       setAffiliateError('');
@@ -34,19 +35,25 @@ export default function Checkout() {
     }
     const code = affiliateCode.toUpperCase().trim();
     try {
-      const saved = localStorage.getItem('op_affiliates');
-      const affiliates = saved ? JSON.parse(saved) : [];
-      const match = affiliates.find(a => a.code === code && a.active);
-      if (match) {
-        setAffiliateApplied(match);
+      const res = await fetch('/api/affiliates/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setAffiliateApplied(data);
         setAffiliateError('');
-      } else {
+      } else if (res.status === 404) {
         setAffiliateApplied(null);
         setAffiliateError('Invalid or inactive code.');
+      } else {
+        setAffiliateApplied(null);
+        setAffiliateError('Unable to validate code.');
       }
     } catch {
       setAffiliateApplied(null);
-      setAffiliateError('Invalid code.');
+      setAffiliateError('Unable to validate code.');
     }
   }
 
@@ -116,11 +123,7 @@ export default function Checkout() {
             price: item.price,
             quantity: item.quantity,
           })),
-          subtotal: cartTotal,
-          discount: discountAmount,
-          total: Math.ceil(discountedTotal * 1.04 * 100) / 100,
           affiliateCode: affiliateApplied?.code || null,
-          affiliateCommissionPct: affiliateApplied?.commissionPct || 0,
         }),
       });
 
@@ -128,6 +131,10 @@ export default function Checkout() {
       if (!res.ok) throw new Error(data.error || 'Failed to create order');
 
       setOrderNumber(data.order_number);
+      // Use server-calculated total (prevents client tampering)
+      if (typeof data.total === 'number') {
+        setServerTotal(data.total);
+      }
       setShowMoonPay(true);
     } catch (err) {
       alert('Something went wrong creating your order. Please try again.');
@@ -267,30 +274,14 @@ export default function Checkout() {
       <MoonPayBuyWidget
         variant="overlay"
         baseCurrencyCode="usd"
-        baseCurrencyAmount={String(Math.ceil(discountedTotal * 1.04))}
+        baseCurrencyAmount={String(Math.ceil(serverTotal ?? discountedTotal * 1.04))}
         defaultCurrencyCode="usdc_polygon"
         externalTransactionId={orderNumber}
         visible={showMoonPay}
         onCloseOverlay={() => setShowMoonPay(false)}
         onTransactionCompleted={() => {
           setShowMoonPay(false);
-          if (affiliateApplied) {
-            try {
-              const saved = localStorage.getItem('op_affiliates');
-              const affiliates = saved ? JSON.parse(saved) : [];
-              const commission = discountedTotal * (affiliateApplied.commissionPct / 100);
-              const updated = affiliates.map(a => {
-                if (a.code !== affiliateApplied.code) return a;
-                return {
-                  ...a,
-                  totalSales: (a.totalSales || 0) + 1,
-                  totalRevenue: (a.totalRevenue || 0) + discountedTotal,
-                  totalCommission: (a.totalCommission || 0) + commission,
-                };
-              });
-              localStorage.setItem('op_affiliates', JSON.stringify(updated));
-            } catch { /* silently fail */ }
-          }
+          // Affiliate stats are now updated server-side by the MoonPay webhook
           clearCart();
           setOrderPlaced(true);
         }}
