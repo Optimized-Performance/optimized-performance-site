@@ -3,6 +3,26 @@
 -- Safe to run multiple times (idempotent)
 
 -- =========================================
+-- 0. INVENTORY TABLE (create if missing)
+-- =========================================
+CREATE TABLE IF NOT EXISTS inventory (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  product_id text UNIQUE NOT NULL,
+  product text,
+  size text,
+  sku text,
+  price numeric(10,2),
+  stock integer DEFAULT 0,
+  threshold integer DEFAULT 0,
+  reorder_threshold integer DEFAULT 0,
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_inventory_product_id ON inventory(product_id);
+CREATE INDEX IF NOT EXISTS idx_inventory_sku ON inventory(sku);
+
+-- =========================================
 -- 1. ORDERS TABLE (create if missing, add missing columns)
 -- =========================================
 CREATE TABLE IF NOT EXISTS orders (
