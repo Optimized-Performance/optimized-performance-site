@@ -31,6 +31,7 @@ export default function ProductCard({ product, qty }) {
           size={160}
           purity={product.purity}
           kit={product.isKit}
+          sku={product.sku}
         />
       </div>
       <div className="p-5 flex flex-col flex-1 gap-1">

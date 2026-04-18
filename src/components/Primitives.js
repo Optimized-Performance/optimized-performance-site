@@ -33,91 +33,252 @@ export function Logo({ size = 28, full = false }) {
   );
 }
 
-// Laboratory-style vial — technical exploded diagram
-export function Vial({ label = '—', dosage = '', size = 220, purity, kit = false }) {
+// Vial renderer — prefers a real product image at /vials/<sku>.png.
+// Falls back to a lightweight SVG placeholder when the image isn't present.
+// Drop per-SKU PNGs into public/vials/ and they'll pick up automatically.
+import { useState } from 'react';
+
+export function Vial({ label = '—', dosage = '', size = 220, purity, kit = false, sku, subtitle = 'Research Peptide', image }) {
+  const lowerSku = sku ? String(sku).toLowerCase() : null;
+  const candidates = image
+    ? [image]
+    : lowerSku
+    ? [`/vials/${lowerSku}.jpg`, `/vials/${lowerSku}.png`]
+    : [];
+  const [idx, setIdx] = useState(0);
+  const src = candidates[idx];
+
+  if (src) {
+    return (
+      <img
+        src={src}
+        alt={`${label} ${dosage} vial`}
+        width={size}
+        height={size}
+        onError={() => setIdx(idx + 1)}
+        style={{
+          display: 'block',
+          width: size,
+          height: size,
+          objectFit: 'contain',
+          maxWidth: '100%',
+        }}
+      />
+    );
+  }
+
+  return <VialFallback label={label} dosage={dosage} size={size} purity={purity} kit={kit} sku={sku} subtitle={subtitle} />;
+}
+
+function VialFallback({ label = '—', dosage = '', size = 220, purity, kit = false, sku, subtitle = 'Research Peptide' }) {
+  // Tiny thumbnails: simplified render (cap + glass + small label) — text gets illegible below ~80px
+  const tiny = size < 80;
+
   if (kit) {
-    // Multi-vial arrangement for kit products
     return (
       <svg viewBox="0 0 280 300" width={size} height={(size * 300) / 280} style={{ display: 'block' }}>
         <defs>
-          <pattern id="vgridKit" width="10" height="10" patternUnits="userSpaceOnUse">
-            <path d="M10 0H0V10" fill="none" stroke="var(--grid)" strokeWidth="0.5" />
-          </pattern>
-          <linearGradient id="vglassKit" x1="0" x2="1">
-            <stop offset="0" stopColor="var(--surface)" stopOpacity="0.3" />
-            <stop offset="0.5" stopColor="var(--surface)" stopOpacity="0.7" />
-            <stop offset="1" stopColor="var(--surfaceAlt)" stopOpacity="0.5" />
+          <linearGradient id="kitGlass" x1="0" x2="1">
+            <stop offset="0" stopColor="#2a3340" stopOpacity="0.9" />
+            <stop offset="0.35" stopColor="#e8eef5" stopOpacity="0.18" />
+            <stop offset="0.5" stopColor="#ffffff" stopOpacity="0.28" />
+            <stop offset="0.65" stopColor="#e8eef5" stopOpacity="0.18" />
+            <stop offset="1" stopColor="#2a3340" stopOpacity="0.9" />
+          </linearGradient>
+          <linearGradient id="kitCap" x1="0" x2="1">
+            <stop offset="0" stopColor="#6a6f76" />
+            <stop offset="0.5" stopColor="#d4d8de" />
+            <stop offset="1" stopColor="#6a6f76" />
           </linearGradient>
         </defs>
-        <rect width="280" height="300" fill="url(#vgridKit)" opacity="0.6" />
-        <text x="20" y="28" fontSize="8" fill="var(--inkSoft)" fontFamily="var(--font-mono)" letterSpacing="1">KIT · 10 VIALS</text>
-        {[0, 1, 2, 3, 4].map((i) => {
-          const x = 28 + i * 48;
-          return (
-            <g key={`row1-${i}`}>
-              <rect x={x + 10} y={60} width="20" height="10" fill="var(--ink)" />
-              <rect x={x + 6} y={70} width="28" height="90" fill="url(#vglassKit)" stroke="var(--ink)" strokeWidth="0.8" />
-              <rect x={x + 8} y={130} width="24" height="28" fill="var(--accent)" opacity="0.2" />
-              <text x={x + 20} y={98} textAnchor="middle" fontSize="6" fill="var(--ink)" fontFamily="var(--font-mono)">{dosage}</text>
-            </g>
-          );
-        })}
-        {[0, 1, 2, 3, 4].map((i) => {
-          const x = 28 + i * 48;
-          return (
-            <g key={`row2-${i}`}>
-              <rect x={x + 10} y={180} width="20" height="10" fill="var(--ink)" />
-              <rect x={x + 6} y={190} width="28" height="90" fill="url(#vglassKit)" stroke="var(--ink)" strokeWidth="0.8" />
-              <rect x={x + 8} y={250} width="24" height="28" fill="var(--accent)" opacity="0.2" />
-              <text x={x + 20} y={218} textAnchor="middle" fontSize="6" fill="var(--ink)" fontFamily="var(--font-mono)">{dosage}</text>
-            </g>
-          );
-        })}
+        <text x="16" y="22" fontSize="8" fill="var(--inkSoft)" fontFamily="var(--font-mono)" letterSpacing="1">KIT · 10 VIALS</text>
+        {[0, 1].map((row) =>
+          [0, 1, 2, 3, 4].map((i) => {
+            const x = 20 + i * 50;
+            const y = 40 + row * 130;
+            return (
+              <g key={`${row}-${i}`}>
+                <rect x={x + 8} y={y} width="26" height="10" rx="1.5" fill="url(#kitCap)" />
+                <rect x={x + 4} y={y + 16} width="34" height="100" rx="3" fill="url(#kitGlass)" stroke="#3a4450" strokeWidth="0.5" />
+                <rect x={x + 4} y={y + 42} width="34" height="60" fill="#0D1B2A" />
+                <text x={x + 21} y={y + 68} textAnchor="middle" fontSize="5.5" fill="#FFFFFF" fontFamily="var(--font-display)" fontWeight="700">{label.split(' ')[0]}</text>
+                <text x={x + 21} y={y + 82} textAnchor="middle" fontSize="7" fill="#00B4D8" fontFamily="var(--font-display)" fontWeight="700">{dosage}</text>
+                <rect x={x + 6} y={y + 65} width="2" height="30" fill="#FFFFFF" opacity="0.2" />
+              </g>
+            );
+          })
+        )}
       </svg>
     );
   }
 
+  if (tiny) {
+    // Simplified thumb — cap + glass + label block with just the name + dosage
+    return (
+      <svg viewBox="0 0 100 160" width={size} height={(size * 160) / 100} style={{ display: 'block' }}>
+        <defs>
+          <linearGradient id="tinyGlass" x1="0" x2="1">
+            <stop offset="0" stopColor="#2a3340" stopOpacity="0.9" />
+            <stop offset="0.5" stopColor="#ffffff" stopOpacity="0.22" />
+            <stop offset="1" stopColor="#2a3340" stopOpacity="0.9" />
+          </linearGradient>
+          <linearGradient id="tinyCap" x1="0" x2="1">
+            <stop offset="0" stopColor="#6a6f76" />
+            <stop offset="0.5" stopColor="#d4d8de" />
+            <stop offset="1" stopColor="#6a6f76" />
+          </linearGradient>
+        </defs>
+        <rect x="34" y="6" width="32" height="14" rx="2" fill="url(#tinyCap)" />
+        <rect x="28" y="24" width="44" height="126" rx="4" fill="url(#tinyGlass)" stroke="#3a4450" strokeWidth="0.5" />
+        <rect x="28" y="50" width="44" height="74" fill="#0D1B2A" />
+        <text x="50" y="82" textAnchor="middle" fontSize="9" fill="#FFFFFF" fontFamily="var(--font-display)" fontWeight="700">{label.split(' ')[0]}</text>
+        <text x="50" y="104" textAnchor="middle" fontSize="10" fill="#00B4D8" fontFamily="var(--font-display)" fontWeight="700">{dosage}</text>
+        <rect x="30" y="78" width="3" height="40" fill="#FFFFFF" opacity="0.2" />
+      </svg>
+    );
+  }
+
+  // Full photo-like render
+  const vw = 220, vh = 320;
+  const skuLine = sku ? String(sku).toUpperCase() : '';
+
   return (
-    <svg viewBox="0 0 200 300" width={size} height={(size * 300) / 200} style={{ display: 'block' }}>
+    <svg viewBox={`0 0 ${vw} ${vh}`} width={size} height={(size * vh) / vw} style={{ display: 'block' }}>
       <defs>
-        <pattern id="vgrid" width="10" height="10" patternUnits="userSpaceOnUse">
-          <path d="M10 0H0V10" fill="none" stroke="var(--grid)" strokeWidth="0.5" />
-        </pattern>
-        <linearGradient id="vglass" x1="0" x2="1">
-          <stop offset="0" stopColor="var(--surface)" stopOpacity="0.2" />
-          <stop offset="0.5" stopColor="var(--surface)" stopOpacity="0.6" />
-          <stop offset="1" stopColor="var(--surfaceAlt)" stopOpacity="0.5" />
+        <linearGradient id="glassH" x1="0" x2="1" y1="0" y2="0">
+          <stop offset="0" stopColor="#1f2732" stopOpacity="0.95" />
+          <stop offset="0.08" stopColor="#2a3340" stopOpacity="0.7" />
+          <stop offset="0.3" stopColor="#c0c8d2" stopOpacity="0.18" />
+          <stop offset="0.5" stopColor="#ffffff" stopOpacity="0.25" />
+          <stop offset="0.7" stopColor="#c0c8d2" stopOpacity="0.18" />
+          <stop offset="0.92" stopColor="#2a3340" stopOpacity="0.7" />
+          <stop offset="1" stopColor="#1f2732" stopOpacity="0.95" />
+        </linearGradient>
+        <linearGradient id="cap" x1="0" x2="1">
+          <stop offset="0" stopColor="#5a6068" />
+          <stop offset="0.18" stopColor="#9aa0a8" />
+          <stop offset="0.38" stopColor="#d8dce2" />
+          <stop offset="0.5" stopColor="#eaedf1" />
+          <stop offset="0.62" stopColor="#d8dce2" />
+          <stop offset="0.82" stopColor="#9aa0a8" />
+          <stop offset="1" stopColor="#5a6068" />
+        </linearGradient>
+        <linearGradient id="capTop" x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0" stopColor="#c8ccd2" />
+          <stop offset="1" stopColor="#8a9098" />
         </linearGradient>
       </defs>
-      <rect width="200" height="300" fill="url(#vgrid)" opacity="0.6" />
-      <line x1="20" y1="50" x2="68" y2="50" stroke="var(--ink)" strokeWidth="0.5" opacity="0.4" />
-      <text x="18" y="48" textAnchor="end" fontSize="7" fill="var(--inkSoft)" fontFamily="var(--font-mono)">CAP</text>
-      <line x1="20" y1="150" x2="58" y2="150" stroke="var(--ink)" strokeWidth="0.5" opacity="0.4" />
-      <text x="18" y="148" textAnchor="end" fontSize="7" fill="var(--inkSoft)" fontFamily="var(--font-mono)">LYO</text>
-      <line x1="182" y1="220" x2="140" y2="220" stroke="var(--ink)" strokeWidth="0.5" opacity="0.4" />
-      <text x="184" y="218" fontSize="7" fill="var(--inkSoft)" fontFamily="var(--font-mono)">2ML</text>
 
-      <g>
-        <rect x="75" y="40" width="50" height="22" fill="var(--ink)" />
-        <rect x="72" y="60" width="56" height="6" fill="var(--borderStrong)" opacity="0.2" />
-        <rect x="68" y="64" width="64" height="175" fill="url(#vglass)" stroke="var(--ink)" strokeWidth="1" />
-        <rect x="70" y="190" width="60" height="47" fill="var(--accent)" opacity="0.18" />
-        <line x1="70" y1="190" x2="130" y2="190" stroke="var(--accent)" strokeWidth="0.8" strokeDasharray="2 2" />
-        <rect x="74" y="95" width="52" height="68" fill="var(--surface)" stroke="var(--ink)" strokeWidth="0.5" />
-        <text x="100" y="108" textAnchor="middle" fontSize="6" fill="var(--inkSoft)" fontFamily="var(--font-mono)" letterSpacing="1">OPTIMIZED / PERFORMANCE</text>
-        <line x1="78" y1="114" x2="122" y2="114" stroke="var(--ink)" strokeWidth="0.3" opacity="0.3" />
-        <text x="100" y="134" textAnchor="middle" fontSize="10" fontWeight="600" fill="var(--ink)" fontFamily="var(--font-body)">{label}</text>
-        <text x="100" y="148" textAnchor="middle" fontSize="8" fill="var(--accentStrong)" fontFamily="var(--font-mono)" fontWeight="600">{dosage}</text>
-        <text x="100" y="158" textAnchor="middle" fontSize="5" fill="var(--inkMute)" fontFamily="var(--font-mono)">LYOPHILIZED · RUO</text>
-        <rect x="68" y="239" width="64" height="4" fill="var(--ink)" opacity="0.6" />
-      </g>
-      {purity && (
-        <g transform="translate(160 272)">
-          <circle r="22" fill="none" stroke="var(--accent)" strokeWidth="0.8" />
-          <text textAnchor="middle" y="-2" fontSize="6" fill="var(--inkSoft)" fontFamily="var(--font-mono)">PURITY</text>
-          <text textAnchor="middle" y="8" fontSize="10" fontWeight="700" fill="var(--ink)" fontFamily="var(--font-mono)">{purity}%</text>
+      {/* Floor shadow */}
+      <ellipse cx={vw / 2} cy={vh - 6} rx="70" ry="7" fill="#000" opacity="0.55" />
+
+      {/* Cap — top nub + main crimp */}
+      <rect x="80" y="14" width="60" height="6" rx="1" fill="url(#capTop)" />
+      <rect x="72" y="20" width="76" height="36" rx="2" fill="url(#cap)" />
+      {/* Crimp seam lines */}
+      <line x1="72" y1="28" x2="148" y2="28" stroke="#4a5058" strokeWidth="0.4" opacity="0.6" />
+      <line x1="72" y1="50" x2="148" y2="50" stroke="#4a5058" strokeWidth="0.4" opacity="0.6" />
+      {/* Cap shadow on glass neck */}
+      <rect x="74" y="55" width="72" height="3" fill="#1a1f28" opacity="0.5" />
+
+      {/* Glass body — rounded bottom */}
+      <path
+        d="M 62 58 L 158 58 L 158 290 Q 158 300 148 300 L 72 300 Q 62 300 62 290 Z"
+        fill="url(#glassH)"
+        stroke="#3a4450"
+        strokeWidth="0.6"
+      />
+
+      {/* Label — dark navy */}
+      <rect x="62" y="104" width="96" height="168" fill="#0D1B2A" />
+      {/* Label top & bottom thin accent lines */}
+      <rect x="62" y="104" width="96" height="1" fill="#00B4D8" opacity="0.4" />
+      <rect x="62" y="271" width="96" height="1" fill="#00B4D8" opacity="0.4" />
+
+      {/* Hex logo watermark — vertical left edge */}
+      <g transform={`translate(74 186) rotate(-90)`} opacity="0.55">
+        <g fill="none" stroke="#00B4D8" strokeWidth="1" strokeLinejoin="round">
+          <polygon points="0,-14 12.1,-7 12.1,7 0,14 -12.1,7 -12.1,-7" opacity="0.55" />
+          <polygon points="0,-8 7,-4 7,4 0,8 -7,4 -7,-4" opacity="0.85" />
+          <circle r="1.3" fill="#00B4D8" stroke="none" />
         </g>
-      )}
+      </g>
+      {/* Small "OPTIMIZED PERFORMANCE" text vertical */}
+      <text
+        transform="translate(70 220) rotate(-90)"
+        fontSize="3.5" fill="#8a96a8"
+        fontFamily="var(--font-display)"
+        letterSpacing="1.3"
+      >OPTIMIZED PERFORMANCE</text>
+
+      {/* Product name */}
+      <text x="106" y="136" fontSize="17" fill="#FFFFFF"
+            fontFamily="var(--font-display)" fontWeight="700" letterSpacing="-0.4">
+        {label}
+      </text>
+
+      {/* Horizontal rule */}
+      <line x1="106" y1="143" x2="152" y2="143" stroke="#ffffff" strokeWidth="0.4" opacity="0.3" />
+
+      {/* Subtitle */}
+      <text x="106" y="154" fontSize="5.5" fill="#c0c8d2"
+            fontFamily="var(--font-display)" fontWeight="500">
+        {subtitle}
+      </text>
+
+      {/* Dosage — large cyan */}
+      <text x="106" y="180" fontSize="14" fill="#00B4D8"
+            fontFamily="var(--font-display)" fontWeight="700" letterSpacing="-0.2">
+        {dosage}
+      </text>
+      {/* Format text right of dosage */}
+      <text x="138" y="180" fontSize="4.5" fill="#8a96a8"
+            fontFamily="var(--font-display)" fontWeight="400">
+        Lyophilized Powder
+      </text>
+
+      {/* Purity */}
+      <text x="106" y="196" fontSize="6" fill="#FFFFFF"
+            fontFamily="var(--font-display)" fontWeight="600">
+        Purity: &gt;{purity ? Math.floor(purity) : 99}%
+      </text>
+      {/* Store at right */}
+      <text x="138" y="196" fontSize="4.5" fill="#8a96a8"
+            fontFamily="var(--font-display)" fontWeight="400">
+        Store at −20°C
+      </text>
+
+      {/* Thin divider */}
+      <line x1="106" y1="206" x2="152" y2="206" stroke="#00B4D8" strokeWidth="0.4" opacity="0.5" />
+
+      {/* RUO */}
+      <text x="106" y="218" fontSize="5" fill="#FFFFFF"
+            fontFamily="var(--font-display)" fontWeight="600" letterSpacing="0.6">
+        FOR RESEARCH USE ONLY
+      </text>
+
+      {/* Lot line */}
+      <text x="106" y="234" fontSize="4.5" fill="#8a96a8"
+            fontFamily="var(--font-display)" fontWeight="400">
+        Lot: ___________
+      </text>
+
+      {/* Divider before footer */}
+      <line x1="106" y1="252" x2="152" y2="252" stroke="#ffffff" strokeWidth="0.3" opacity="0.15" />
+
+      {/* SKU footer */}
+      <text x="106" y="262" fontSize="3.8" fill="#8a96a8"
+            fontFamily="var(--font-mono)" letterSpacing="0.4">
+        {skuLine || 'OPP'} | 2 mL vial
+      </text>
+
+      {/* Specular highlight on glass — left edge */}
+      <rect x="65" y="62" width="3" height="224" fill="#FFFFFF" opacity="0.28" />
+      {/* Small top-right highlight */}
+      <rect x="150" y="62" width="1.5" height="110" fill="#FFFFFF" opacity="0.18" />
+
+      {/* Bottom meniscus shadow */}
+      <rect x="62" y="286" width="96" height="4" fill="#0a0f18" opacity="0.5" />
     </svg>
   );
 }

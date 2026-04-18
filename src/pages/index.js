@@ -72,7 +72,7 @@ export default function Home() {
 
           <div className="flex flex-col items-center gap-8">
             <div className="p-8 bg-surface border border-line rounded-opp-lg opp-grid-bg-lg">
-              <Vial label="GLP-3" dosage="10mg" size={280} purity={99.4} />
+              <Vial label="GLP-3" dosage="10mg" size={280} purity={99.4} sku="OP-GLP3-10MG" subtitle="Triple Agonist Peptide" />
             </div>
             <div className="w-full max-w-[320px] px-5 py-4 bg-surface border border-line rounded-opp flex flex-col gap-2 opp-meta-mono">
               <SpecLine k="SKU" v="OP-GLP3-10MG" />
