@@ -23,10 +23,7 @@ export default async function handler(req, res) {
     const event = await parseWebhookEvent({ rawBody, headers: req.headers })
 
     if (!event.verified) {
-      console.error('[bankful-webhook] Verification failed:', event.reason,
-        '| content-type:', req.headers['content-type'],
-        '| body length:', rawBody.length,
-        '| body sample:', rawBody.slice(0, 1000))
+      console.error('[bankful-webhook] Verification failed:', event.reason)
       return res.status(401).json({ error: event.reason })
     }
 
