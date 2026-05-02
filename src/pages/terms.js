@@ -70,9 +70,6 @@ export default function TermsOfService() {
               Payment is processed through MoonPay. By completing a purchase, you agree to MoonPay&apos;s terms of service.
               We do not store or have access to your payment card or banking information.
             </p>
-            <p className="text-sm text-ink-soft leading-relaxed">
-              Volume discounts may be applied automatically based on cart quantity.
-            </p>
           </Section>
 
           <Section title="5. Shipping and Delivery">

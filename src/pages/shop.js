@@ -131,33 +131,6 @@ export default function Shop({ inventory }) {
         ))}
       </div>
 
-      {/* Volume discount tier */}
-      <section className="mt-20 bg-surface border border-line text-ink p-16 rounded-opp-lg">
-        <div className="max-w-3xl mx-auto text-center">
-          <span className="opp-eyebrow" style={{ color: 'var(--accent)' }}>Bulk pricing</span>
-          <h3 className="font-display font-semibold tracking-display text-3xl mt-3 mb-8 text-ink">
-            Volume discounts.
-          </h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-            {[
-              { label: '1–3 vials', val: 'Base price' },
-              { label: '4–6 vials', val: '10% off' },
-              { label: '7–10 vials', val: '15% off' },
-              { label: '11–15 vials', val: '20% off' },
-              { label: '16–25 vials', val: '22% off' },
-              { label: '26–30 vials', val: '25% off' },
-              { label: '31+ vials', val: '30% off' },
-            ].map((tier) => (
-              <div key={tier.label} className="border border-white/10 rounded-opp px-4 py-3">
-                <div className="opp-meta-mono text-ink-mute uppercase mb-1">{tier.label}</div>
-                <div className="font-display font-semibold text-lg text-accent">{tier.val}</div>
-              </div>
-            ))}
-          </div>
-          <p className="text-xs opacity-60 m-0">Discount applied automatically at checkout based on cart quantity.</p>
-        </div>
-      </section>
-
       {/* RUO */}
       <div className="text-center py-6 mt-10 border-t border-line">
         <p className="font-mono text-[11px] text-danger font-medium tracking-wide leading-relaxed m-0">

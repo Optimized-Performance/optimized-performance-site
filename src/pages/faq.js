@@ -18,7 +18,7 @@ const faqs = [
     items: [
       { q: 'How do I place an order?', a: 'Browse our shop, add products to your cart, and proceed to checkout. Fill in your shipping information and complete payment through our secure MoonPay payment system.' },
       { q: 'What payment methods do you accept?', a: 'We accept credit and debit card payments processed through MoonPay. Your payment is securely converted to USDC (a stablecoin) on the Polygon network. A ~4% processing fee applies.' },
-      { q: 'Do you offer bulk discounts?', a: 'Yes! We offer 10-vial kits for every product at a significant discount (up to 30% off individual pricing). Volume discount tiers are also available — see the shop page for details.' },
+      { q: 'Do you offer bulk discounts?', a: 'Yes — every product has a 10-vial kit option at a significant discount (up to 30% off the individual-vial price). The kits are how we handle volume.' },
       { q: 'Do you have promo or affiliate codes?', a: 'Yes. If you have an affiliate or promo code, enter it at checkout to receive your discount. Contact us if you are interested in becoming an affiliate.' },
       { q: 'Is there a minimum order?', a: 'No minimum order. You can purchase a single vial or a 10-vial kit.' },
     ],
