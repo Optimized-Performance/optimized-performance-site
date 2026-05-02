@@ -10,6 +10,8 @@ const MoonPayBuyWidget = dynamic(
   { ssr: false }
 );
 
+const cryptoEnabled = process.env.NEXT_PUBLIC_CRYPTO_ENABLED === 'true';
+
 export default function Checkout() {
   const { cartItems, cartTotal, clearCart } = useCart();
   const [showMoonPay, setShowMoonPay] = useState(false);
@@ -278,7 +280,7 @@ export default function Checkout() {
               </span>
             </label>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className={`grid grid-cols-1 ${cryptoEnabled ? 'sm:grid-cols-2' : ''} gap-3`}>
               <button
                 type="submit"
                 className="btn-primary w-full py-4 text-base"
@@ -289,19 +291,23 @@ export default function Checkout() {
                   ? 'Processing…'
                   : `Pay $${discountedTotal.toFixed(2)} with card`}
               </button>
-              <button
-                type="button"
-                onClick={() => handleCheckout('crypto')}
-                className="btn-outline w-full py-4 text-base"
-                disabled={submitting || !researchAck}
-              >
-                {submitting && submittingMethod === 'crypto'
-                  ? 'Processing…'
-                  : `Pay $${(discountedTotal * 1.04).toFixed(2)} with crypto`}
-              </button>
+              {cryptoEnabled && (
+                <button
+                  type="button"
+                  onClick={() => handleCheckout('crypto')}
+                  className="btn-outline w-full py-4 text-base"
+                  disabled={submitting || !researchAck}
+                >
+                  {submitting && submittingMethod === 'crypto'
+                    ? 'Processing…'
+                    : `Pay $${(discountedTotal * 1.04).toFixed(2)} with crypto`}
+                </button>
+              )}
             </div>
             <p className="opp-meta-mono text-center mt-3 leading-relaxed m-0">
-              Card processed by Bankful. Crypto via MoonPay (≈4% processing fee added).
+              {cryptoEnabled
+                ? 'Card processed by Bankful. Crypto via MoonPay (≈4% processing fee added).'
+                : 'Card processed by Bankful.'}
             </p>
           </form>
         </div>
