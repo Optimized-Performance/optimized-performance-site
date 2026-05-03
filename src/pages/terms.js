@@ -67,8 +67,11 @@ export default function TermsOfService() {
               All prices are in U.S. dollars and subject to change without notice.
             </p>
             <p className="text-sm text-ink-soft leading-relaxed mb-3">
-              Payment is processed through MoonPay. By completing a purchase, you agree to MoonPay&apos;s terms of service.
-              We do not store or have access to your payment card or banking information.
+              Payments are processed through third-party payment processors. By completing a purchase, you agree to the applicable processor&apos;s terms of service.
+              We do not store or have access to your full payment card or banking information.
+            </p>
+            <p className="text-sm text-ink-soft leading-relaxed">
+              See our <a href="/shipping#returns-refunds" className="text-accent-strong hover:underline">Returns &amp; Refunds policy</a> for the full refund process. We strongly prefer direct refund requests over card disputes — direct refunds are faster, simpler, and don&apos;t involve your bank.
             </p>
           </Section>
 

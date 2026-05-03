@@ -75,22 +75,30 @@ export default function ShippingReturns() {
           </Section>
 
           <Section title="Returns & Refunds">
-            <p className="text-sm text-ink-soft leading-relaxed mb-3">Due to the nature of our products, we have a limited return policy:</p>
+            <p className="text-sm text-ink-soft leading-relaxed mb-3">
+              We want every order to land right. The policy below is straightforward — email <a href="mailto:admin@optimizedperformancepeptides.com" className="text-accent-strong hover:underline">admin@optimizedperformancepeptides.com</a> or call <a href="tel:+18312185147" className="text-accent-strong hover:underline font-mono">(831) 218-5147</a> the moment something is off and we&apos;ll work it out.
+            </p>
             <ul className="list-disc pl-5 space-y-1.5 text-sm text-ink-soft leading-relaxed">
-              <li><strong className="text-ink">Damaged or defective products:</strong> Contact us within 7 days of delivery with photos.</li>
-              <li><strong className="text-ink">Incorrect items:</strong> Contact us within 7 days of delivery. We will ship the correct item at no charge.</li>
-              <li><strong className="text-ink">Missing packages:</strong> Contact us within 72 hours if tracking shows delivered but not received.</li>
-              <li><strong className="text-ink">Change of mind:</strong> All sales are final once shipped.</li>
-              <li><strong className="text-ink">Opened products:</strong> Cannot be returned for safety and integrity reasons.</li>
+              <li><strong className="text-ink">Damaged, defective, or incorrect items:</strong> Contact us within 7 days of delivery with photos. We replace at no charge or issue a full refund — your call.</li>
+              <li><strong className="text-ink">Unopened products, change of mind:</strong> Return within 30 days of delivery for a full refund of the product price. You cover return shipping. Original outbound shipping is non-refundable. Items must be unopened with tamper-evident seals intact.</li>
+              <li><strong className="text-ink">Missing packages:</strong> Contact us within 72 hours if tracking shows delivered but you haven&apos;t received the package. We file the carrier claim and replace once confirmed lost.</li>
+              <li><strong className="text-ink">Opened products:</strong> Cannot be returned for resale due to research-product integrity standards, but if there&apos;s a quality concern (purity, sterility, mislabeling), reach out and we&apos;ll make it right.</li>
             </ul>
           </Section>
 
           <Section title="Refund Processing">
             <ul className="list-disc pl-5 space-y-1.5 text-sm text-ink-soft leading-relaxed">
-              <li>Approved refunds are processed within 3–5 business days.</li>
-              <li>Refunds are issued to the original payment method (USDC via MoonPay).</li>
-              <li>MoonPay processing fees are non-refundable.</li>
+              <li>Approved refunds are issued to your original payment method within 3–5 business days of approval.</li>
+              <li>Card payments are refunded through our card processor; the credit usually posts to your statement within 5–10 business days after that, depending on your bank.</li>
+              <li>Crypto payments are refunded in the original cryptocurrency at the prevailing exchange rate at refund time. Crypto network fees and processor fees are non-refundable.</li>
+              <li>If you don&apos;t see your refund within the windows above, email us with your order number and we&apos;ll look it up directly.</li>
             </ul>
+          </Section>
+
+          <Section title="Why we'd rather work it out than have you dispute">
+            <p className="text-sm text-ink-soft leading-relaxed">
+              If something goes wrong with your order — anything at all — please email or call us first. Refunds processed directly are faster (a few days vs. a few weeks for a chargeback), don&apos;t involve your bank, and don&apos;t put us in a bad spot with our payment processor. We&apos;d rather refund you in 24 hours than fight a dispute for 60 days. Reach out and we&apos;ll handle it.
+            </p>
           </Section>
 
           <Section title="Contact Us">
@@ -129,8 +137,15 @@ export default function ShippingReturns() {
 }
 
 function Section({ title, children }) {
+  // Build an anchor id from the title so external links (e.g. /shipping#refunds)
+  // can deep-link to specific sections.
+  const id = String(title)
+    .toLowerCase()
+    .replace(/&/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
   return (
-    <section className="mb-8">
+    <section id={id} className="mb-8 scroll-mt-24">
       <h2 className="font-display font-semibold tracking-display text-[22px] leading-snug mb-3 pb-2 border-b border-line text-ink">
         {title}
       </h2>

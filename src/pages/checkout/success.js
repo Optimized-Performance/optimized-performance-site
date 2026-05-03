@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { useRouter } from 'next/router'
+import Link from 'next/link'
 import { useCart } from '../../context/CartContext'
 import SEO from '../../components/SEO'
 import { Icon } from '../../components/Primitives'
@@ -25,8 +26,14 @@ export default function CheckoutSuccess() {
       {orderNumber && (
         <p className="opp-meta-mono text-accent-strong mb-2">Order #{orderNumber}</p>
       )}
-      <p className="text-ink-soft max-w-md mx-auto mb-8">
+      <p className="text-ink-soft max-w-md mx-auto mb-6">
         Confirmation sent to your email. You&apos;ll receive a tracking number once it ships.
+      </p>
+      <p className="opp-meta-mono text-ink-mute max-w-lg mx-auto mb-2">
+        Charge will appear on your statement as <span className="font-mono text-ink">OPTIMIZED PERFORMANCE INC</span>
+      </p>
+      <p className="text-xs text-ink-mute max-w-md mx-auto mb-8">
+        Anything off with your order? Email <a href="mailto:admin@optimizedperformancepeptides.com" className="text-accent-strong hover:underline">admin@optimizedperformancepeptides.com</a> or call <a href="tel:+18312185147" className="font-mono text-accent-strong hover:underline">(831) 218-5147</a> — direct refunds are faster than disputes. See <Link href="/shipping#returns-refunds" className="text-accent-strong hover:underline">Returns &amp; Refunds</Link>.
       </p>
       <button className="btn-primary" onClick={() => router.push('/')}>
         Back to Home <Icon name="arrow" size={16} />

@@ -60,6 +60,120 @@ export async function sendSmsAlert(items, level) {
   }
 }
 
+// Best-effort carrier detection from tracking number formats.
+// Returns a carrier name + a tracking URL the customer can click.
+// Falls back to a universal tracker if format is unrecognized.
+function detectCarrierAndUrl(tracking) {
+  const t = String(tracking || '').replace(/\s/g, '').toUpperCase();
+  if (!t) return { carrier: 'Carrier', url: '' };
+
+  // UPS
+  if (/^1Z[A-Z0-9]{16}$/.test(t)) {
+    return { carrier: 'UPS', url: `https://www.ups.com/track?tracknum=${encodeURIComponent(t)}` };
+  }
+  // FedEx (12, 15, 20, or 22 digits)
+  if (/^\d{12}$|^\d{15}$|^\d{20}$|^\d{22}$/.test(t)) {
+    return { carrier: 'FedEx', url: `https://www.fedex.com/fedextrack/?tracknumbers=${encodeURIComponent(t)}` };
+  }
+  // USPS (most: 20-22 digits, or 13-char w/ letters)
+  if (/^9[2-5]\d{20}$/.test(t) || /^[A-Z]{2}\d{9}US$/.test(t)) {
+    return { carrier: 'USPS', url: `https://tools.usps.com/go/TrackConfirmAction?tLabels=${encodeURIComponent(t)}` };
+  }
+  // DHL Express
+  if (/^\d{10}$|^\d{11}$/.test(t)) {
+    return { carrier: 'DHL', url: `https://www.dhl.com/us-en/home/tracking.html?tracking-id=${encodeURIComponent(t)}` };
+  }
+  // Universal fallback (auto-detects carrier on the receiving side)
+  return { carrier: 'Carrier', url: `https://parcelsapp.com/en/tracking/${encodeURIComponent(t)}` };
+}
+
+export async function sendShipmentNotification(order) {
+  const apiKey = process.env.SENDGRID_API_KEY;
+  if (!apiKey || !order.customer_email) {
+    console.log('[alerts] Shipment notification skipped (not configured) — order:', order.order_number);
+    return;
+  }
+  if (!order.tracking) {
+    console.log('[alerts] Shipment notification skipped (no tracking) — order:', order.order_number);
+    return;
+  }
+
+  const { carrier, url } = detectCarrierAndUrl(order.tracking);
+
+  const body = [
+    `Your order has shipped.`,
+    ``,
+    `Order #: ${order.order_number}`,
+    `Carrier: ${carrier}`,
+    `Tracking #: ${order.tracking}`,
+    url ? `Track: ${url}` : ``,
+    ``,
+    `If anything is off when it arrives — wrong item, damage, missing pieces — email`,
+    `admin@optimizedperformancepeptides.com or call (831) 218-5147 the same day.`,
+    `Direct refunds are faster than disputes; please reach out to us first.`,
+    ``,
+    `Charge appears on your statement as: OPTIMIZED PERFORMANCE INC`,
+    ``,
+    `For research use only.`,
+    `— Optimized Performance`,
+  ].filter(Boolean).join('\n');
+
+  try {
+    await fetch('https://api.sendgrid.com/v3/mail/send', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        personalizations: [{ to: [{ email: order.customer_email }] }],
+        from: { email: process.env.FROM_EMAIL || 'orders@optimizedperformancepeptides.com' },
+        subject: `Shipped — ${order.order_number}`,
+        content: [{ type: 'text/plain', value: body }],
+      }),
+    });
+  } catch (err) {
+    console.error('[alerts] Shipment notification failed:', err.message);
+  }
+}
+
+export async function sendDeliveryFollowup(order) {
+  const apiKey = process.env.SENDGRID_API_KEY;
+  if (!apiKey || !order.customer_email) {
+    console.log('[alerts] Delivery follow-up skipped (not configured) — order:', order.order_number);
+    return;
+  }
+
+  const { url } = detectCarrierAndUrl(order.tracking);
+
+  const body = [
+    `Just checking in — your order shipped about a week ago.`,
+    ``,
+    `Order #: ${order.order_number}`,
+    order.tracking ? `Tracking #: ${order.tracking}` : '',
+    url ? `Track: ${url}` : '',
+    ``,
+    `If it's already arrived, you can ignore this. If not, email`,
+    `admin@optimizedperformancepeptides.com or call (831) 218-5147 and we'll`,
+    `look into it. We'd much rather sort out a delivery issue together than`,
+    `have you file a dispute with your card company.`,
+    ``,
+    `— Optimized Performance`,
+  ].filter(Boolean).join('\n');
+
+  try {
+    await fetch('https://api.sendgrid.com/v3/mail/send', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        personalizations: [{ to: [{ email: order.customer_email }] }],
+        from: { email: process.env.FROM_EMAIL || 'orders@optimizedperformancepeptides.com' },
+        subject: `Checking in on order ${order.order_number}`,
+        content: [{ type: 'text/plain', value: body }],
+      }),
+    });
+  } catch (err) {
+    console.error('[alerts] Delivery follow-up failed:', err.message);
+  }
+}
+
 export async function sendOrderConfirmation(order) {
   const apiKey = process.env.SENDGRID_API_KEY;
   if (!apiKey || !order.customer_email) {
