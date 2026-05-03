@@ -6,6 +6,7 @@ import OrdersTab from './OrdersTab';
 import AffiliatesTab from './AffiliatesTab';
 import PayoutsTab from './PayoutsTab';
 import ChargebacksTab from './ChargebacksTab';
+import InboxTab from './InboxTab';
 import { Logo } from '../../components/Primitives';
 
 // Admin session token is kept in React state only — never in sessionStorage or
@@ -82,6 +83,7 @@ export default function AdminPage() {
     { id: 'affiliates', label: 'Affiliates' },
     { id: 'payouts', label: 'Payouts' },
     { id: 'chargebacks', label: 'Chargebacks' },
+    { id: 'inbox', label: 'Inbox' },
   ];
 
   return (
@@ -138,6 +140,7 @@ export default function AdminPage() {
         {activeTab === 'affiliates' && <AffiliatesTab showSaveMsg={showSaveMsg} token={token} />}
         {activeTab === 'payouts' && <PayoutsTab showSaveMsg={showSaveMsg} token={token} />}
         {activeTab === 'chargebacks' && <ChargebacksTab showSaveMsg={showSaveMsg} token={token} />}
+        {activeTab === 'inbox' && <InboxTab showSaveMsg={showSaveMsg} token={token} />}
       </div>
     </div>
   );

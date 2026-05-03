@@ -174,6 +174,34 @@ export async function sendDeliveryFollowup(order) {
   }
 }
 
+// Used by the email bot for both auto-replies (after classification) and
+// admin-approved drafts (from the Inbox tab).
+export async function sendCustomerReply({ to_email, subject, body, reply_to }) {
+  const apiKey = process.env.SENDGRID_API_KEY;
+  if (!apiKey) throw new Error('SENDGRID_API_KEY not configured');
+  if (!to_email || !subject || !body) throw new Error('to_email, subject, body required');
+
+  const fromEmail = process.env.FROM_EMAIL || 'orders@optimizedperformancepeptides.com';
+  const replyTo = reply_to || 'admin@optimizedperformancepeptides.com';
+
+  const res = await fetch('https://api.sendgrid.com/v3/mail/send', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      personalizations: [{ to: [{ email: to_email }] }],
+      from: { email: fromEmail, name: 'Optimized Performance' },
+      reply_to: { email: replyTo },
+      subject,
+      content: [{ type: 'text/plain', value: body }],
+    }),
+  });
+  if (!res.ok) {
+    const errText = await res.text().catch(() => '');
+    throw new Error(`SendGrid send failed ${res.status}: ${errText.slice(0, 300)}`);
+  }
+  return true;
+}
+
 export async function sendOrderConfirmation(order) {
   const apiKey = process.env.SENDGRID_API_KEY;
   if (!apiKey || !order.customer_email) {
