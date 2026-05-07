@@ -135,6 +135,13 @@ export default async function handler(req, res) {
     res.setHeader('Content-Type', 'text/csv; charset=utf-8')
     res.setHeader('Content-Disposition', `attachment; filename="shipcheer-${today}.csv"`)
     res.setHeader('Cache-Control', 'no-store')
+    // Carry the export's order_numbers in a header so the client can snapshot
+    // them for the bulk-tracking-paste step downstream. CORS-exposed via
+    // Access-Control-Expose-Headers since fetch hides non-safelisted headers
+    // by default.
+    const orderNumbers = eligible.map((o) => o.order_number).join(',')
+    res.setHeader('X-OPP-ShipCheer-OrderNumbers', orderNumbers)
+    res.setHeader('Access-Control-Expose-Headers', 'X-OPP-ShipCheer-OrderNumbers')
     return res.status(200).send(csv)
   } catch (err) {
     console.error('[orders/export-shipcheer]', err)

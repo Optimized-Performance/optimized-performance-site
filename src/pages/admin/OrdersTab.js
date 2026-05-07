@@ -1,5 +1,10 @@
 import { Fragment, useEffect, useState } from 'react';
 
+// localStorage key for the most recent ShipCheer export's order_numbers.
+// Used by Bulk Tracking Paste so admin can paste tracking #s in row order
+// without re-selecting which orders. Persists across page reloads.
+const SHIPCHEER_SNAPSHOT_KEY = 'opp_shipcheer_last_export';
+
 // Forward-flow status order. 'cancelled' is a terminal state reached via the
 // Cancel button, not part of the normal progression.
 const STATUSES = ['pending', 'packed', 'shipped', 'fulfilled'];
@@ -70,12 +75,30 @@ function formatShipDate(iso) {
   }
 }
 
+// "Ready to ship" is a derived filter — paid + clean fraud + not yet
+// shipped/fulfilled/cancelled. Mirrors the eligibility logic on the server-
+// side ShipCheer export and pick list endpoints so all three views agree.
+function isReadyToShip(order) {
+  if (order.payment_status !== 'completed') return false;
+  if (order.fraud_status === 'blocked') return false;
+  const status = order.fulfillment_status || 'pending';
+  return !['shipped', 'fulfilled', 'cancelled'].includes(status);
+}
+
 export default function OrdersTab({ products, showSaveMsg, token }) {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState('all');
+  const [filter, setFilter] = useState('ready_to_ship');
   const [preorderOnly, setPreorderOnly] = useState(false);
   const [expandedId, setExpandedId] = useState(null);
+  const [selectedIds, setSelectedIds] = useState(() => new Set());
+  const [pickListOpen, setPickListOpen] = useState(false);
+  const [pickListData, setPickListData] = useState(null);
+  const [pickListLoading, setPickListLoading] = useState(false);
+  const [bulkPasteOpen, setBulkPasteOpen] = useState(false);
+  const [bulkPasteSnapshot, setBulkPasteSnapshot] = useState(null);
+  const [bulkPasteText, setBulkPasteText] = useState('');
+  const [bulkPasteSubmitting, setBulkPasteSubmitting] = useState(false);
 
   useEffect(() => {
     fetchOrders();
@@ -203,9 +226,185 @@ export default function OrdersTab({ products, showSaveMsg, token }) {
   }
 
   function applyFilters(list) {
-    let out = filter === 'all' ? list : list.filter((o) => (o.fulfillment_status || 'pending') === filter);
+    let out;
+    if (filter === 'all') out = list;
+    else if (filter === 'ready_to_ship') out = list.filter(isReadyToShip);
+    else out = list.filter((o) => (o.fulfillment_status || 'pending') === filter);
     if (preorderOnly) out = out.filter(hasPreorderItems);
     return out;
+  }
+
+  function toggleSelected(id) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAllVisible(visibleOrders) {
+    setSelectedIds((prev) => {
+      const visibleIds = visibleOrders.map((o) => o.id);
+      const allSelected = visibleIds.every((id) => prev.has(id));
+      const next = new Set(prev);
+      if (allSelected) visibleIds.forEach((id) => next.delete(id));
+      else visibleIds.forEach((id) => next.add(id));
+      return next;
+    });
+  }
+
+  function clearSelected() {
+    setSelectedIds(new Set());
+  }
+
+  // Bulk-advance every selected order to packed in parallel. The server
+  // PATCH endpoint is single-order, so we fan out — fine at week-1 volume.
+  // Refresh once at the end to repaint with new statuses.
+  async function markSelectedPacked() {
+    if (selectedIds.size === 0) return;
+    if (!window.confirm(`Mark ${selectedIds.size} order(s) as Packed?`)) return;
+    const ids = Array.from(selectedIds);
+    try {
+      await Promise.all(
+        ids.map((id) =>
+          fetch('/api/admin/orders', {
+            method: 'PATCH',
+            headers: authHeaders(),
+            body: JSON.stringify({ id, status: 'packed' }),
+          })
+        )
+      );
+      clearSelected();
+      await fetchOrders();
+      showSaveMsg(`${ids.length} order(s) moved to Packed.`);
+    } catch (err) {
+      showSaveMsg(`Bulk packed failed: ${err.message}`);
+    }
+  }
+
+  async function openPickList() {
+    setPickListOpen(true);
+    setPickListLoading(true);
+    setPickListData(null);
+    try {
+      const res = await fetch('/api/admin/orders/picklist', { headers: authHeaders() });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        showSaveMsg(`Pick list failed: ${err.error || res.status}`);
+        setPickListOpen(false);
+        setPickListLoading(false);
+        return;
+      }
+      const data = await res.json();
+      setPickListData(data);
+    } catch (err) {
+      showSaveMsg(`Pick list failed: ${err.message}`);
+      setPickListOpen(false);
+    }
+    setPickListLoading(false);
+  }
+
+  function printPickList() {
+    if (!pickListData) return;
+    // Open in new window with print-friendly inline styles. Keeps the
+    // packing-station printout decoupled from the in-app modal styles.
+    const w = window.open('', '_blank');
+    if (!w) {
+      showSaveMsg('Pop-up blocked. Allow pop-ups for the admin domain to print.');
+      return;
+    }
+    const groups = pickListData.groups || [];
+    const html = `<!DOCTYPE html><html><head><title>OPP Pick List</title>
+      <style>
+        body { font-family: system-ui, -apple-system, sans-serif; max-width: 720px; margin: 24px auto; padding: 0 16px; color: #111; }
+        h1 { font-size: 20px; margin-bottom: 4px; }
+        .meta { font-size: 12px; color: #666; margin-bottom: 24px; }
+        h2 { font-size: 14px; text-transform: uppercase; letter-spacing: 0.1em; color: #444; border-bottom: 1px solid #ccc; padding-bottom: 4px; margin-top: 28px; }
+        ul { list-style: none; padding: 0; }
+        li { display: flex; justify-content: space-between; gap: 12px; padding: 8px 4px; border-bottom: 1px solid #eee; }
+        .check { display: inline-block; width: 18px; height: 18px; border: 1.5px solid #444; vertical-align: middle; margin-right: 8px; }
+        .name { font-weight: 600; }
+        .meta-line { font-size: 11px; color: #777; }
+        .qty { font-variant-numeric: tabular-nums; font-weight: 700; white-space: nowrap; }
+      </style></head><body>
+      <h1>Optimized Performance — Pick List</h1>
+      <div class="meta">${pickListData.order_count} order(s) · ${pickListData.total_vials} vials total · generated ${new Date(pickListData.generated_at).toLocaleString()}</div>
+      ${groups.map((g) => `
+        <h2>${g.category}</h2>
+        <ul>
+          ${g.items.map((it) => `
+            <li>
+              <div><span class="check"></span><span class="name">${it.name} ${it.dosage}</span>
+                <div class="meta-line">${it.sku}${it.kit_count ? ` · ${it.kit_count} kit assembl${it.kit_count === 1 ? 'y' : 'ies'}` : ''}${it.individual_count ? `${it.kit_count ? ' · ' : ' · '}${it.individual_count} loose` : ''}</div>
+              </div>
+              <div class="qty">${it.vials} vials</div>
+            </li>`).join('')}
+        </ul>
+      `).join('')}
+      <script>setTimeout(() => window.print(), 200);</script>
+      </body></html>`;
+    w.document.write(html);
+    w.document.close();
+  }
+
+  function openBulkPaste() {
+    let snapshot = null;
+    try {
+      const raw = localStorage.getItem(SHIPCHEER_SNAPSHOT_KEY);
+      if (raw) snapshot = JSON.parse(raw);
+    } catch {
+      /* ignore */
+    }
+    if (!snapshot || !Array.isArray(snapshot.order_numbers) || snapshot.order_numbers.length === 0) {
+      showSaveMsg('No recent ShipCheer export found. Click "ShipCheer CSV" first to snapshot the queue.');
+      return;
+    }
+    setBulkPasteSnapshot(snapshot);
+    setBulkPasteText('');
+    setBulkPasteOpen(true);
+  }
+
+  async function applyBulkPaste() {
+    if (!bulkPasteSnapshot) return;
+    const lines = bulkPasteText
+      .split(/\r?\n/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    const orderNumbers = bulkPasteSnapshot.order_numbers;
+    if (lines.length !== orderNumbers.length) {
+      showSaveMsg(`Tracking count (${lines.length}) doesn't match snapshot order count (${orderNumbers.length}). Confirm row order before pasting.`);
+      return;
+    }
+    const assignments = orderNumbers.map((order_number, i) => ({ order_number, tracking: lines[i] }));
+    setBulkPasteSubmitting(true);
+    try {
+      const res = await fetch('/api/admin/orders/bulk-ship', {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ assignments }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        showSaveMsg(`Bulk ship failed: ${data.error || res.status}`);
+        setBulkPasteSubmitting(false);
+        return;
+      }
+      const s = data.summary;
+      showSaveMsg(
+        `Shipped ${s.shipped}, updated ${s.updated}, not_found ${s.not_found}, errors ${s.errors}. ` +
+        (s.shipped > 0 ? 'Customer ship emails fired.' : '')
+      );
+      // Clear the snapshot so the same batch can't be re-applied accidentally.
+      try { localStorage.removeItem(SHIPCHEER_SNAPSHOT_KEY); } catch {}
+      setBulkPasteOpen(false);
+      setBulkPasteText('');
+      setBulkPasteSnapshot(null);
+      await fetchOrders();
+    } catch (err) {
+      showSaveMsg(`Bulk ship failed: ${err.message}`);
+    }
+    setBulkPasteSubmitting(false);
   }
 
   // Download a ShipCheer-compatible CSV of paid + not-yet-shipped orders.
@@ -221,6 +420,18 @@ export default function OrdersTab({ products, showSaveMsg, token }) {
         showSaveMsg(`ShipCheer export failed: ${errBody.error || res.status}`);
         return;
       }
+      // Snapshot the order_numbers from the response header so the Bulk
+      // Tracking Paste step can match tracking #s back to orders by row.
+      const orderNumbersHeader = res.headers.get('X-OPP-ShipCheer-OrderNumbers') || '';
+      const orderNumbers = orderNumbersHeader.split(',').map((s) => s.trim()).filter(Boolean);
+      try {
+        localStorage.setItem(
+          SHIPCHEER_SNAPSHOT_KEY,
+          JSON.stringify({ order_numbers: orderNumbers, exported_at: new Date().toISOString() })
+        );
+      } catch {
+        /* ignore quota */
+      }
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -229,7 +440,7 @@ export default function OrdersTab({ products, showSaveMsg, token }) {
       a.download = `shipcheer-${today}.csv`;
       a.click();
       URL.revokeObjectURL(url);
-      showSaveMsg('ShipCheer CSV exported. Drag into Labelife → Batch Printing.');
+      showSaveMsg(`ShipCheer CSV exported (${orderNumbers.length} orders snapshotted). Drag into ShipCheer → after labels print, use Bulk Tracking Paste.`);
     } catch (err) {
       showSaveMsg(`ShipCheer export failed: ${err.message}`);
     }
@@ -265,20 +476,28 @@ export default function OrdersTab({ products, showSaveMsg, token }) {
   }
 
   const filtered = applyFilters(orders);
-  const counts = { all: orders.length };
+  const counts = { all: orders.length, ready_to_ship: orders.filter(isReadyToShip).length };
   ALL_STATUSES.forEach((st) => {
     counts[st] = orders.filter((o) => (o.fulfillment_status || 'pending') === st).length;
   });
   const preorderCount = orders.filter(hasPreorderItems).length;
+  const visibleSelectedCount = filtered.filter((o) => selectedIds.has(o.id)).length;
+  const allVisibleSelected = filtered.length > 0 && filtered.every((o) => selectedIds.has(o.id));
 
   return (
     <>
       <div className="flex justify-between items-center mb-5 flex-wrap gap-3">
         <h2 className="font-display font-semibold tracking-display text-xl m-0 text-ink">Orders</h2>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <button className="btn-outline text-xs px-4 py-2" onClick={fetchOrders}>Refresh</button>
-          <button className="btn-outline text-xs px-4 py-2" onClick={exportShipCheerCSV} title="Download paid, not-yet-shipped orders in ShipCheer Batch Import format">
+          <button className="btn-outline text-xs px-4 py-2" onClick={openPickList} title="Aggregate vials needed across the ready-to-ship queue, grouped by category">
+            Pick list
+          </button>
+          <button className="btn-outline text-xs px-4 py-2" onClick={exportShipCheerCSV} title="Download paid, not-yet-shipped orders in ShipCheer Batch Import format. Snapshots the queue for Bulk Tracking Paste.">
             ShipCheer CSV
+          </button>
+          <button className="btn-outline text-xs px-4 py-2" onClick={openBulkPaste} title="Paste tracking numbers (newline-separated, in same row order as the most recent ShipCheer export) to mark batch shipped + fire ship emails.">
+            Bulk tracking paste
           </button>
           <button className="btn-outline text-xs px-4 py-2" onClick={exportCSV}>Export CSV</button>
         </div>
@@ -311,6 +530,18 @@ export default function OrdersTab({ products, showSaveMsg, token }) {
       </div>
 
       <div className="flex gap-1.5 mb-4 flex-wrap items-center">
+        <button
+          key="ready_to_ship"
+          onClick={() => setFilter('ready_to_ship')}
+          className={`px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
+            filter === 'ready_to_ship'
+              ? 'bg-accent-strong text-surface border-accent-strong'
+              : 'bg-accent-soft text-accent-strong border-accent/40 hover:border-accent-strong'
+          }`}
+          title="Paid, clean fraud, not yet shipped — the active fulfillment queue"
+        >
+          ★ Ready to ship ({counts.ready_to_ship})
+        </button>
         {['all', ...ALL_STATUSES].map((st) => (
           <button
             key={st}
@@ -335,6 +566,33 @@ export default function OrdersTab({ products, showSaveMsg, token }) {
         </button>
       </div>
 
+      {selectedIds.size > 0 && (
+        <div className="mb-3 p-3 rounded-opp bg-accent-soft border border-accent/40 flex items-center justify-between gap-3 flex-wrap">
+          <div className="text-sm text-ink">
+            <strong>{selectedIds.size}</strong> selected
+            {visibleSelectedCount !== selectedIds.size && (
+              <span className="opp-meta-mono text-ink-mute ml-2">
+                ({visibleSelectedCount} visible in current filter)
+              </span>
+            )}
+          </div>
+          <div className="flex gap-2 flex-wrap">
+            <button
+              className="text-[11px] font-semibold px-3 py-1.5 rounded-opp border border-accent-strong bg-accent-strong text-surface hover:opacity-90"
+              onClick={markSelectedPacked}
+            >
+              Mark {selectedIds.size} as Packed
+            </button>
+            <button
+              className="text-[11px] px-3 py-1.5 rounded-opp border border-line text-ink-soft hover:border-ink"
+              onClick={clearSelected}
+            >
+              Clear selection
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="card-premium overflow-hidden">
         {loading ? (
           <div className="text-center py-12">
@@ -349,6 +607,15 @@ export default function OrdersTab({ products, showSaveMsg, token }) {
           <table className="w-full border-collapse text-[13px]">
             <thead className="bg-surfaceAlt">
               <tr>
+                <th className="px-3 py-3 border-b border-line w-8" onClick={(e) => e.stopPropagation()}>
+                  <input
+                    type="checkbox"
+                    checked={allVisibleSelected}
+                    onChange={() => toggleSelectAllVisible(filtered)}
+                    title={allVisibleSelected ? 'Clear all visible' : 'Select all visible'}
+                    className="cursor-pointer"
+                  />
+                </th>
                 {['Order #', 'Date', 'Customer', 'Items', 'Total', 'Payment', 'Status', 'Tracking', 'Actions'].map((h) => (
                   <th
                     key={h}
@@ -373,9 +640,17 @@ export default function OrdersTab({ products, showSaveMsg, token }) {
                     <tr
                       className={`border-t border-line cursor-pointer hover:bg-surfaceAlt transition-colors ${
                         orderHasPreorders ? 'bg-accent-soft/30' : ''
-                      }`}
+                      } ${selectedIds.has(order.id) ? 'bg-accent-soft/40' : ''}`}
                       onClick={() => setExpandedId(isExpanded ? null : order.id)}
                     >
+                      <td className="px-3 py-3 w-8" onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.has(order.id)}
+                          onChange={() => toggleSelected(order.id)}
+                          className="cursor-pointer"
+                        />
+                      </td>
                       <td className="px-4 py-3 font-mono font-semibold text-ink">
                         <div className="flex items-center gap-2 flex-wrap">
                           {order.order_number}
@@ -485,7 +760,7 @@ export default function OrdersTab({ products, showSaveMsg, token }) {
 
                     {isExpanded && (
                       <tr className="bg-surfaceAlt/60">
-                        <td colSpan={9} className="px-5 py-4">
+                        <td colSpan={10} className="px-5 py-4">
                           {(order.fraud_status === 'flagged' || order.fraud_status === 'blocked') && (
                             <div
                               className={`mb-4 p-3 rounded-opp border ${
@@ -620,6 +895,146 @@ export default function OrdersTab({ products, showSaveMsg, token }) {
           </table>
         )}
       </div>
+
+      {pickListOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-[100] flex items-start justify-center p-6 overflow-auto"
+          onClick={() => setPickListOpen(false)}
+        >
+          <div
+            className="bg-surface rounded-opp-lg max-w-2xl w-full p-6 md:p-8 my-12"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-start mb-4 pb-4 border-b border-line">
+              <div>
+                <span className="opp-eyebrow">Pick List</span>
+                <h3 className="font-display font-semibold tracking-display text-2xl m-0 mt-1 text-ink">
+                  Today&apos;s queue
+                </h3>
+                {pickListData && (
+                  <p className="opp-meta-mono text-ink-mute mt-1 m-0">
+                    {pickListData.order_count} order(s) · {pickListData.total_vials} vials total
+                  </p>
+                )}
+              </div>
+              <div className="flex gap-2">
+                {pickListData && (
+                  <button className="btn-outline text-xs px-4 py-2" onClick={printPickList}>
+                    Print
+                  </button>
+                )}
+                <button
+                  className="text-[11px] px-3 py-1.5 rounded-opp border border-line text-ink-soft hover:border-ink"
+                  onClick={() => setPickListOpen(false)}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+
+            {pickListLoading && <p className="text-sm text-ink-mute m-0">Loading…</p>}
+
+            {pickListData && pickListData.order_count === 0 && (
+              <p className="text-sm text-ink-soft m-0">
+                No orders ready to pack. New paid orders will appear here when they pass fraud review.
+              </p>
+            )}
+
+            {pickListData && pickListData.groups.map((g) => (
+              <div key={g.category} className="mb-6">
+                <h4 className="opp-meta-mono uppercase border-b border-line pb-1 mb-2 text-ink-mute">
+                  {g.category}
+                </h4>
+                <ul className="m-0 p-0 list-none">
+                  {g.items.map((it) => (
+                    <li key={it.sku} className="flex justify-between items-start py-2 border-b border-line/50 last:border-none">
+                      <div>
+                        <div className="text-sm font-semibold text-ink">{it.name} {it.dosage}</div>
+                        <div className="opp-meta-mono mt-0.5">
+                          {it.sku}
+                          {it.kit_count > 0 && ` · ${it.kit_count} kit assembl${it.kit_count === 1 ? 'y' : 'ies'}`}
+                          {it.individual_count > 0 && ` · ${it.individual_count} loose`}
+                        </div>
+                      </div>
+                      <div className="font-display font-semibold text-lg text-ink whitespace-nowrap tabular-nums">
+                        {it.vials} <span className="text-xs text-ink-mute font-normal">vials</span>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {bulkPasteOpen && bulkPasteSnapshot && (
+        <div
+          className="fixed inset-0 bg-black/50 z-[100] flex items-start justify-center p-6 overflow-auto"
+          onClick={() => !bulkPasteSubmitting && setBulkPasteOpen(false)}
+        >
+          <div
+            className="bg-surface rounded-opp-lg max-w-2xl w-full p-6 md:p-8 my-12"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-start mb-4 pb-4 border-b border-line">
+              <div>
+                <span className="opp-eyebrow">Bulk Tracking Paste</span>
+                <h3 className="font-display font-semibold tracking-display text-2xl m-0 mt-1 text-ink">
+                  Apply tracking to {bulkPasteSnapshot.order_numbers.length} order(s)
+                </h3>
+                <p className="opp-meta-mono text-ink-mute mt-1 m-0">
+                  Snapshot from ShipCheer export at {new Date(bulkPasteSnapshot.exported_at).toLocaleString()}
+                </p>
+              </div>
+              <button
+                className="text-[11px] px-3 py-1.5 rounded-opp border border-line text-ink-soft hover:border-ink"
+                onClick={() => setBulkPasteOpen(false)}
+                disabled={bulkPasteSubmitting}
+              >
+                Cancel
+              </button>
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-4 mb-4">
+              <div>
+                <div className="opp-meta-mono uppercase mb-1.5">Order Numbers (in row order)</div>
+                <ol className="m-0 pl-6 text-sm text-ink-soft space-y-0.5 max-h-72 overflow-auto bg-surfaceAlt rounded-opp p-3 list-decimal font-mono">
+                  {bulkPasteSnapshot.order_numbers.map((n) => (
+                    <li key={n}>{n}</li>
+                  ))}
+                </ol>
+              </div>
+              <div>
+                <div className="opp-meta-mono uppercase mb-1.5">Tracking Numbers (one per line)</div>
+                <textarea
+                  className="input-field font-mono text-sm h-72 resize-none"
+                  value={bulkPasteText}
+                  onChange={(e) => setBulkPasteText(e.target.value)}
+                  placeholder={`1Z999AA10123456784\n9400111899223344556677\n…`}
+                  disabled={bulkPasteSubmitting}
+                />
+                <p className="opp-meta-mono text-ink-mute mt-1.5 m-0">
+                  Must match the order count exactly. Carriers auto-detect from format.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex justify-between items-center pt-4 border-t border-line">
+              <p className="opp-meta-mono text-ink-mute m-0">
+                Marks each as Shipped + fires customer ship emails. Snapshot is cleared after success.
+              </p>
+              <button
+                className="btn-primary text-xs px-5 py-2"
+                onClick={applyBulkPaste}
+                disabled={bulkPasteSubmitting || !bulkPasteText.trim()}
+              >
+                {bulkPasteSubmitting ? 'Applying…' : 'Apply tracking + ship'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
