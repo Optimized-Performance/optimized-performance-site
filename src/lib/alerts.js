@@ -1,6 +1,19 @@
 // Alert utilities for inventory and order notifications
 // Configure ALERT_EMAIL, TWILIO_*, and SENDGRID_API_KEY in environment variables to enable
 
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://optimizedperformancepeptides.com';
+
+// Build the customer-facing order lookup URL with email pre-filled so the
+// link in their email is one click — no retyping the order number or email
+// to see status. The page still requires the email match server-side.
+function orderLookupUrl(order) {
+  if (!order?.order_number) return '';
+  const params = new URLSearchParams();
+  if (order.customer_email) params.set('email', order.customer_email);
+  const qs = params.toString();
+  return `${SITE_URL}/orders/${encodeURIComponent(order.order_number)}${qs ? '?' + qs : ''}`;
+}
+
 export async function sendEmailAlert(items, level) {
   const apiKey = process.env.SENDGRID_API_KEY;
   const toEmail = process.env.ALERT_EMAIL;
@@ -99,6 +112,7 @@ export async function sendShipmentNotification(order) {
   }
 
   const { carrier, url } = detectCarrierAndUrl(order.tracking);
+  const lookupUrl = orderLookupUrl(order);
 
   const body = [
     `Your order has shipped.`,
@@ -107,6 +121,7 @@ export async function sendShipmentNotification(order) {
     `Carrier: ${carrier}`,
     `Tracking #: ${order.tracking}`,
     url ? `Track: ${url}` : ``,
+    lookupUrl ? `Order details: ${lookupUrl}` : ``,
     ``,
     `If anything is off when it arrives — wrong item, damage, missing pieces — email`,
     `admin@optimizedperformancepeptides.com or call (831) 218-5147 the same day.`,
@@ -210,12 +225,14 @@ export async function sendRefundNotification(order, { amount, reason }) {
   }
 
   const refundAmount = Number(amount || order.refund_amount || order.total || 0).toFixed(2);
+  const lookupUrl = orderLookupUrl(order);
   const body = [
     `Your order has been refunded.`,
     ``,
     `Order #: ${order.order_number}`,
     `Refund amount: $${refundAmount}`,
     reason ? `Reason: ${reason}` : ``,
+    lookupUrl ? `Order details: ${lookupUrl}` : ``,
     ``,
     `The refund has been initiated to your original payment method. It typically posts`,
     `to your statement within 5–10 business days, depending on your bank.`,
@@ -253,6 +270,7 @@ export async function sendOrderConfirmation(order) {
     `• ${i.name || i.sku} x${i.quantity} — $${(i.price * i.quantity).toFixed(2)}`
   ).join('\n');
 
+  const lookupUrl = orderLookupUrl(order);
   const body = [
     `Thank you for your order!`,
     ``,
@@ -264,9 +282,11 @@ export async function sendOrderConfirmation(order) {
     ``,
     `Shipping to: ${order.shipping_address}, ${order.city}, ${order.state} ${order.zip}`,
     ``,
+    lookupUrl ? `Track this order: ${lookupUrl}` : ``,
+    lookupUrl ? `` : ``,
     `For research use only.`,
     `— Optimized Performance`,
-  ].join('\n');
+  ].filter(Boolean).join('\n');
 
   try {
     await fetch('https://api.sendgrid.com/v3/mail/send', {
