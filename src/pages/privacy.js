@@ -1,7 +1,7 @@
 import SEO from '../components/SEO';
 
 export default function PrivacyPolicy() {
-  const lastUpdated = 'April 22, 2026';
+  const lastUpdated = 'May 7, 2026';
   const companyName = 'Optimized Performance Inc.';
   const contactEmail = 'admin@optimizedperformancepeptides.com';
   const contactPhone = '+1 (831) 218-5147';
@@ -42,12 +42,12 @@ export default function PrivacyPolicy() {
             </Subsection>
             <Subsection title="Payment Information">
               <p className="text-sm text-ink-soft leading-relaxed">
-                We do not directly collect or store payment card information. All payment processing is handled by
-                <strong className="text-ink"> MoonPay</strong>, a third-party payment service provider. When you complete a purchase,
-                you are subject to MoonPay&apos;s own terms of service and privacy policy, available at{' '}
-                <a href="https://www.moonpay.com/legal/privacy_policy" className="text-accent-strong hover:underline" target="_blank" rel="noopener noreferrer">
-                  moonpay.com/legal/privacy_policy
-                </a>.
+                We do not directly collect or store payment card or bank information. All payment processing is
+                handled by third-party payment service providers — <strong className="text-ink">Bankful</strong> for
+                credit/debit card transactions and <strong className="text-ink">MoonPay</strong> for cryptocurrency
+                transactions (when enabled). When you complete a purchase, you are subject to the terms of service
+                and privacy policy of the relevant processor. We receive only a confirmation of payment and the
+                last four digits of the card used; we do not have access to your full card or bank details.
               </p>
             </Subsection>
             <Subsection title="Automatically Collected Information">
@@ -77,18 +77,24 @@ export default function PrivacyPolicy() {
             </p>
           </Section>
 
-          <Section title="3. MoonPay Payment Processing">
+          <Section title="3. Payment Processing">
             <p className="text-sm text-ink-soft leading-relaxed mb-3">
-              Our Site uses MoonPay to process payments. By completing a purchase, you acknowledge and agree that:
+              We use third-party payment processors to handle all payment transactions. By completing a purchase,
+              you acknowledge and agree that:
             </p>
             <ul className="list-disc pl-5 space-y-1 text-sm text-ink-soft leading-relaxed mb-3">
-              <li>Your payment information is transmitted directly and securely to MoonPay</li>
-              <li>MoonPay may require identity verification (KYC) as part of their regulatory obligations</li>
-              <li>MoonPay may collect, store, and process your personal and financial data per their privacy policy</li>
-              <li>We receive only a confirmation of payment and do not have access to your card or bank details</li>
+              <li>Your payment information is transmitted directly and securely to the processor (Bankful for cards, MoonPay for cryptocurrency)</li>
+              <li>The processor may require identity verification as part of their regulatory or fraud-prevention obligations</li>
+              <li>The processor may collect, store, and process your personal and financial data per their privacy policy</li>
+              <li>We receive only a confirmation of payment and partial card metadata (last four digits, BIN); we do not have access to your full card or bank details</li>
             </ul>
             <p className="text-sm text-ink-soft leading-relaxed">
-              For questions about how MoonPay handles your data, review their privacy policy at{' '}
+              For questions about how each processor handles your data, review their privacy policies directly:
+              Bankful at{' '}
+              <a href="https://paybybankful.com/privacy" className="text-accent-strong hover:underline" target="_blank" rel="noopener noreferrer">
+                paybybankful.com/privacy
+              </a>{' '}
+              and MoonPay at{' '}
               <a href="https://www.moonpay.com/legal/privacy_policy" className="text-accent-strong hover:underline" target="_blank" rel="noopener noreferrer">
                 moonpay.com/legal/privacy_policy
               </a>.
@@ -98,23 +104,34 @@ export default function PrivacyPolicy() {
           <Section title="4. Sharing of Information">
             <p className="text-sm text-ink-soft leading-relaxed mb-3">We may share your information with:</p>
             <ul className="list-disc pl-5 space-y-1 text-sm text-ink-soft leading-relaxed mb-3">
-              <li><strong className="text-ink">MoonPay</strong> — for payment processing</li>
+              <li><strong className="text-ink">Payment processors</strong> (Bankful, MoonPay) — for payment processing and fraud prevention</li>
               <li><strong className="text-ink">Shipping carriers</strong> (USPS, UPS, FedEx) — to fulfill and track your order</li>
-              <li><strong className="text-ink">Email service providers</strong> — to send transactional emails</li>
+              <li><strong className="text-ink">Shipping software</strong> (e.g., ShipCheer) — to generate shipping labels and tracking</li>
+              <li><strong className="text-ink">Email and SMS service providers</strong> (SendGrid, Twilio) — to send transactional notifications</li>
+              <li><strong className="text-ink">Hosting and database providers</strong> (Vercel, Supabase) — to operate the Site</li>
               <li><strong className="text-ink">Law enforcement</strong> — when required by law or to protect our legal rights</li>
             </ul>
             <p className="text-sm text-ink-soft leading-relaxed">
-              We do not share your information with any other third parties without your explicit consent.
+              We do not sell, rent, or trade your personal information, and we do not share it with any other
+              third parties for marketing purposes.
             </p>
           </Section>
 
           <Section title="5. Cookies and Tracking Technologies">
             <p className="text-sm text-ink-soft leading-relaxed mb-3">
-              Our Site may use cookies and similar tracking technologies to enhance your browsing experience
-              and analyze Site traffic. You may disable cookies through your browser settings.
+              We use a small number of first-party cookies to operate the Site. We do not use cookies for
+              advertising, behavioral tracking, or selling information to third parties. The cookies we set are:
             </p>
+            <ul className="list-disc pl-5 space-y-1 text-sm text-ink-soft leading-relaxed mb-3">
+              <li><strong className="text-ink">opp_cohort</strong> — signed cookie (90-day expiry) that records access to the full product catalog when you arrive via a referral or invitation link. Required for the Site to remember your access between visits.</li>
+              <li><strong className="text-ink">opp_ref</strong> — readable cookie (90-day expiry) that records the affiliate code from a referral link so commission attribution and discounts apply correctly at checkout.</li>
+              <li><strong className="text-ink">opp_age_ack</strong> — localStorage entry recording that you confirmed you are 21 or older. Required for compliance with our age policy.</li>
+              <li><strong className="text-ink">Session cookies</strong> for the admin and affiliate dashboards (only set if you log into those).</li>
+            </ul>
             <p className="text-sm text-ink-soft leading-relaxed">
-              We do not use cookies for advertising or behavioral tracking purposes.
+              You may disable or delete cookies through your browser settings. Doing so may prevent referral
+              attribution and require you to re-acknowledge the age gate on each visit, but will not otherwise
+              affect your ability to browse or purchase.
             </p>
           </Section>
 

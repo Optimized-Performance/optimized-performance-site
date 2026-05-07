@@ -1,0 +1,16 @@
+# Optimized Performance Peptides — robots.txt
+# Public catalog is crawlable; admin, customer, and checkout surfaces are not.
+# Restricted SKUs are filtered out of sitemap.xml at render time per the cohort gate.
+
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /admin/
+Disallow: /affiliate
+Disallow: /affiliate/
+Disallow: /api/
+Disallow: /checkout
+Disallow: /checkout/
+Disallow: /orders/
+
+Sitemap: https://optimizedperformancepeptides.com/sitemap.xml

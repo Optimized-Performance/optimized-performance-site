@@ -202,6 +202,46 @@ export async function sendCustomerReply({ to_email, subject, body, reply_to }) {
   return true;
 }
 
+export async function sendRefundNotification(order, { amount, reason }) {
+  const apiKey = process.env.SENDGRID_API_KEY;
+  if (!apiKey || !order.customer_email) {
+    console.log('[alerts] Refund notification skipped (not configured) — order:', order.order_number);
+    return;
+  }
+
+  const refundAmount = Number(amount || order.refund_amount || order.total || 0).toFixed(2);
+  const body = [
+    `Your order has been refunded.`,
+    ``,
+    `Order #: ${order.order_number}`,
+    `Refund amount: $${refundAmount}`,
+    reason ? `Reason: ${reason}` : ``,
+    ``,
+    `The refund has been initiated to your original payment method. It typically posts`,
+    `to your statement within 5–10 business days, depending on your bank.`,
+    ``,
+    `If you don't see the refund within that window, email`,
+    `admin@optimizedperformancepeptides.com with your order number and we'll look it up.`,
+    ``,
+    `— Optimized Performance`,
+  ].filter(Boolean).join('\n');
+
+  try {
+    await fetch('https://api.sendgrid.com/v3/mail/send', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        personalizations: [{ to: [{ email: order.customer_email }] }],
+        from: { email: process.env.FROM_EMAIL || 'orders@optimizedperformancepeptides.com' },
+        subject: `Refund processed — ${order.order_number}`,
+        content: [{ type: 'text/plain', value: body }],
+      }),
+    });
+  } catch (err) {
+    console.error('[alerts] Refund notification failed:', err.message);
+  }
+}
+
 export async function sendOrderConfirmation(order) {
   const apiKey = process.env.SENDGRID_API_KEY;
   if (!apiKey || !order.customer_email) {

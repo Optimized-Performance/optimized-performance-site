@@ -127,7 +127,7 @@ export default function OrdersTab({ products, showSaveMsg, token }) {
   }
 
   async function cancelOrder(orderId) {
-    if (!window.confirm('Mark this order as cancelled? (Records are preserved for audit.)')) return;
+    if (!window.confirm('Mark this order as cancelled? (Records are preserved for audit. Use Refund & Cancel if customer was charged.)')) return;
     try {
       await fetch('/api/admin/orders', {
         method: 'PATCH',
@@ -137,6 +137,53 @@ export default function OrdersTab({ products, showSaveMsg, token }) {
       await fetchOrders();
     } catch {
       /* fail */
+    }
+  }
+
+  // Refund + cancel a paid order. Records OPP-side bookkeeping and notifies
+  // the customer; Bankful refund itself still happens manually via Bankful
+  // dashboard for v1 (Diana hasn't confirmed the refund-API endpoint yet).
+  async function refundAndCancel(order) {
+    const defaultAmt = Number(order.total || 0).toFixed(2);
+    const amtStr = window.prompt(
+      `Refund amount for order ${order.order_number}? Full total = $${defaultAmt}. Enter a smaller number for partial refund.`,
+      defaultAmt
+    );
+    if (amtStr === null) return;
+    const amount = parseFloat(amtStr);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      showSaveMsg('Invalid refund amount.');
+      return;
+    }
+    const reason = window.prompt(
+      'Refund reason (audit log + appears in customer email if non-empty):',
+      ''
+    );
+    if (reason === null) return;
+    if (!window.confirm(
+      `Refund $${amount.toFixed(2)} on order ${order.order_number}?\n\n` +
+      `This records the refund in OPP, marks the order cancelled, and emails the customer. ` +
+      `Process the actual refund in Bankful's dashboard if you haven't already.`
+    )) return;
+
+    try {
+      const res = await fetch('/api/admin/orders/refund', {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ id: order.id, amount, reason }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        showSaveMsg(`Refund failed: ${data.error || res.status}`);
+        return;
+      }
+      await fetchOrders();
+      showSaveMsg(
+        `Refunded $${amount.toFixed(2)} on ${order.order_number}. Customer notified. ` +
+        `Process the Bankful-side refund if not already done.`
+      );
+    } catch (err) {
+      showSaveMsg(`Refund failed: ${err.message}`);
     }
   }
 
@@ -161,9 +208,36 @@ export default function OrdersTab({ products, showSaveMsg, token }) {
     return out;
   }
 
+  // Download a ShipCheer-compatible CSV of paid + not-yet-shipped orders.
+  // Server applies the eligibility filter (payment_status, fraud_status,
+  // fulfillment_status); the file imports cleanly into ShipCheer Batch
+  // Import. Don't use a plain <a href> because the endpoint requires the
+  // x-admin-token header — we fetch then push a blob download.
+  async function exportShipCheerCSV() {
+    try {
+      const res = await fetch('/api/admin/orders/export-shipcheer', { headers: authHeaders() });
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}));
+        showSaveMsg(`ShipCheer export failed: ${errBody.error || res.status}`);
+        return;
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const today = new Date().toISOString().split('T')[0];
+      a.href = url;
+      a.download = `shipcheer-${today}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      showSaveMsg('ShipCheer CSV exported. Drag into Labelife → Batch Printing.');
+    } catch (err) {
+      showSaveMsg(`ShipCheer export failed: ${err.message}`);
+    }
+  }
+
   function exportCSV() {
     const filtered = applyFilters(orders);
-    const headers = ['Order #', 'Payment', 'Status', 'Date', 'Customer', 'Email', 'Address', 'City', 'State', 'ZIP', 'Items', 'Has Preorder', 'Preorder Ship Date', 'Subtotal', 'Discount', 'Shipping', 'Total', 'Affiliate Code', 'Commission %', 'Tracking', 'Notes'];
+    const headers = ['Order #', 'Payment', 'Status', 'Date', 'Customer', 'Email', 'Address', 'City', 'State', 'ZIP', 'Items', 'Has Preorder', 'Preorder Ship Date', 'Subtotal', 'Discount', 'Shipping', 'Total', 'Refund Amount', 'Refunded At', 'Refund Reason', 'Affiliate Code', 'Commission %', 'Tracking', 'Notes'];
     const rows = filtered.map((o) => [
       o.order_number, o.payment_status || '', STATUS_LABELS[o.fulfillment_status || 'pending'],
       new Date(o.created_at).toLocaleDateString(), o.customer_name, o.customer_email,
@@ -173,7 +247,11 @@ export default function OrdersTab({ products, showSaveMsg, token }) {
       latestPreorderShipDateISO(o) || '',
       Number(o.subtotal || 0).toFixed(2), Number(o.discount || 0).toFixed(2),
       Number(o.shipping || 0).toFixed(2),
-      Number(o.total || 0).toFixed(2), o.affiliate_code || '',
+      Number(o.total || 0).toFixed(2),
+      o.refund_amount ? Number(o.refund_amount).toFixed(2) : '',
+      o.refunded_at ? new Date(o.refunded_at).toLocaleDateString() : '',
+      o.refund_reason || '',
+      o.affiliate_code || '',
       o.affiliate_commission_pct || '', o.tracking || '', o.notes || '',
     ]);
     const csv = [headers, ...rows].map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
@@ -199,6 +277,9 @@ export default function OrdersTab({ products, showSaveMsg, token }) {
         <h2 className="font-display font-semibold tracking-display text-xl m-0 text-ink">Orders</h2>
         <div className="flex gap-2">
           <button className="btn-outline text-xs px-4 py-2" onClick={fetchOrders}>Refresh</button>
+          <button className="btn-outline text-xs px-4 py-2" onClick={exportShipCheerCSV} title="Download paid, not-yet-shipped orders in ShipCheer Batch Import format">
+            ShipCheer CSV
+          </button>
           <button className="btn-outline text-xs px-4 py-2" onClick={exportCSV}>Export CSV</button>
         </div>
       </div>
@@ -349,8 +430,20 @@ export default function OrdersTab({ products, showSaveMsg, token }) {
                       </td>
                       <td className="px-4 py-3 text-right font-semibold text-ink">${Number(order.total || 0).toFixed(2)}</td>
                       <td className="px-4 py-3 text-center">
-                        <span className={`opp-meta-mono font-semibold ${order.payment_status === 'completed' ? 'text-success' : 'text-warning'}`}>
-                          {order.payment_status === 'completed' ? 'Paid' : 'Pending'}
+                        <span
+                          className={`opp-meta-mono font-semibold ${
+                            order.payment_status === 'refunded'
+                              ? 'text-danger'
+                              : order.payment_status === 'completed'
+                                ? 'text-success'
+                                : 'text-warning'
+                          }`}
+                        >
+                          {order.payment_status === 'refunded'
+                            ? 'Refunded'
+                            : order.payment_status === 'completed'
+                              ? 'Paid'
+                              : 'Pending'}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-center">
@@ -369,7 +462,16 @@ export default function OrdersTab({ products, showSaveMsg, token }) {
                               → {STATUS_LABELS[nextStatus]}
                             </button>
                           )}
-                          {status !== 'cancelled' && (
+                          {status !== 'cancelled' && order.payment_status === 'completed' && (
+                            <button
+                              className="text-[11px] px-2.5 py-1 rounded-opp border border-danger/40 bg-danger/10 text-danger hover:bg-danger/20 font-semibold"
+                              onClick={() => refundAndCancel(order)}
+                              title="Record refund + cancel order + email customer. Process the Bankful-side refund manually for now."
+                            >
+                              Refund &amp; Cancel
+                            </button>
+                          )}
+                          {status !== 'cancelled' && order.payment_status !== 'completed' && (
                             <button
                               className="text-[11px] px-2.5 py-1 rounded-opp border border-line text-danger hover:bg-surfaceAlt"
                               onClick={() => cancelOrder(order.id)}
@@ -450,6 +552,15 @@ export default function OrdersTab({ products, showSaveMsg, token }) {
                                 Shipping: {Number(order.shipping || 0) === 0 ? 'FREE' : `$${Number(order.shipping).toFixed(2)}`}
                               </div>
                               <div className="text-[13px] font-bold mt-1 text-ink">Total: ${Number(order.total || 0).toFixed(2)}</div>
+                              {order.refunded_at && (
+                                <div className="text-[13px] text-danger mt-2 leading-relaxed">
+                                  <strong>Refunded:</strong> ${Number(order.refund_amount || 0).toFixed(2)} on{' '}
+                                  {new Date(order.refunded_at).toLocaleDateString()}
+                                  {order.refund_reason && (
+                                    <div className="text-[12px] text-ink-mute italic mt-0.5">{order.refund_reason}</div>
+                                  )}
+                                </div>
+                              )}
                               {orderHasPreorders && (
                                 <div className="text-[13px] text-accent-strong mt-2 font-semibold">
                                   Earliest fulfill: hold for preorder restock

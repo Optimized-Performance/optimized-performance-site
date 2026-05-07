@@ -1,0 +1,149 @@
+// Resolves QR codes printed on Phomemo vial labels: the encoded URL is
+// /coa/{sku}/{lot_number}. We look up the matching batch row in Supabase,
+// read coa_pdf_path (a path relative to /public per v11 schema), and:
+//   - serve the PDF inline so phone scanners render it directly, OR
+//   - fall back to a friendly "preliminary COA pending" page when Vanguard
+//     hasn't returned the file yet (lot row exists, coa_pdf_path null).
+//
+// Why server-side fetch + serve instead of a redirect to the static URL:
+// keeps the public URL stable and short for QR codes, lets us swap the
+// underlying file path at any time without changing what's printed on
+// thousands of labels, and lets us add status logic ("preliminary",
+// "pending sterility") later without changing label artwork.
+
+import fs from 'fs'
+import path from 'path'
+import { supabaseAdmin } from '../../../lib/supabase'
+import SEO from '../../../components/SEO'
+
+export async function getServerSideProps(context) {
+  const { sku, lot } = context.params
+  const { res } = context
+
+  if (!supabaseAdmin) {
+    return { props: { error: 'database_unavailable', sku, lot } }
+  }
+
+  // SKU + lot both case-normalize because QR codes may render in either case
+  // depending on the printer driver. lot_number is YYMMDD or YYMMDD-A.
+  const { data: batch, error } = await supabaseAdmin
+    .from('batches')
+    .select('sku, lot_number, production_date, expiry_date, coa_pdf_path, coa_uploaded_at')
+    .ilike('sku', String(sku))
+    .ilike('lot_number', String(lot))
+    .maybeSingle()
+
+  if (error) {
+    console.error('[coa] DB lookup failed:', error.message)
+    return { props: { error: 'database_error', sku, lot } }
+  }
+
+  if (!batch) {
+    res.statusCode = 404
+    return { props: { error: 'not_found', sku, lot } }
+  }
+
+  // Batch exists but COA PDF hasn't been uploaded yet — render the friendly
+  // pending page so customers don't see a 404 between label print and Vanguard
+  // returning the file.
+  if (!batch.coa_pdf_path) {
+    return { props: { batch, error: 'pending', sku, lot } }
+  }
+
+  // Resolve and stream the PDF inline so phone scanners render it directly.
+  // process.cwd() is the project root on Vercel; /public is served as static
+  // but we read the file from disk so the URL stays /coa/{sku}/{lot}.
+  const safeRel = String(batch.coa_pdf_path).replace(/^\/+/, '').replace(/\.\.+/g, '')
+  const filePath = path.join(process.cwd(), 'public', safeRel)
+
+  try {
+    const stat = fs.statSync(filePath)
+    const stream = fs.createReadStream(filePath)
+    res.setHeader('Content-Type', 'application/pdf')
+    res.setHeader('Content-Length', stat.size)
+    res.setHeader(
+      'Content-Disposition',
+      `inline; filename="OPP-COA-${batch.sku}-${batch.lot_number}.pdf"`
+    )
+    res.setHeader('Cache-Control', 'public, max-age=3600, s-maxage=86400')
+    await new Promise((resolve, reject) => {
+      stream.on('end', resolve)
+      stream.on('error', reject)
+      stream.pipe(res)
+    })
+    return { props: {} }
+  } catch (err) {
+    console.error('[coa] PDF read failed for', filePath, err.message)
+    return { props: { batch, error: 'file_missing', sku, lot } }
+  }
+}
+
+export default function CoaPage({ error, batch, sku, lot }) {
+  if (error === 'pending') {
+    return (
+      <div className="max-w-narrow mx-auto px-8 py-20 text-center">
+        <SEO title={`COA — ${sku} lot ${lot}`} description="Certificate of Analysis status" path="" noindex />
+        <span className="opp-eyebrow">Certificate of Analysis</span>
+        <h1 className="font-display font-semibold tracking-display text-3xl mt-3 mb-3 text-ink">
+          Preliminary COA pending
+        </h1>
+        <p className="text-ink-soft text-sm mb-2">
+          Lot <strong className="text-ink font-mono">{lot}</strong> ({sku}) has been produced and submitted
+          to Vanguard Laboratory for testing. The full Certificate of Analysis will appear at this URL once
+          the lab returns the report (typically 5–14 days from submission).
+        </p>
+        {batch?.production_date && (
+          <p className="opp-meta-mono text-ink-mute mt-4">
+            Produced: {new Date(batch.production_date).toLocaleDateString()}
+          </p>
+        )}
+      </div>
+    )
+  }
+
+  if (error === 'not_found') {
+    return (
+      <div className="max-w-narrow mx-auto px-8 py-20 text-center">
+        <SEO title="COA not found" description="" path="" noindex />
+        <h1 className="font-display font-semibold tracking-display text-3xl text-ink">
+          Lot not recognized
+        </h1>
+        <p className="text-ink-soft text-sm mt-3">
+          We couldn&apos;t find a batch matching <strong className="font-mono">{sku} / {lot}</strong>. If you
+          scanned this from a vial label, contact{' '}
+          <a href="mailto:admin@optimizedperformancepeptides.com" className="text-accent-strong hover:underline">
+            admin@optimizedperformancepeptides.com
+          </a>{' '}
+          and include a photo of the label.
+        </p>
+      </div>
+    )
+  }
+
+  if (error === 'file_missing') {
+    return (
+      <div className="max-w-narrow mx-auto px-8 py-20 text-center">
+        <SEO title="COA temporarily unavailable" description="" path="" noindex />
+        <h1 className="font-display font-semibold tracking-display text-3xl text-ink">
+          COA temporarily unavailable
+        </h1>
+        <p className="text-ink-soft text-sm mt-3">
+          The file for lot <strong className="font-mono">{lot}</strong> is being re-uploaded. Try again in a
+          few minutes, or email{' '}
+          <a href="mailto:admin@optimizedperformancepeptides.com" className="text-accent-strong hover:underline">
+            admin@optimizedperformancepeptides.com
+          </a>.
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="max-w-narrow mx-auto px-8 py-20 text-center">
+      <h1 className="font-display font-semibold tracking-display text-3xl text-ink">
+        Unable to load COA
+      </h1>
+      <p className="text-ink-soft text-sm mt-3">Try again in a moment.</p>
+    </div>
+  )
+}
