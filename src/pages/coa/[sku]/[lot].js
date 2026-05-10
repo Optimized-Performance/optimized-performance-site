@@ -1,20 +1,20 @@
 // Resolves QR codes printed on Phomemo vial labels: the encoded URL is
 // /coa/{sku}/{lot_number}. We look up the matching batch row in Supabase,
-// read coa_pdf_path (a path relative to /public per v11 schema), and:
-//   - serve the PDF inline so phone scanners render it directly, OR
+// read coa_pdf_path (object key in the 'coas' Storage bucket per v14), and:
+//   - stream the PDF inline so phone scanners render it directly, OR
 //   - fall back to a friendly "preliminary COA pending" page when Vanguard
 //     hasn't returned the file yet (lot row exists, coa_pdf_path null).
 //
-// Why server-side fetch + serve instead of a redirect to the static URL:
+// Why server-side fetch + serve instead of a redirect to the storage URL:
 // keeps the public URL stable and short for QR codes, lets us swap the
-// underlying file path at any time without changing what's printed on
+// underlying object key at any time without changing what's printed on
 // thousands of labels, and lets us add status logic ("preliminary",
 // "pending sterility") later without changing label artwork.
 
-import fs from 'fs'
-import path from 'path'
 import { supabaseAdmin } from '../../../lib/supabase'
 import SEO from '../../../components/SEO'
+
+const COA_BUCKET = 'coas'
 
 export async function getServerSideProps(context) {
   const { sku, lot } = context.params
@@ -50,30 +50,31 @@ export async function getServerSideProps(context) {
     return { props: { batch, error: 'pending', sku, lot } }
   }
 
-  // Resolve and stream the PDF inline so phone scanners render it directly.
-  // process.cwd() is the project root on Vercel; /public is served as static
-  // but we read the file from disk so the URL stays /coa/{sku}/{lot}.
-  const safeRel = String(batch.coa_pdf_path).replace(/^\/+/, '').replace(/\.\.+/g, '')
-  const filePath = path.join(process.cwd(), 'public', safeRel)
+  // Strip any leading slashes the column may carry from older /public-style
+  // values; Supabase Storage keys are bucket-relative and never start with /.
+  const objectKey = String(batch.coa_pdf_path).replace(/^\/+/, '')
 
   try {
-    const stat = fs.statSync(filePath)
-    const stream = fs.createReadStream(filePath)
+    const { data: blob, error: dlErr } = await supabaseAdmin
+      .storage
+      .from(COA_BUCKET)
+      .download(objectKey)
+    if (dlErr || !blob) {
+      console.error('[coa] storage download failed for', objectKey, dlErr?.message)
+      return { props: { batch, error: 'file_missing', sku, lot } }
+    }
+    const buf = Buffer.from(await blob.arrayBuffer())
     res.setHeader('Content-Type', 'application/pdf')
-    res.setHeader('Content-Length', stat.size)
+    res.setHeader('Content-Length', buf.length)
     res.setHeader(
       'Content-Disposition',
       `inline; filename="OPP-COA-${batch.sku}-${batch.lot_number}.pdf"`
     )
     res.setHeader('Cache-Control', 'public, max-age=3600, s-maxage=86400')
-    await new Promise((resolve, reject) => {
-      stream.on('end', resolve)
-      stream.on('error', reject)
-      stream.pipe(res)
-    })
+    res.end(buf)
     return { props: {} }
   } catch (err) {
-    console.error('[coa] PDF read failed for', filePath, err.message)
+    console.error('[coa] storage read failed for', objectKey, err.message)
     return { props: { batch, error: 'file_missing', sku, lot } }
   }
 }

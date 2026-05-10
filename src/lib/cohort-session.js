@@ -36,6 +36,7 @@ const COHORT_ALLOWLIST = new Set([
   'launch',
   'community',
   'broadcast',
+  'social',
 ])
 
 export function isCohortAllowedToken(token) {

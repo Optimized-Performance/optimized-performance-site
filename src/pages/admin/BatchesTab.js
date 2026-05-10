@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 // Customer-facing production lots — the digital lot system. Each row is one
 // (sku, lot_number) batch with chain-of-custody back to a supply_lots row,
@@ -20,7 +20,6 @@ function emptyForm(products) {
     expiryDate: '',
     supplierLotId: '',
     vialsProduced: '',
-    coaPdfPath: '',
     notes: '',
   };
 }
@@ -33,6 +32,9 @@ export default function BatchesTab({ products, showSaveMsg, token }) {
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState(emptyForm(products));
   const [printingId, setPrintingId] = useState(null);
+  const [uploadingId, setUploadingId] = useState(null);
+  const fileInputRef = useRef(null);
+  const uploadTargetRef = useRef(null);
 
   useEffect(() => {
     fetchBatches();
@@ -89,7 +91,6 @@ export default function BatchesTab({ products, showSaveMsg, token }) {
       expiryDate: form.expiryDate || undefined,
       supplierLotId: form.supplierLotId || undefined,
       vialsProduced: parseInt(form.vialsProduced) || 0,
-      coaPdfPath: form.coaPdfPath || undefined,
       notes: form.notes,
     };
 
@@ -124,7 +125,6 @@ export default function BatchesTab({ products, showSaveMsg, token }) {
       expiryDate: batch.expiry_date || '',
       supplierLotId: batch.supplier_lot_id || '',
       vialsProduced: String(batch.vials_produced || ''),
-      coaPdfPath: batch.coa_pdf_path || '',
       notes: batch.notes || '',
     });
     setEditingId(batch.id);
@@ -176,6 +176,49 @@ export default function BatchesTab({ products, showSaveMsg, token }) {
     }
   }
 
+  // Upload a Vanguard COA PDF for the given batch. Opens the hidden <input
+  // type="file"> picker; once a file is chosen, onUploadFileChosen runs the
+  // POST. Storage object key is derived server-side from the batch row, so
+  // the client only needs to send the binary PDF + batchId.
+  function handleUpload(batch) {
+    uploadTargetRef.current = batch;
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+      fileInputRef.current.click();
+    }
+  }
+
+  async function onUploadFileChosen(e) {
+    const file = e.target.files?.[0];
+    const batch = uploadTargetRef.current;
+    uploadTargetRef.current = null;
+    if (!file || !batch) return;
+    if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
+      showSaveMsg('Only PDF uploads are supported.');
+      return;
+    }
+    setUploadingId(batch.id);
+    try {
+      const res = await fetch(`/api/admin/batches/upload-coa?batchId=${encodeURIComponent(batch.id)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/pdf', 'x-admin-token': token || '' },
+        body: file,
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        showSaveMsg(`Upload failed: ${err.error || res.status}`);
+        return;
+      }
+      const json = await res.json();
+      await fetchBatches();
+      showSaveMsg(`COA uploaded (${Math.round((json.bytes || 0) / 1024)} KB). Live at ${json.coaUrl}`);
+    } catch (err) {
+      showSaveMsg(`Upload failed: ${err.message}`);
+    } finally {
+      setUploadingId(null);
+    }
+  }
+
   function getProductName(sku) {
     const p = products.find((p) => p.id === sku);
     return p ? `${p.name} ${p.dosage || ''}`.trim() : sku;
@@ -204,6 +247,13 @@ export default function BatchesTab({ products, showSaveMsg, token }) {
 
   return (
     <>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="application/pdf,.pdf"
+        className="hidden"
+        onChange={onUploadFileChosen}
+      />
       <div className="flex justify-between items-center mb-5 flex-wrap gap-3">
         <div>
           <h2 className="font-display font-semibold tracking-display text-xl m-0 text-ink">Batches</h2>
@@ -311,14 +361,6 @@ export default function BatchesTab({ products, showSaveMsg, token }) {
                   ))}
                 </select>
               </Field>
-              <Field label="COA PDF Path (relative to /public)">
-                <input
-                  className="input-field font-mono"
-                  value={form.coaPdfPath}
-                  onChange={(e) => setForm({ ...form, coaPdfPath: e.target.value })}
-                  placeholder="coa/bpc-157-5mg/260504.pdf"
-                />
-              </Field>
               <Field label="Notes">
                 <input
                   className="input-field"
@@ -386,6 +428,14 @@ export default function BatchesTab({ products, showSaveMsg, token }) {
                         disabled={printingId === b.id}
                       >
                         {printingId === b.id ? 'Printing…' : 'Print Labels'}
+                      </button>
+                      <button
+                        className="text-[11px] px-2.5 py-1 rounded-opp border border-line text-accent-strong hover:bg-surfaceAlt disabled:opacity-50"
+                        onClick={() => handleUpload(b)}
+                        disabled={uploadingId === b.id}
+                        title={b.coa_pdf_path ? 'Replace COA PDF' : 'Upload COA PDF'}
+                      >
+                        {uploadingId === b.id ? 'Uploading…' : b.coa_pdf_path ? 'Replace COA' : 'Upload COA'}
                       </button>
                       <button
                         className="text-[11px] px-2.5 py-1 rounded-opp border border-line text-accent-strong hover:bg-surfaceAlt"
