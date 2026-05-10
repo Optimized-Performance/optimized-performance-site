@@ -9,18 +9,29 @@ function requireAuth(req) {
   return validateSessionToken(token)
 }
 
-// Phomemo label media: 2.0" × 1.0" rolls. Two-up layout (matches Matt's
-// workflow — print pair, cut in half = two 1"×1" tiles per label).
+// Phomemo label media: 40mm × 14mm rolls. Two-up layout — print pair, cut in
+// half = two ~20×14mm tiles per label. The Avery WePrint brand label sits on
+// the vial body and the Phomemo sticker overlays a portion of it carrying the
+// QR + LOT, since the 3 mL vial doesn't have room for two side-by-side
+// stickers. Avery already carries SKU + EXP + RUO, so this sticker only needs
+// the QR pointer + LOT for traceability.
 //
-// 203 DPI is the Phomemo M02/P12/M110 native resolution. 2"×1" at 203 DPI =
-// 406×203 pixels. Each tile is 203×203.
+// 203 DPI is the Phomemo native resolution. 40mm × 14mm at 203 DPI = 320×112 px.
 const DPI = 203
-const LABEL_W_IN = 2
-const LABEL_H_IN = 1
-const LABEL_W = LABEL_W_IN * DPI // 406
-const LABEL_H = LABEL_H_IN * DPI // 203
-const TILE_W = LABEL_W / 2 // 203
-const QR_SIZE = 150 // px, leaves room for text below
+const MM_TO_PX = DPI / 25.4
+const LABEL_W_MM = 40
+const LABEL_H_MM = 14
+const LABEL_W = Math.round(LABEL_W_MM * MM_TO_PX)  // 320
+const LABEL_H = Math.round(LABEL_H_MM * MM_TO_PX)  // 112
+const TILE_W = LABEL_W / 2 // 160
+
+// QR ~12 mm sq. With the current ~62-char URL in byte mode at 'L' error
+// correction, that lands at QR version 4 (33×33 modules) = ~0.36 mm per
+// module on the printout — at the lower end of phone-camera comfort but
+// scannable in normal light. If real-world scans suffer, the lever to pull
+// is path-normalization middleware that lets us encode the URL as uppercase
+// alphanumeric (drops to version 3, 29 modules, ~0.41 mm/module).
+const QR_SIZE = 96 // ~12 mm
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://optimizedperformancepeptides.com'
 
@@ -34,31 +45,20 @@ function escapeXml(s) {
   }[c]))
 }
 
-function formatExp(iso) {
-  if (!iso) return ''
-  const [y, m, d] = String(iso).split('-')
-  if (!y || !m || !d) return ''
-  return `${y.slice(2)}${m}${d}`
-}
-
-async function buildLabelSvg({ qrPng, sku, lotNumber, expiryShort }) {
+async function buildLabelSvg({ qrPng, lotNumber }) {
   const qrDataUri = `data:image/png;base64,${qrPng.toString('base64')}`
   const lotText = escapeXml(`LOT ${lotNumber}`)
-  const expText = expiryShort ? escapeXml(`EXP ${expiryShort}`) : ''
-  const skuText = escapeXml(sku.toUpperCase())
 
   // Two-up: identical content twice; user cuts down the middle. Each tile
-  // gets centered QR (top) + LOT/EXP text block (bottom).
+  // gets centered QR (top) + LOT text (bottom). Top margin is 2 px (white
+  // space already in QR's quiet zone), bottom margin gives ~12 px for an
+  // 11pt LOT line.
   function tile(xOffset) {
     const qrX = xOffset + (TILE_W - QR_SIZE) / 2
     return `
-      <image href="${qrDataUri}" x="${qrX}" y="8" width="${QR_SIZE}" height="${QR_SIZE}" />
-      <text x="${xOffset + TILE_W / 2}" y="${QR_SIZE + 26}" text-anchor="middle"
-            font-family="Helvetica, Arial, sans-serif" font-size="14" font-weight="700" fill="#000">${lotText}</text>
-      ${expText ? `<text x="${xOffset + TILE_W / 2}" y="${QR_SIZE + 42}" text-anchor="middle"
-            font-family="Helvetica, Arial, sans-serif" font-size="11" font-weight="400" fill="#000">${expText}</text>` : ''}
-      <text x="${xOffset + TILE_W / 2}" y="${LABEL_H - 4}" text-anchor="middle"
-            font-family="Helvetica, Arial, sans-serif" font-size="9" font-weight="500" fill="#444" letter-spacing="0.5">${skuText} · SCAN COA</text>
+      <image href="${qrDataUri}" x="${qrX}" y="2" width="${QR_SIZE}" height="${QR_SIZE}" />
+      <text x="${xOffset + TILE_W / 2}" y="${LABEL_H - 3}" text-anchor="middle"
+            font-family="Helvetica, Arial, sans-serif" font-size="11" font-weight="700" fill="#000">${lotText}</text>
     `
   }
 
@@ -100,7 +100,7 @@ export default async function handler(req, res) {
 
     const coaUrl = `${SITE_URL}/coa/${encodeURIComponent(batch.sku)}/${encodeURIComponent(batch.lot_number)}`
     const qrPng = await QRCode.toBuffer(coaUrl, {
-      errorCorrectionLevel: 'M',
+      errorCorrectionLevel: 'L',
       margin: 1,
       width: QR_SIZE,
       color: { dark: '#000000', light: '#FFFFFF' },
@@ -108,9 +108,7 @@ export default async function handler(req, res) {
 
     const svg = await buildLabelSvg({
       qrPng,
-      sku: batch.sku,
       lotNumber: batch.lot_number,
-      expiryShort: formatExp(batch.expiry_date),
     })
 
     const png = await sharp(Buffer.from(svg)).png().toBuffer()
