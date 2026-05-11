@@ -43,13 +43,13 @@ export default function ShippingReturns() {
                     <td className="px-4 py-3 text-ink font-medium">Standard Shipping</td>
                     <td className="px-4 py-3 text-ink-soft font-mono">$16.95 flat</td>
                     <td className="px-4 py-3 text-ink-soft">2–5 business days</td>
-                    <td className="px-4 py-3 text-ink-soft">USPS Ground Advantage · vial orders, insulated foam shipper + phase-change gel</td>
+                    <td className="px-4 py-3 text-ink-soft">USPS Ground Advantage · vial orders, thermal-insulated mailer</td>
                   </tr>
                   <tr className="border-t border-line">
                     <td className="px-4 py-3 text-ink font-medium">Cold-Pack Shipping (Kits)</td>
                     <td className="px-4 py-3 text-ink-soft font-mono">$33.95 flat</td>
                     <td className="px-4 py-3 text-ink-soft">1–3 business days</td>
-                    <td className="px-4 py-3 text-ink-soft">USPS Priority Mail · 1.5"-wall insulated box + full-sheet gel · 2–8 °C</td>
+                    <td className="px-4 py-3 text-ink-soft">USPS Priority Mail · larger thermal-insulated mailer · faster transit</td>
                   </tr>
                   <tr className="border-t border-line">
                     <td className="px-4 py-3 text-ink font-medium">Expedited Shipping</td>
@@ -62,7 +62,7 @@ export default function ShippingReturns() {
             </div>
             <ul className="list-disc pl-5 space-y-1.5 text-sm text-ink-soft leading-relaxed">
               <li><strong className="text-ink">Free standard shipping on vial-only orders $250+</strong> (after any affiliate or promo discount).</li>
-              <li><strong className="text-ink">Cold-pack shipping ($33.95 flat) applies to all kit orders</strong> regardless of order total — kits ship USPS Priority in a 1.5"-wall insulated box with a full-sheet phase-change gel pack. The surcharge covers the cold-chain packaging and faster transit kits require.</li>
+              <li><strong className="text-ink">Cold-pack shipping ($33.95 flat) applies to all kit orders</strong> regardless of order total — kits ship USPS Priority in a larger thermal-insulated mailer. The surcharge covers the larger mailer and faster transit kits require.</li>
               <li>All orders ship from within the United States.</li>
               <li>We currently ship to <strong className="text-ink">US addresses only</strong>.</li>
               <li>Shipping times are estimates and not guaranteed.</li>
@@ -72,9 +72,9 @@ export default function ShippingReturns() {
           <Section title="Packaging & Cold Chain">
             <ul className="list-disc pl-5 space-y-1.5 text-sm text-ink-soft leading-relaxed">
               <li>All orders are shipped in <strong className="text-ink">discrete, unbranded packaging</strong>.</li>
-              <li><strong className="text-ink">Vial orders</strong> ship in a 1"-wall insulated foam shipper with a full-sheet phase-change gel pack. The gel maintains 2–8 °C for 48+ hours, which covers typical USPS Ground Advantage transit windows nationwide.</li>
-              <li><strong className="text-ink">Kit orders</strong> ship in a larger 1.5"-wall insulated box with a full-sheet phase-change gel pack and move via USPS Priority Mail for faster transit. Gel volume is increased during summer months (May–September) to compensate for higher transit temperatures.</li>
-              <li>Lyophilized peptides are stable for short periods at room temperature, but our cold-chain process is engineered so vials arrive well within their 2–8 °C storage window.</li>
+              <li><strong className="text-ink">Vial orders</strong> ship in a thermal-insulated mailer designed for short-transit temperature protection. The reflective interior insulation moderates package temperature through typical USPS Ground Advantage transit windows nationwide.</li>
+              <li><strong className="text-ink">Kit orders</strong> ship in a larger thermal-insulated mailer via USPS Priority Mail for faster transit.</li>
+              <li>Lyophilized peptides are stable for short periods at room temperature, and our packaging is selected so vials arrive in good condition under typical transit conditions. Once received, vials should be stored at 2–8 °C until reconstitution.</li>
             </ul>
           </Section>
 

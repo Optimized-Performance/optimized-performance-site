@@ -152,7 +152,7 @@ export default function CartDrawer() {
               </div>
               {shippingBreakdown.hasColdPack && (
                 <p className="opp-meta-mono text-ink-mute m-0 leading-snug">
-                  Kits ship USPS Priority in an insulated box with full-sheet phase-change gel — surcharge covers the cold-chain packaging and faster transit needed to keep vials at 2–8 °C.
+                  Kits ship USPS Priority in a larger thermal-insulated mailer — surcharge covers the larger mailer and faster transit kit-volume orders require.
                 </p>
               )}
               <button className="btn-primary w-full mt-1" onClick={() => goto('/checkout')}>

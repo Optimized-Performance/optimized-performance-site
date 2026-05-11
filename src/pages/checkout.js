@@ -401,7 +401,7 @@ export default function Checkout() {
                   <span className="text-ink">${shippingBreakdown.coldPack.toFixed(2)}</span>
                 </div>
                 <p className="opp-meta-mono text-ink-mute m-0">
-                  Kits ship in an insulated box with phase-change gel to keep vials at 2–8 °C in transit. Surcharge covers packaging + cold-chain handling.
+                  Kits ship in a larger thermal-insulated mailer via USPS Priority Mail. Surcharge covers the larger mailer + faster transit.
                 </p>
               </>
             )}

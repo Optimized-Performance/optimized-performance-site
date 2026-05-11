@@ -26,11 +26,14 @@ function requireAuth(req) {
   return validateSessionToken(token)
 }
 
-// Conservative per-package defaults derived from the cart contents. Vials
-// ship in a Uline S-7887 insulated foam shipper (8x6x5 outer); kits ship in
-// a Uline S-13391 (10x8x9 outer). Weights include vials + box + full-sheet
-// PCM gel and run a few ounces over actual to give ShipCheer's quote engine
-// the right billing weight.
+// Conservative per-package defaults derived from the cart contents. Cold-chain
+// packaging pivoted 2026-05-11 from Uline insulated boxes + PCM gel to
+// thermal-insulated mailers. The dimensions below are the historical Uline
+// box specs — they still produce safe (over-)estimates for ShipCheer's
+// postage quote engine, so labels won't underpay, but they're not accurate
+// to the actual mailer shape. TODO once the thermal-mailer SKUs are received
+// and confirmed: replace with real outer dims + weights so postage estimates
+// match billed cost.
 function packageSpecForOrder(items) {
   if (cartRequiresColdPack(items)) {
     return { lbs: 5, oz: 0, length: 10, width: 8, height: 9 }
