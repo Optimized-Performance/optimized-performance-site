@@ -4,7 +4,7 @@ import { createCheckoutSession } from '../../../lib/payments/cardProcessor'
 import { createCryptoCheckoutSession } from '../../../lib/payments/cryptoProcessor'
 import { runVelocityChecks, extractClientIP } from '../../../lib/fraud-checks'
 import { calcShipping } from '../../../lib/shipping'
-import { sendZelleInstructions } from '../../../lib/alerts'
+import { sendZelleInstructions, sendVenmoInstructions } from '../../../lib/alerts'
 
 function generateOrderNumber() {
   const date = new Date()
@@ -31,8 +31,8 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Invalid or missing required fields' })
     }
 
-    if (paymentMethod !== 'card' && paymentMethod !== 'crypto' && paymentMethod !== 'zelle') {
-      return res.status(400).json({ error: 'Invalid paymentMethod (must be "card", "crypto", or "zelle")' })
+    if (paymentMethod !== 'card' && paymentMethod !== 'crypto' && paymentMethod !== 'zelle' && paymentMethod !== 'venmo') {
+      return res.status(400).json({ error: 'Invalid paymentMethod (must be "card", "crypto", "zelle", or "venmo")' })
     }
 
     // Research-use acknowledgment (RUO + 21+ + no-consumption) must be explicitly confirmed.
@@ -222,14 +222,35 @@ export default async function handler(req, res) {
       }
     }
 
-    // Zelle path. Order sits in payment_status='pending' / payment_method='zelle'
-    // until admin manually marks paid after seeing the Zelle deposit in
-    // BoA-1990. Customer is redirected to an instructions page and emailed the
-    // same details so they can complete from their bank app.
+    if (paymentMethod === 'zelle') {
+      // Order sits in payment_status='pending' / payment_method='zelle' until
+      // admin manually marks paid after seeing the Zelle deposit in BoA-1990.
+      // Customer is redirected to an instructions page and emailed the same
+      // details so they can complete from their bank app.
+      try {
+        await sendZelleInstructions(order)
+      } catch (mailErr) {
+        console.error('[orders/create] Zelle instructions email failed:', mailErr.message)
+        // non-fatal — instructions are also on the redirect page; customer can still pay
+      }
+      return res.status(200).json({
+        order_number: orderNumber,
+        order_id: order.id,
+        total,
+        shipping,
+        discount,
+        redirect_url: `${SITE_URL}/checkout/zelle-instructions?order=${encodeURIComponent(orderNumber)}&amount=${total.toFixed(2)}`,
+      })
+    }
+
+    // Venmo path. Same shape as Zelle — order pends in payment_method='venmo'
+    // until admin sees the Venmo Business deposit + marks paid in the admin
+    // Orders tab. Instructions page provides a venmo:// deep-link for mobile
+    // app handoff plus copyable fields for desktop / fallback.
     try {
-      await sendZelleInstructions(order)
+      await sendVenmoInstructions(order)
     } catch (mailErr) {
-      console.error('[orders/create] Zelle instructions email failed:', mailErr.message)
+      console.error('[orders/create] Venmo instructions email failed:', mailErr.message)
       // non-fatal — instructions are also on the redirect page; customer can still pay
     }
     return res.status(200).json({
@@ -238,7 +259,7 @@ export default async function handler(req, res) {
       total,
       shipping,
       discount,
-      redirect_url: `${SITE_URL}/checkout/zelle-instructions?order=${encodeURIComponent(orderNumber)}&amount=${total.toFixed(2)}`,
+      redirect_url: `${SITE_URL}/checkout/venmo-instructions?order=${encodeURIComponent(orderNumber)}&amount=${total.toFixed(2)}`,
     })
   } catch (err) {
     console.error('Order creation failed:', err)

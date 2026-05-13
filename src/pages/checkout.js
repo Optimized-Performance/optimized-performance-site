@@ -17,6 +17,7 @@ function readRefCookie() {
 
 const cryptoEnabled = process.env.NEXT_PUBLIC_CRYPTO_ENABLED === 'true';
 const zelleEnabled = process.env.NEXT_PUBLIC_ZELLE_ENABLED === 'true';
+const venmoEnabled = process.env.NEXT_PUBLIC_VENMO_ENABLED === 'true';
 
 export default function Checkout() {
   const { cartItems, cartTotal } = useCart();
@@ -291,40 +292,63 @@ export default function Checkout() {
                   ? 'Processing…'
                   : `Pay $${discountedTotal.toFixed(2)} with card`}
               </button>
-              {(cryptoEnabled || zelleEnabled) && (
-                <div className={`grid grid-cols-1 ${cryptoEnabled && zelleEnabled ? 'sm:grid-cols-2' : ''} gap-3`}>
-                  {cryptoEnabled && (
-                    <button
-                      type="button"
-                      onClick={() => handleCheckout('crypto')}
-                      className="btn-outline w-full py-4 text-base"
-                      disabled={submitting || !researchAck}
-                    >
-                      {submitting && submittingMethod === 'crypto'
-                        ? 'Processing…'
-                        : `Pay $${discountedTotal.toFixed(2)} with crypto`}
-                    </button>
-                  )}
-                  {zelleEnabled && (
-                    <button
-                      type="button"
-                      onClick={() => handleCheckout('zelle')}
-                      className="btn-outline w-full py-4 text-base"
-                      disabled={submitting || !researchAck}
-                    >
-                      {submitting && submittingMethod === 'zelle'
-                        ? 'Processing…'
-                        : `Pay $${discountedTotal.toFixed(2)} with Zelle`}
-                    </button>
-                  )}
-                </div>
-              )}
+              {(cryptoEnabled || zelleEnabled || venmoEnabled) && (() => {
+                // Grid auto-sizes to the number of alt-payment buttons enabled.
+                // Class names are written literally (not interpolated) so Tailwind's
+                // content scanner picks them up.
+                const altCount = [cryptoEnabled, zelleEnabled, venmoEnabled].filter(Boolean).length;
+                const altGridClass =
+                  altCount === 3 ? 'sm:grid-cols-3'
+                  : altCount === 2 ? 'sm:grid-cols-2'
+                  : '';
+                return (
+                  <div className={`grid grid-cols-1 ${altGridClass} gap-3`}>
+                    {cryptoEnabled && (
+                      <button
+                        type="button"
+                        onClick={() => handleCheckout('crypto')}
+                        className="btn-outline w-full py-4 text-base"
+                        disabled={submitting || !researchAck}
+                      >
+                        {submitting && submittingMethod === 'crypto'
+                          ? 'Processing…'
+                          : `Pay $${discountedTotal.toFixed(2)} with crypto`}
+                      </button>
+                    )}
+                    {zelleEnabled && (
+                      <button
+                        type="button"
+                        onClick={() => handleCheckout('zelle')}
+                        className="btn-outline w-full py-4 text-base"
+                        disabled={submitting || !researchAck}
+                      >
+                        {submitting && submittingMethod === 'zelle'
+                          ? 'Processing…'
+                          : `Pay $${discountedTotal.toFixed(2)} with Zelle`}
+                      </button>
+                    )}
+                    {venmoEnabled && (
+                      <button
+                        type="button"
+                        onClick={() => handleCheckout('venmo')}
+                        className="btn-outline w-full py-4 text-base"
+                        disabled={submitting || !researchAck}
+                      >
+                        {submitting && submittingMethod === 'venmo'
+                          ? 'Processing…'
+                          : `Pay $${discountedTotal.toFixed(2)} with Venmo`}
+                      </button>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
             <p className="opp-meta-mono text-center mt-3 leading-relaxed m-0">
               {[
                 'Card processed by Bankful',
                 cryptoEnabled && 'Crypto (BTC, ETH, USDC, USDT) by NOWPayments',
                 zelleEnabled && 'Zelle direct to OPP (manual review)',
+                venmoEnabled && 'Venmo to @optimizedperformance (manual review)',
               ].filter(Boolean).join('. ') + '.'}
             </p>
           </form>

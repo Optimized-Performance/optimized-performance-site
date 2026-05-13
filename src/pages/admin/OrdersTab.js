@@ -93,6 +93,13 @@ function isAwaitingZelle(order) {
   return order.payment_method === 'zelle' && order.payment_status === 'pending';
 }
 
+// "Awaiting Venmo" — same shape as Zelle, against Venmo Business deposits
+// (@optimizedperformance → daily sweep to BoA-1990). One-click "Mark Venmo
+// Paid" runs the same finalizePaidOrder helper.
+function isAwaitingVenmo(order) {
+  return order.payment_method === 'venmo' && order.payment_status === 'pending';
+}
+
 export default function OrdersTab({ products = [], showSaveMsg, token }) {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -231,7 +238,33 @@ export default function OrdersTab({ products = [], showSaveMsg, token }) {
       `This decrements inventory, updates affiliate stats, and emails the customer.`
     )) return;
     try {
-      const res = await fetch('/api/admin/orders/mark-zelle-paid', {
+      await markPaid('mark-zelle-paid', order, 'Zelle');
+    } catch {}
+  }
+
+  // Mark a Venmo order as paid after admin has visually confirmed the deposit
+  // in the Venmo Business app (@optimizedperformance). Same finalize helper
+  // as Zelle/card/crypto — confirms first because this is destructive (fires
+  // customer email + decrements inventory).
+  async function markVenmoPaid(order) {
+    const expected = Number(order.total || 0).toFixed(2);
+    if (!window.confirm(
+      `Mark order ${order.order_number} as paid?\n\n` +
+      `Expected deposit: $${expected}\n` +
+      `Customer email: ${order.customer_email}\n\n` +
+      `Confirm you've seen a Venmo deposit on @optimizedperformance for this amount with this order number in the note. ` +
+      `This decrements inventory, updates affiliate stats, and emails the customer.`
+    )) return;
+    try {
+      await markPaid('mark-venmo-paid', order, 'Venmo');
+    } catch {}
+  }
+
+  // Shared submit path for the manual-confirmation endpoints (Zelle, Venmo,
+  // future P2P rails). Keeps the network + error-surface logic in one place.
+  async function markPaid(endpoint, order, rail) {
+    try {
+      const res = await fetch(`/api/admin/orders/${endpoint}`, {
         method: 'POST',
         headers: authHeaders(),
         body: JSON.stringify({ id: order.id }),
@@ -268,6 +301,7 @@ export default function OrdersTab({ products = [], showSaveMsg, token }) {
     if (filter === 'all') out = list;
     else if (filter === 'ready_to_ship') out = list.filter(isReadyToShip);
     else if (filter === 'awaiting_zelle') out = list.filter(isAwaitingZelle);
+    else if (filter === 'awaiting_venmo') out = list.filter(isAwaitingVenmo);
     else out = list.filter((o) => (o.fulfillment_status || 'pending') === filter);
     if (preorderOnly) out = out.filter(hasPreorderItems);
     return out;
@@ -519,6 +553,7 @@ export default function OrdersTab({ products = [], showSaveMsg, token }) {
     all: orders.length,
     ready_to_ship: orders.filter(isReadyToShip).length,
     awaiting_zelle: orders.filter(isAwaitingZelle).length,
+    awaiting_venmo: orders.filter(isAwaitingVenmo).length,
   };
   ALL_STATUSES.forEach((st) => {
     counts[st] = orders.filter((o) => (o.fulfillment_status || 'pending') === st).length;
@@ -597,6 +632,20 @@ export default function OrdersTab({ products = [], showSaveMsg, token }) {
             title="Zelle orders awaiting payment confirmation — match against BoA-1990 deposits then click Mark Zelle Paid"
           >
             ⏱ Awaiting Zelle ({counts.awaiting_zelle})
+          </button>
+        )}
+        {counts.awaiting_venmo > 0 && (
+          <button
+            key="awaiting_venmo"
+            onClick={() => setFilter('awaiting_venmo')}
+            className={`px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
+              filter === 'awaiting_venmo'
+                ? 'bg-warning text-surface border-warning'
+                : 'bg-warning/10 text-warning border-warning/40 hover:border-warning'
+            }`}
+            title="Venmo orders awaiting payment confirmation — match against @optimizedperformance deposits then click Mark Venmo Paid"
+          >
+            ⏱ Awaiting Venmo ({counts.awaiting_venmo})
           </button>
         )}
         {['all', ...ALL_STATUSES].map((st) => (
@@ -793,6 +842,15 @@ export default function OrdersTab({ products = [], showSaveMsg, token }) {
                               title="Mark this Zelle order paid after confirming the deposit in BoA-1990. Runs the same finalization as card + crypto webhooks."
                             >
                               Mark Zelle Paid
+                            </button>
+                          )}
+                          {isAwaitingVenmo(order) && (
+                            <button
+                              className="text-[11px] px-2.5 py-1 rounded-opp border border-warning bg-warning text-surface hover:bg-warning/90 font-semibold"
+                              onClick={() => markVenmoPaid(order)}
+                              title="Mark this Venmo order paid after confirming the deposit on @optimizedperformance. Runs the same finalization as card + crypto webhooks."
+                            >
+                              Mark Venmo Paid
                             </button>
                           )}
                           {nextStatus && (

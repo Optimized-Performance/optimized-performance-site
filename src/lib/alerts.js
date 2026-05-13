@@ -357,3 +357,61 @@ export async function sendZelleInstructions(order) {
     console.error('[alerts] Zelle instructions failed:', err.message);
   }
 }
+
+// Sent at order creation when paymentMethod === 'venmo'. Mirrors the Zelle
+// flow — recipient + amount + memo so the customer can complete from the
+// Venmo app. Handle is the Venmo Business username registered to BoA-1990;
+// default kept stable so a missing env var doesn't break the flow.
+export const VENMO_BUSINESS_HANDLE = process.env.VENMO_BUSINESS_HANDLE || 'optimizedperformance';
+
+export async function sendVenmoInstructions(order) {
+  const apiKey = process.env.SENDGRID_API_KEY;
+  if (!apiKey || !order.customer_email) {
+    console.log('[alerts] Venmo instructions skipped (not configured) — order:', order.order_number);
+    return;
+  }
+
+  const body = [
+    `Your order is reserved — complete it with a Venmo payment.`,
+    ``,
+    `Order #: ${order.order_number}`,
+    `Amount: $${Number(order.total).toFixed(2)}`,
+    ``,
+    `Open the Venmo app and send to:`,
+    `  @${VENMO_BUSINESS_HANDLE}`,
+    ``,
+    `IMPORTANT: put ONLY your order number in the note field so we can`,
+    `match the payment to your order:`,
+    `  ${order.order_number}`,
+    ``,
+    `Pay from your Venmo balance, bank account, or debit card — all free.`,
+    `Credit card funding adds a 3% Venmo fee paid by you (not Optimized`,
+    `Performance).`,
+    ``,
+    `Once we confirm the payment (usually within a few hours during`,
+    `business days), we'll ship within 1 business day.`,
+    ``,
+    `If you don't complete the Venmo within 72 hours, your order will be`,
+    `cancelled and any reserved inventory released.`,
+    ``,
+    `Questions: reply to this email or call (831) 218-5147.`,
+    ``,
+    `For research use only.`,
+    `— Optimized Performance`,
+  ].join('\n');
+
+  try {
+    await fetch('https://api.sendgrid.com/v3/mail/send', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        personalizations: [{ to: [{ email: order.customer_email }] }],
+        from: { email: process.env.FROM_EMAIL || 'orders@optimizedperformancepeptides.com' },
+        subject: `Complete your Venmo payment — ${order.order_number}`,
+        content: [{ type: 'text/plain', value: body }],
+      }),
+    });
+  } catch (err) {
+    console.error('[alerts] Venmo instructions failed:', err.message);
+  }
+}
