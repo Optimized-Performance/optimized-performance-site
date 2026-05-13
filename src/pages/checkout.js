@@ -15,6 +15,10 @@ function readRefCookie() {
   return match ? decodeURIComponent(match[1]) : '';
 }
 
+// Card rail is gated behind an env var so it can be flipped off the moment a
+// processor terminates (e.g. Bankful 2026-05-12) and back on when a new card
+// rail closes — without code changes. Same pattern as the other rails below.
+const cardEnabled = process.env.NEXT_PUBLIC_CARD_ENABLED === 'true';
 const cryptoEnabled = process.env.NEXT_PUBLIC_CRYPTO_ENABLED === 'true';
 const zelleEnabled = process.env.NEXT_PUBLIC_ZELLE_ENABLED === 'true';
 const venmoEnabled = process.env.NEXT_PUBLIC_VENMO_ENABLED === 'true';
@@ -220,10 +224,10 @@ export default function Checkout() {
             Contact &amp; shipping
           </h2>
           <p className="text-ink-soft m-0 mb-7">
-            We use your email for order updates. Card and crypto payments are processed securely off-site.
+            We use your email for order updates. Payments are processed securely off-site.
           </p>
 
-          <form onSubmit={(e) => { e.preventDefault(); handleCheckout('card'); }}>
+          <form onSubmit={(e) => { e.preventDefault(); if (cardEnabled) handleCheckout('card'); }}>
             <Field label="Email">
               <input
                 className="input-field" type="email" required
@@ -282,16 +286,18 @@ export default function Checkout() {
             </label>
 
             <div className="grid grid-cols-1 gap-3">
-              <button
-                type="submit"
-                className="btn-primary w-full py-4 text-base"
-                disabled={submitting || !researchAck}
-              >
-                <Icon name="card" size={18} />
-                {submitting && submittingMethod === 'card'
-                  ? 'Processing…'
-                  : `Pay $${discountedTotal.toFixed(2)} with card`}
-              </button>
+              {cardEnabled && (
+                <button
+                  type="submit"
+                  className="btn-primary w-full py-4 text-base"
+                  disabled={submitting || !researchAck}
+                >
+                  <Icon name="card" size={18} />
+                  {submitting && submittingMethod === 'card'
+                    ? 'Processing…'
+                    : `Pay $${discountedTotal.toFixed(2)} with card`}
+                </button>
+              )}
               {(cryptoEnabled || zelleEnabled || venmoEnabled) && (() => {
                 // Grid auto-sizes to the number of alt-payment buttons enabled.
                 // Class names are written literally (not interpolated) so Tailwind's
@@ -345,7 +351,7 @@ export default function Checkout() {
             </div>
             <p className="opp-meta-mono text-center mt-3 leading-relaxed m-0">
               {[
-                'Card processed by Bankful',
+                cardEnabled && 'Card processed by Bankful',
                 cryptoEnabled && 'Crypto (BTC, ETH, USDC, USDT) by NOWPayments',
                 zelleEnabled && 'Zelle direct to OPP (manual review)',
                 venmoEnabled && 'Venmo to @optimizedperformance (manual review)',

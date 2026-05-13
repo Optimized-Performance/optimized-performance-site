@@ -35,6 +35,14 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Invalid paymentMethod (must be "card", "crypto", "zelle", or "venmo")' })
     }
 
+    // Card rail is gated behind NEXT_PUBLIC_CARD_ENABLED so it can be flipped
+    // off the moment a processor terminates (Bankful 2026-05-12) and back on
+    // when a new card rail closes. Server-side check defends against direct
+    // API hits even when the UI button is hidden.
+    if (paymentMethod === 'card' && process.env.NEXT_PUBLIC_CARD_ENABLED !== 'true') {
+      return res.status(503).json({ error: 'Card payments are temporarily unavailable. Please use crypto, Zelle, or Venmo.' })
+    }
+
     // Research-use acknowledgment (RUO + 21+ + no-consumption) must be explicitly confirmed.
     // This is enforced server-side so the audit trail survives any client tampering —
     // required for high-risk payment processor underwriting. Checked before DB so the
