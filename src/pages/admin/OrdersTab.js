@@ -85,7 +85,7 @@ function isReadyToShip(order) {
   return !['shipped', 'fulfilled', 'cancelled'].includes(status);
 }
 
-export default function OrdersTab({ products, showSaveMsg, token }) {
+export default function OrdersTab({ products = [], showSaveMsg, token }) {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('ready_to_ship');

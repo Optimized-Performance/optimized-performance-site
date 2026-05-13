@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 
 const LOW_STOCK_THRESHOLD = 20;
 
-export default function InventoryTab({ products, showSaveMsg, token }) {
+export default function InventoryTab({ products = [], showSaveMsg, token }) {
   const [inventory, setInventory] = useState({});
   const [edits, setEdits] = useState({});
   const [saving, setSaving] = useState(false);

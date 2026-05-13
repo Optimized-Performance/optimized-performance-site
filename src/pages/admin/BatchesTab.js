@@ -24,7 +24,7 @@ function emptyForm(products) {
   };
 }
 
-export default function BatchesTab({ products, showSaveMsg, token }) {
+export default function BatchesTab({ products = [], showSaveMsg, token }) {
   const [batches, setBatches] = useState([]);
   const [supplyLots, setSupplyLots] = useState([]);
   const [loading, setLoading] = useState(true);

@@ -8,7 +8,7 @@ function generateLotNumber(productId) {
   return `${prefix}-${dateStr}-${seq}`;
 }
 
-export default function SupplyTab({ products, token }) {
+export default function SupplyTab({ products = [], token }) {
   const [lots, setLots] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
