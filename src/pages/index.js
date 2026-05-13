@@ -18,7 +18,7 @@ const TRUST = [
   { icon: 'shield', k: '99% Purity', v: 'Third-party tested — purity, mass, identity confirmed.' },
   { icon: 'doc', k: 'Signed COAs', v: 'Traceable by batch. Available on request.' },
   { icon: 'truck', k: '24h Shipping', v: 'US owned & operated. Orders ship within 1 business day.' },
-  { icon: 'lock', k: 'Secure Checkout', v: 'Card payments processed securely by MoonPay.' },
+  { icon: 'lock', k: 'Secure Checkout', v: 'Card payments processed securely off-site by Bankful. Crypto via NOWPayments.' },
 ];
 
 export default function Home({ visibleProducts }) {

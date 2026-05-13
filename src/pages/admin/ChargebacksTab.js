@@ -246,8 +246,10 @@ export default function ChargebacksTab({ showSaveMsg, token }) {
               <Field label="Processor">
                 <select className="input-field" value={form.processor} onChange={(e) => setForm({ ...form, processor: e.target.value })}>
                   <option value="bankful">Bankful</option>
+                  <option value="nowpayments">NOWPayments</option>
+                  <option value="paypal">PayPal</option>
                   <option value="elite">Elite</option>
-                  <option value="moonpay">MoonPay</option>
+                  <option value="moonpay">MoonPay (legacy)</option>
                   <option value="other">Other</option>
                 </select>
               </Field>

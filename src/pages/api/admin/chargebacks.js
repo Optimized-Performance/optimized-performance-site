@@ -4,7 +4,7 @@ import { validateOrigin, rateLimit } from '../../../lib/security'
 
 const ALLOWED_STATUS = ['open', 'responded', 'won', 'lost', 'withdrawn']
 const ALLOWED_REASON = ['fraud', 'not_received', 'not_as_described', 'duplicate', 'technical', 'other']
-const ALLOWED_PROCESSOR = ['bankful', 'elite', 'moonpay', 'other']
+const ALLOWED_PROCESSOR = ['bankful', 'elite', 'moonpay', 'nowpayments', 'paypal', 'other']
 
 function requireAuth(req) {
   return validateSessionToken(req.headers['x-admin-token'])

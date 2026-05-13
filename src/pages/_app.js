@@ -21,11 +21,6 @@ const jetbrainsMono = JetBrains_Mono({
   display: 'swap',
 });
 
-const MoonPayProvider = dynamic(
-  () => import('@moonpay/moonpay-react').then((mod) => mod.MoonPayProvider),
-  { ssr: false }
-);
-
 const AgeGate = dynamic(() => import('../components/AgeGate'), { ssr: false });
 const LaunchBanner = dynamic(() => import('../components/LaunchBanner'), { ssr: false });
 
@@ -36,28 +31,23 @@ export default function App({ Component, pageProps }) {
   const showLaunchBanner = !isAdmin && !isCheckout;
 
   return (
-    <MoonPayProvider
-      apiKey={process.env.NEXT_PUBLIC_MOONPAY_API_KEY || 'pk_test_placeholder'}
-      debug={process.env.NODE_ENV === 'development'}
-    >
-      <CartProvider>
-        <div className={`${interTight.variable} ${jetbrainsMono.variable} min-h-screen flex flex-col bg-paper text-ink font-body`}>
-          {isAdmin ? (
-            <Component {...pageProps} />
-          ) : (
-            <>
-              {showLaunchBanner && <LaunchBanner />}
-              <Header />
-              <CartDrawer />
-              <main className="flex-1">
-                <Component {...pageProps} />
-              </main>
-              <Footer />
-              <AgeGate />
-            </>
-          )}
-        </div>
-      </CartProvider>
-    </MoonPayProvider>
+    <CartProvider>
+      <div className={`${interTight.variable} ${jetbrainsMono.variable} min-h-screen flex flex-col bg-paper text-ink font-body`}>
+        {isAdmin ? (
+          <Component {...pageProps} />
+        ) : (
+          <>
+            {showLaunchBanner && <LaunchBanner />}
+            <Header />
+            <CartDrawer />
+            <main className="flex-1">
+              <Component {...pageProps} />
+            </main>
+            <Footer />
+            <AgeGate />
+          </>
+        )}
+      </div>
+    </CartProvider>
   );
 }

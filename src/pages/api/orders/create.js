@@ -1,6 +1,7 @@
 import { supabaseAdmin } from '../../../lib/supabase'
 import { validateOrigin, rateLimit, validateEmail, validateString, validateZip } from '../../../lib/security'
 import { createCheckoutSession } from '../../../lib/payments/cardProcessor'
+import { createCryptoCheckoutSession } from '../../../lib/payments/cryptoProcessor'
 import { runVelocityChecks, extractClientIP } from '../../../lib/fraud-checks'
 import { calcShipping } from '../../../lib/shipping'
 
@@ -87,12 +88,7 @@ export default async function handler(req, res) {
     // client-side checkout summary so the totals match exactly.
     const shippingCalc = calcShipping({ items: validatedItems, discountedSubtotal: discountedTotal })
     const shipping = shippingCalc.total
-    const preFeeTotal = discountedTotal + shipping
-    // Crypto path adds 4% to cover MoonPay processing; card path eats the
-    // processor fee from margin.
-    const total = paymentMethod === 'crypto'
-      ? Math.ceil(preFeeTotal * 1.04 * 100) / 100
-      : Math.round(preFeeTotal * 100) / 100
+    const total = Math.round((discountedTotal + shipping) * 100) / 100
 
     if (total <= 0 || total > 50000) {
       return res.status(400).json({ error: 'Invalid order total' })
@@ -200,12 +196,27 @@ export default async function handler(req, res) {
       }
     }
 
-    return res.status(200).json({
-      order_number: orderNumber,
-      order_id: order.id,
-      total,
-      discount,
-    })
+    try {
+      const { redirectUrl } = await createCryptoCheckoutSession({
+        orderNumber,
+        amountCents: Math.round(total * 100),
+        currency: 'USD',
+        returnUrl: `${SITE_URL}/checkout/success?order=${encodeURIComponent(orderNumber)}`,
+        cancelUrl: `${SITE_URL}/checkout/cancel?order=${encodeURIComponent(orderNumber)}`,
+        callbackUrl: `${SITE_URL}/api/webhooks/nowpayments`,
+      })
+      return res.status(200).json({
+        order_number: orderNumber,
+        order_id: order.id,
+        total,
+        shipping,
+        discount,
+        redirect_url: redirectUrl,
+      })
+    } catch (sessionErr) {
+      console.error('[orders/create] Crypto checkout session failed:', sessionErr.message)
+      return res.status(502).json({ error: 'Crypto payment processor unavailable. Please try again.' })
+    }
   } catch (err) {
     console.error('Order creation failed:', err)
     return res.status(500).json({ error: err.message })

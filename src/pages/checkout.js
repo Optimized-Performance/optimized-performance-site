@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/router';
-import dynamic from 'next/dynamic';
 import { useCart } from '../context/CartContext';
 import SEO from '../components/SEO';
 import { Vial, Icon } from '../components/Primitives';
@@ -16,30 +15,21 @@ function readRefCookie() {
   return match ? decodeURIComponent(match[1]) : '';
 }
 
-const MoonPayBuyWidget = dynamic(
-  () => import('@moonpay/moonpay-react').then((mod) => mod.MoonPayBuyWidget),
-  { ssr: false }
-);
-
 const cryptoEnabled = process.env.NEXT_PUBLIC_CRYPTO_ENABLED === 'true';
 
 export default function Checkout() {
-  const { cartItems, cartTotal, clearCart } = useCart();
-  const [showMoonPay, setShowMoonPay] = useState(false);
+  const { cartItems, cartTotal } = useCart();
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
   const [address, setAddress] = useState('');
   const [city, setCity] = useState('');
   const [state, setState] = useState('');
   const [zip, setZip] = useState('');
-  const [orderPlaced, setOrderPlaced] = useState(false);
-  const [orderNumber, setOrderNumber] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [submittingMethod, setSubmittingMethod] = useState(null);
   const [affiliateCode, setAffiliateCode] = useState('');
   const [affiliateApplied, setAffiliateApplied] = useState(null);
   const [affiliateError, setAffiliateError] = useState('');
-  const [serverTotal, setServerTotal] = useState(null);
   const [researchAck, setResearchAck] = useState(false);
   const autoAppliedRef = useRef(false);
   const router = useRouter();
@@ -122,7 +112,7 @@ export default function Checkout() {
     }
   })();
 
-  if (cartItems.length === 0 && !orderPlaced) {
+  if (cartItems.length === 0) {
     return (
       <div className="max-w-container mx-auto px-8 py-24 text-center">
         <span className="opp-eyebrow">Checkout</span>
@@ -132,28 +122,6 @@ export default function Checkout() {
         <p className="text-ink-soft mb-6">Your cart is empty. Add a product before proceeding.</p>
         <button className="btn-primary" onClick={() => router.push('/shop')}>
           Browse catalog
-        </button>
-      </div>
-    );
-  }
-
-  if (orderPlaced) {
-    return (
-      <div className="max-w-container mx-auto px-8 py-20 text-center">
-        <div className="w-[72px] h-[72px] rounded-full bg-success text-surface flex items-center justify-center mx-auto mb-6">
-          <Icon name="check" size={32} />
-        </div>
-        <h1 className="font-display font-semibold tracking-display text-4xl m-0 mb-2 text-ink">
-          Order placed.
-        </h1>
-        {orderNumber && (
-          <p className="opp-meta-mono text-accent-strong mb-2">Order #{orderNumber}</p>
-        )}
-        <p className="text-ink-soft max-w-md mx-auto mb-8">
-          Confirmation sent to your email. You&apos;ll receive a tracking number once it ships.
-        </p>
-        <button className="btn-primary" onClick={() => router.push('/')}>
-          Back to Home <Icon name="arrow" size={16} />
         </button>
       </div>
     );
@@ -189,14 +157,9 @@ export default function Checkout() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to create order');
-      setOrderNumber(data.order_number);
-      if (typeof data.total === 'number') setServerTotal(data.total);
-      if (paymentMethod === 'card') {
-        if (!data.redirect_url) throw new Error('Payment processor returned no redirect URL');
-        window.location.href = data.redirect_url;
-        return;
-      }
-      setShowMoonPay(true);
+      if (!data.redirect_url) throw new Error('Payment processor returned no redirect URL');
+      window.location.href = data.redirect_url;
+      return;
     } catch (err) {
       alert(err.message || 'Something went wrong creating your order. Please try again.');
       console.error(err);
@@ -207,7 +170,7 @@ export default function Checkout() {
 
   return (
     <div className="max-w-container mx-auto px-8 pt-14 pb-20">
-      <SEO title="Checkout" description="Complete your order — secure payment via MoonPay." path="/checkout" />
+      <SEO title="Checkout" description="Complete your order — secure card or crypto payment." path="/checkout" />
 
       <div className="pb-8 border-b border-line">
         <span className="opp-eyebrow">Checkout</span>
@@ -216,7 +179,7 @@ export default function Checkout() {
         </h1>
         <ol className="flex gap-8 list-none p-0 mt-6">
           {['Details', 'Payment', 'Confirmation'].map((s, i) => {
-            const step = submitting || showMoonPay ? 2 : 1;
+            const step = submitting ? 2 : 1;
             const isActive = step === i + 1;
             return (
               <li key={s} className={`flex items-center gap-2.5 text-sm ${isActive ? 'text-ink font-semibold' : 'text-ink-mute'}`}>
@@ -255,7 +218,7 @@ export default function Checkout() {
             Contact &amp; shipping
           </h2>
           <p className="text-ink-soft m-0 mb-7">
-            We use your email for order updates. Card payments are processed securely by MoonPay.
+            We use your email for order updates. Card and crypto payments are processed securely off-site.
           </p>
 
           <form onSubmit={(e) => { e.preventDefault(); handleCheckout('card'); }}>
@@ -336,13 +299,13 @@ export default function Checkout() {
                 >
                   {submitting && submittingMethod === 'crypto'
                     ? 'Processing…'
-                    : `Pay $${(discountedTotal * 1.04).toFixed(2)} with crypto`}
+                    : `Pay $${discountedTotal.toFixed(2)} with crypto`}
                 </button>
               )}
             </div>
             <p className="opp-meta-mono text-center mt-3 leading-relaxed m-0">
               {cryptoEnabled
-                ? 'Card processed by Bankful. Crypto via MoonPay (≈4% processing fee added).'
+                ? 'Card processed by Bankful. Crypto (BTC, ETH, USDC, USDT) processed by NOWPayments.'
                 : 'Card processed by Bankful.'}
             </p>
           </form>
@@ -437,21 +400,6 @@ export default function Checkout() {
           </div>
         </aside>
       </div>
-
-      <MoonPayBuyWidget
-        variant="overlay"
-        baseCurrencyCode="usd"
-        baseCurrencyAmount={String(Math.ceil(serverTotal ?? discountedTotal * 1.04))}
-        defaultCurrencyCode="usdc_polygon"
-        externalTransactionId={orderNumber}
-        visible={showMoonPay}
-        onCloseOverlay={() => setShowMoonPay(false)}
-        onTransactionCompleted={() => {
-          setShowMoonPay(false);
-          clearCart();
-          setOrderPlaced(true);
-        }}
-      />
     </div>
   );
 }
