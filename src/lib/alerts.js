@@ -303,3 +303,57 @@ export async function sendOrderConfirmation(order) {
     console.error('[alerts] Order confirmation failed:', err.message);
   }
 }
+
+// Sent at order creation when paymentMethod === 'zelle'. Customer needs the
+// recipient + amount + memo to complete payment from their bank app.
+// Recipient is the Zelle identifier registered against BoA-1990; defaults to
+// the admin@ email so a missing env var doesn't break the flow.
+export const ZELLE_RECIPIENT = process.env.ZELLE_RECIPIENT || 'admin@optimizedperformancepeptides.com';
+
+export async function sendZelleInstructions(order) {
+  const apiKey = process.env.SENDGRID_API_KEY;
+  if (!apiKey || !order.customer_email) {
+    console.log('[alerts] Zelle instructions skipped (not configured) — order:', order.order_number);
+    return;
+  }
+
+  const body = [
+    `Your order is reserved — complete it with a Zelle payment.`,
+    ``,
+    `Order #: ${order.order_number}`,
+    `Amount: $${Number(order.total).toFixed(2)}`,
+    ``,
+    `In your bank's Zelle screen, send to:`,
+    `  ${ZELLE_RECIPIENT}`,
+    ``,
+    `IMPORTANT: put your order number in the memo so we can match the`,
+    `payment to your order:`,
+    `  ${order.order_number}`,
+    ``,
+    `Once we see the deposit (usually within a few hours during business`,
+    `days), we'll confirm your order and ship within 1 business day.`,
+    ``,
+    `If you don't complete the Zelle within 72 hours, your order will be`,
+    `cancelled and any reserved inventory released.`,
+    ``,
+    `Questions: reply to this email or call (831) 218-5147.`,
+    ``,
+    `For research use only.`,
+    `— Optimized Performance`,
+  ].join('\n');
+
+  try {
+    await fetch('https://api.sendgrid.com/v3/mail/send', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        personalizations: [{ to: [{ email: order.customer_email }] }],
+        from: { email: process.env.FROM_EMAIL || 'orders@optimizedperformancepeptides.com' },
+        subject: `Complete your Zelle payment — ${order.order_number}`,
+        content: [{ type: 'text/plain', value: body }],
+      }),
+    });
+  } catch (err) {
+    console.error('[alerts] Zelle instructions failed:', err.message);
+  }
+}

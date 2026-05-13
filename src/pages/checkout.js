@@ -16,6 +16,7 @@ function readRefCookie() {
 }
 
 const cryptoEnabled = process.env.NEXT_PUBLIC_CRYPTO_ENABLED === 'true';
+const zelleEnabled = process.env.NEXT_PUBLIC_ZELLE_ENABLED === 'true';
 
 export default function Checkout() {
   const { cartItems, cartTotal } = useCart();
@@ -279,7 +280,7 @@ export default function Checkout() {
               </span>
             </label>
 
-            <div className={`grid grid-cols-1 ${cryptoEnabled ? 'sm:grid-cols-2' : ''} gap-3`}>
+            <div className="grid grid-cols-1 gap-3">
               <button
                 type="submit"
                 className="btn-primary w-full py-4 text-base"
@@ -290,23 +291,41 @@ export default function Checkout() {
                   ? 'Processing…'
                   : `Pay $${discountedTotal.toFixed(2)} with card`}
               </button>
-              {cryptoEnabled && (
-                <button
-                  type="button"
-                  onClick={() => handleCheckout('crypto')}
-                  className="btn-outline w-full py-4 text-base"
-                  disabled={submitting || !researchAck}
-                >
-                  {submitting && submittingMethod === 'crypto'
-                    ? 'Processing…'
-                    : `Pay $${discountedTotal.toFixed(2)} with crypto`}
-                </button>
+              {(cryptoEnabled || zelleEnabled) && (
+                <div className={`grid grid-cols-1 ${cryptoEnabled && zelleEnabled ? 'sm:grid-cols-2' : ''} gap-3`}>
+                  {cryptoEnabled && (
+                    <button
+                      type="button"
+                      onClick={() => handleCheckout('crypto')}
+                      className="btn-outline w-full py-4 text-base"
+                      disabled={submitting || !researchAck}
+                    >
+                      {submitting && submittingMethod === 'crypto'
+                        ? 'Processing…'
+                        : `Pay $${discountedTotal.toFixed(2)} with crypto`}
+                    </button>
+                  )}
+                  {zelleEnabled && (
+                    <button
+                      type="button"
+                      onClick={() => handleCheckout('zelle')}
+                      className="btn-outline w-full py-4 text-base"
+                      disabled={submitting || !researchAck}
+                    >
+                      {submitting && submittingMethod === 'zelle'
+                        ? 'Processing…'
+                        : `Pay $${discountedTotal.toFixed(2)} with Zelle`}
+                    </button>
+                  )}
+                </div>
               )}
             </div>
             <p className="opp-meta-mono text-center mt-3 leading-relaxed m-0">
-              {cryptoEnabled
-                ? 'Card processed by Bankful. Crypto (BTC, ETH, USDC, USDT) processed by NOWPayments.'
-                : 'Card processed by Bankful.'}
+              {[
+                'Card processed by Bankful',
+                cryptoEnabled && 'Crypto (BTC, ETH, USDC, USDT) by NOWPayments',
+                zelleEnabled && 'Zelle direct to OPP (manual review)',
+              ].filter(Boolean).join('. ') + '.'}
             </p>
           </form>
         </div>
