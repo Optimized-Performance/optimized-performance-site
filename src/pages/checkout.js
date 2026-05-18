@@ -22,6 +22,7 @@ const cardEnabled = process.env.NEXT_PUBLIC_CARD_ENABLED === 'true';
 const cryptoEnabled = process.env.NEXT_PUBLIC_CRYPTO_ENABLED === 'true';
 const zelleEnabled = process.env.NEXT_PUBLIC_ZELLE_ENABLED === 'true';
 const venmoEnabled = process.env.NEXT_PUBLIC_VENMO_ENABLED === 'true';
+const paypalEnabled = process.env.NEXT_PUBLIC_PAYPAL_ENABLED === 'true';
 
 export default function Checkout() {
   const { cartItems, cartTotal } = useCart();
@@ -298,17 +299,30 @@ export default function Checkout() {
                     : `Pay $${discountedTotal.toFixed(2)} with card`}
                 </button>
               )}
-              {(cryptoEnabled || zelleEnabled || venmoEnabled) && (() => {
+              {(cryptoEnabled || zelleEnabled || venmoEnabled || paypalEnabled) && (() => {
                 // Grid auto-sizes to the number of alt-payment buttons enabled.
                 // Class names are written literally (not interpolated) so Tailwind's
                 // content scanner picks them up.
-                const altCount = [cryptoEnabled, zelleEnabled, venmoEnabled].filter(Boolean).length;
+                const altCount = [cryptoEnabled, zelleEnabled, venmoEnabled, paypalEnabled].filter(Boolean).length;
                 const altGridClass =
-                  altCount === 3 ? 'sm:grid-cols-3'
+                  altCount >= 4 ? 'sm:grid-cols-2 lg:grid-cols-4'
+                  : altCount === 3 ? 'sm:grid-cols-3'
                   : altCount === 2 ? 'sm:grid-cols-2'
                   : '';
                 return (
                   <div className={`grid grid-cols-1 ${altGridClass} gap-3`}>
+                    {paypalEnabled && (
+                      <button
+                        type="button"
+                        onClick={() => handleCheckout('paypal')}
+                        className="btn-outline w-full py-4 text-base"
+                        disabled={submitting || !researchAck}
+                      >
+                        {submitting && submittingMethod === 'paypal'
+                          ? 'Processing…'
+                          : `Pay $${discountedTotal.toFixed(2)} with PayPal`}
+                      </button>
+                    )}
                     {cryptoEnabled && (
                       <button
                         type="button"
@@ -352,6 +366,7 @@ export default function Checkout() {
             <p className="opp-meta-mono text-center mt-3 leading-relaxed m-0">
               {[
                 cardEnabled && 'Card processed by Bankful',
+                paypalEnabled && 'PayPal direct checkout',
                 cryptoEnabled && 'Crypto (BTC, ETH, USDC, USDT) by NOWPayments',
                 zelleEnabled && 'Zelle direct to OPP (manual review)',
                 venmoEnabled && 'Venmo to @optimizedperformance (manual review)',

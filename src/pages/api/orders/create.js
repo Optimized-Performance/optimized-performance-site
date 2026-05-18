@@ -2,6 +2,7 @@ import { supabaseAdmin } from '../../../lib/supabase'
 import { validateOrigin, rateLimit, validateEmail, validateString, validateZip } from '../../../lib/security'
 import { createCheckoutSession } from '../../../lib/payments/cardProcessor'
 import { createCryptoCheckoutSession } from '../../../lib/payments/cryptoProcessor'
+import { createPaypalCheckoutSession } from '../../../lib/payments/paypalProcessor'
 import { runVelocityChecks, extractClientIP } from '../../../lib/fraud-checks'
 import { calcShipping } from '../../../lib/shipping'
 import { sendZelleInstructions, sendVenmoInstructions } from '../../../lib/alerts'
@@ -31,8 +32,8 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Invalid or missing required fields' })
     }
 
-    if (paymentMethod !== 'card' && paymentMethod !== 'crypto' && paymentMethod !== 'zelle' && paymentMethod !== 'venmo') {
-      return res.status(400).json({ error: 'Invalid paymentMethod (must be "card", "crypto", "zelle", or "venmo")' })
+    if (paymentMethod !== 'card' && paymentMethod !== 'crypto' && paymentMethod !== 'zelle' && paymentMethod !== 'venmo' && paymentMethod !== 'paypal') {
+      return res.status(400).json({ error: 'Invalid paymentMethod (must be "card", "crypto", "zelle", "venmo", or "paypal")' })
     }
 
     // Card rail is gated behind NEXT_PUBLIC_CARD_ENABLED so it can be flipped
@@ -41,6 +42,10 @@ export default async function handler(req, res) {
     // API hits even when the UI button is hidden.
     if (paymentMethod === 'card' && process.env.NEXT_PUBLIC_CARD_ENABLED !== 'true') {
       return res.status(503).json({ error: 'Card payments are temporarily unavailable. Please use crypto, Zelle, or Venmo.' })
+    }
+
+    if (paymentMethod === 'paypal' && process.env.NEXT_PUBLIC_PAYPAL_ENABLED !== 'true') {
+      return res.status(503).json({ error: 'PayPal payments are temporarily unavailable.' })
     }
 
     // Research-use acknowledgment (RUO + 21+ + no-consumption) must be explicitly confirmed.
@@ -227,6 +232,30 @@ export default async function handler(req, res) {
       } catch (sessionErr) {
         console.error('[orders/create] Crypto checkout session failed:', sessionErr.message)
         return res.status(502).json({ error: 'Crypto payment processor unavailable. Please try again.' })
+      }
+    }
+
+    if (paymentMethod === 'paypal') {
+      try {
+        const { redirectUrl } = await createPaypalCheckoutSession({
+          orderNumber,
+          amountCents: Math.round(total * 100),
+          currency: 'USD',
+          customer: { email },
+          returnUrl: `${SITE_URL}/checkout/success?order=${encodeURIComponent(orderNumber)}`,
+          cancelUrl: `${SITE_URL}/checkout/cancel?order=${encodeURIComponent(orderNumber)}`,
+        })
+        return res.status(200).json({
+          order_number: orderNumber,
+          order_id: order.id,
+          total,
+          shipping,
+          discount,
+          redirect_url: redirectUrl,
+        })
+      } catch (sessionErr) {
+        console.error('[orders/create] PayPal checkout session failed:', sessionErr.message)
+        return res.status(502).json({ error: 'PayPal payment processor unavailable. Please try again.' })
       }
     }
 
