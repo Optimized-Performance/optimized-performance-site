@@ -392,7 +392,6 @@ export default function Checkout() {
                     <div className="flex-1 h-px bg-line" />
                   </div>
                   <PaypalCheckoutButtons
-                    amount={discountedTotal}
                     disabled={!researchAck || submitting}
                     validateBeforeCheckout={validateCheckoutForm}
                     createOrderOnServer={createPaypalOrderOnServer}
@@ -405,7 +404,7 @@ export default function Checkout() {
             <p className="opp-meta-mono text-center mt-3 leading-relaxed m-0">
               {[
                 cardEnabled && 'Card processed by Bankful',
-                paypalEnabled && 'PayPal, Venmo & Apple Pay via PayPal',
+                paypalEnabled && 'PayPal, Pay Later & card via PayPal',
                 cryptoEnabled && 'Crypto (BTC, ETH, USDC, USDT) by NOWPayments',
                 zelleEnabled && 'Zelle direct to OPP (manual review)',
                 venmoEnabled && 'Venmo to @optimizedperformance (manual review)',
