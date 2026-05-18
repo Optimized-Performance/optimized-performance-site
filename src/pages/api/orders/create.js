@@ -237,7 +237,12 @@ export default async function handler(req, res) {
 
     if (paymentMethod === 'paypal') {
       try {
-        const { redirectUrl } = await createPaypalCheckoutSession({
+        // Smart-Buttons flow: client renders PayPal/Venmo/Apple Pay inline via
+        // the JS SDK and submits the returned paypal_order_id back through the
+        // SDK's createOrder hook. No redirect_url is used. return_url/cancel_url
+        // are still passed for the rare fallback where PayPal opens a popup
+        // approval flow that needs them.
+        const { paypalOrderId } = await createPaypalCheckoutSession({
           orderNumber,
           amountCents: Math.round(total * 100),
           currency: 'USD',
@@ -251,7 +256,7 @@ export default async function handler(req, res) {
           total,
           shipping,
           discount,
-          redirect_url: redirectUrl,
+          paypal_order_id: paypalOrderId,
         })
       } catch (sessionErr) {
         console.error('[orders/create] PayPal checkout session failed:', sessionErr.message)

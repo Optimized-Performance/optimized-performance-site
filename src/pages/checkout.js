@@ -4,6 +4,7 @@ import { useCart } from '../context/CartContext';
 import SEO from '../components/SEO';
 import { Vial, Icon } from '../components/Primitives';
 import { calcShipping, FREE_SHIPPING_THRESHOLD } from '../lib/shipping';
+import PaypalCheckoutButtons from '../components/PaypalCheckoutButtons';
 
 // Read the opp_ref cookie set by lib/cohort-session when a visitor arrives
 // via a valid ?ref=CODE link. Used to pre-fill + auto-apply the affiliate
@@ -134,33 +135,42 @@ export default function Checkout() {
     );
   }
 
-  const handleCheckout = async (paymentMethod) => {
+  // Shared validation for all rails. PayPal Smart Buttons call this from the
+  // SDK's onClick hook so they can reject() the flow if the form is incomplete.
+  const validateCheckoutForm = () => {
     if (!email || !name || !address || !city || !state || !zip) {
       alert('Please fill in all shipping fields.');
-      return;
+      return false;
     }
     if (!researchAck) {
       alert('You must acknowledge the research-use terms (21+ and non-consumption) to proceed.');
-      return;
+      return false;
     }
+    return true;
+  };
+
+  const buildOrderPayload = (paymentMethod) => ({
+    name, email, address, city, state, zip,
+    items: cartItems.map((item) => ({
+      id: item.id, sku: item.sku, name: item.name,
+      dosage: item.dosage, price: item.price, quantity: item.quantity,
+      isPreorder: !!item.isPreorder,
+      preorderShipDate: item.isPreorder ? item.preorderShipDate || null : null,
+    })),
+    affiliateCode: affiliateApplied?.code || null,
+    researchUseAck: researchAck,
+    paymentMethod,
+  });
+
+  const handleCheckout = async (paymentMethod) => {
+    if (!validateCheckoutForm()) return;
     setSubmitting(true);
     setSubmittingMethod(paymentMethod);
     try {
       const res = await fetch('/api/orders/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name, email, address, city, state, zip,
-          items: cartItems.map((item) => ({
-            id: item.id, sku: item.sku, name: item.name,
-            dosage: item.dosage, price: item.price, quantity: item.quantity,
-            isPreorder: !!item.isPreorder,
-            preorderShipDate: item.isPreorder ? item.preorderShipDate || null : null,
-          })),
-          affiliateCode: affiliateApplied?.code || null,
-          researchUseAck: researchAck,
-          paymentMethod,
-        }),
+        body: JSON.stringify(buildOrderPayload(paymentMethod)),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to create order');
@@ -173,6 +183,31 @@ export default function Checkout() {
     }
     setSubmitting(false);
     setSubmittingMethod(null);
+  };
+
+  // Smart-Buttons createOrder hook: server validates + creates our local order
+  // + a PayPal order, returns { paypal_order_id, order_number }. The SDK then
+  // hands paypal_order_id back to PayPal so the customer can approve.
+  const createPaypalOrderOnServer = async () => {
+    const res = await fetch('/api/orders/create', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(buildOrderPayload('paypal')),
+    });
+    const data = await res.json();
+    if (!res.ok || !data.paypal_order_id) {
+      throw new Error(data.error || 'Failed to create PayPal order');
+    }
+    return { paypal_order_id: data.paypal_order_id, order_number: data.order_number };
+  };
+
+  const handlePaypalSuccess = (orderNumber) => {
+    window.location.href = `/checkout/success?order=${encodeURIComponent(orderNumber)}`;
+  };
+
+  const handlePaypalError = (err) => {
+    console.error('[paypal] checkout failed:', err);
+    alert(err?.message || 'PayPal checkout failed. Please try again or use another payment method.');
   };
 
   return (
@@ -299,30 +334,17 @@ export default function Checkout() {
                     : `Pay $${discountedTotal.toFixed(2)} with card`}
                 </button>
               )}
-              {(cryptoEnabled || zelleEnabled || venmoEnabled || paypalEnabled) && (() => {
+              {(cryptoEnabled || zelleEnabled || venmoEnabled) && (() => {
                 // Grid auto-sizes to the number of alt-payment buttons enabled.
                 // Class names are written literally (not interpolated) so Tailwind's
                 // content scanner picks them up.
-                const altCount = [cryptoEnabled, zelleEnabled, venmoEnabled, paypalEnabled].filter(Boolean).length;
+                const altCount = [cryptoEnabled, zelleEnabled, venmoEnabled].filter(Boolean).length;
                 const altGridClass =
-                  altCount >= 4 ? 'sm:grid-cols-2 lg:grid-cols-4'
-                  : altCount === 3 ? 'sm:grid-cols-3'
+                  altCount === 3 ? 'sm:grid-cols-3'
                   : altCount === 2 ? 'sm:grid-cols-2'
                   : '';
                 return (
                   <div className={`grid grid-cols-1 ${altGridClass} gap-3`}>
-                    {paypalEnabled && (
-                      <button
-                        type="button"
-                        onClick={() => handleCheckout('paypal')}
-                        className="btn-outline w-full py-4 text-base"
-                        disabled={submitting || !researchAck}
-                      >
-                        {submitting && submittingMethod === 'paypal'
-                          ? 'Processing…'
-                          : `Pay $${discountedTotal.toFixed(2)} with PayPal`}
-                      </button>
-                    )}
                     {cryptoEnabled && (
                       <button
                         type="button"
@@ -362,11 +384,28 @@ export default function Checkout() {
                   </div>
                 );
               })()}
+              {paypalEnabled && (
+                <div className="mt-1">
+                  <div className="flex items-center gap-3 my-3">
+                    <div className="flex-1 h-px bg-line" />
+                    <span className="opp-meta-mono text-ink-mute">OR PAY WITH</span>
+                    <div className="flex-1 h-px bg-line" />
+                  </div>
+                  <PaypalCheckoutButtons
+                    amount={discountedTotal}
+                    disabled={!researchAck || submitting}
+                    validateBeforeCheckout={validateCheckoutForm}
+                    createOrderOnServer={createPaypalOrderOnServer}
+                    onSuccess={handlePaypalSuccess}
+                    onError={handlePaypalError}
+                  />
+                </div>
+              )}
             </div>
             <p className="opp-meta-mono text-center mt-3 leading-relaxed m-0">
               {[
                 cardEnabled && 'Card processed by Bankful',
-                paypalEnabled && 'PayPal direct checkout',
+                paypalEnabled && 'PayPal, Venmo & Apple Pay via PayPal',
                 cryptoEnabled && 'Crypto (BTC, ETH, USDC, USDT) by NOWPayments',
                 zelleEnabled && 'Zelle direct to OPP (manual review)',
                 venmoEnabled && 'Venmo to @optimizedperformance (manual review)',
