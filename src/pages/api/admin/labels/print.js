@@ -9,67 +9,66 @@ function requireAuth(req) {
   return validateSessionToken(token)
 }
 
-// Phomemo label media: 40mm × 14mm rolls. Two-up layout — print pair, cut in
-// half = two ~20×14mm tiles per label. The Avery WePrint brand label sits on
-// the vial body and the Phomemo sticker overlays a portion of it carrying the
-// QR + LOT, since the 3 mL vial doesn't have room for two side-by-side
-// stickers. Avery already carries SKU + EXP + RUO, so this sticker only needs
-// the QR pointer + LOT for traceability.
+// Phomemo label media: 2" × 1" (50.8mm × 25.4mm) rolls. 4-up grid — print
+// one label, two scissor cuts (vertical + horizontal at midpoints) = four
+// ~25.4×12.7mm QR tiles per label. The Avery WePrint brand label sits on
+// the vial body carrying SKU + EXP + RUO; the Phomemo sticker overlays a
+// portion of it with a scannable QR pointer to the COA. Lot + SKU are
+// encoded in the QR URL (/coa/{sku}/{lot}), so the sticker is QR-only —
+// no inline text needed.
 //
-// 203 DPI is the Phomemo native resolution. 40mm × 14mm at 203 DPI = 320×112 px.
+// Switched from 40×14mm media in v2: Phomemo's gap sensor + thermal head
+// print unreliably at sub-2-inch media widths, and the 14mm height took up
+// too much vial real estate. 25.4×12.7mm final stickers print clean and
+// leave more room for the Avery label on the 3mL vial body.
+//
+// 203 DPI is the Phomemo native resolution. 50.8mm × 25.4mm at 203 DPI = 406×203 px.
 const DPI = 203
 const MM_TO_PX = DPI / 25.4
-const LABEL_W_MM = 40
-const LABEL_H_MM = 14
-const LABEL_W = Math.round(LABEL_W_MM * MM_TO_PX)  // 320
-const LABEL_H = Math.round(LABEL_H_MM * MM_TO_PX)  // 112
-const TILE_W = LABEL_W / 2 // 160
+const LABEL_W_MM = 50.8
+const LABEL_H_MM = 25.4
+const LABEL_W = Math.round(LABEL_W_MM * MM_TO_PX)  // 406
+const LABEL_H = Math.round(LABEL_H_MM * MM_TO_PX)  // 203
+const TILE_W = Math.round(LABEL_W / 2)  // 203 — 25.4mm
+const TILE_H = Math.round(LABEL_H / 2)  // 102 — 12.7mm (rounding favors top row)
 
-// QR ~12 mm sq. With the current ~62-char URL in byte mode at 'L' error
-// correction, that lands at QR version 4 (33×33 modules) = ~0.36 mm per
+// QR ~11 mm sq — sized to fit within the 12.7mm tile height with a 1px
+// quiet-zone gap. With the current ~62-char URL in byte mode at 'L' error
+// correction, that lands at QR version 4 (33×33 modules) = ~0.33 mm per
 // module on the printout — at the lower end of phone-camera comfort but
 // scannable in normal light. If real-world scans suffer, the lever to pull
 // is path-normalization middleware that lets us encode the URL as uppercase
-// alphanumeric (drops to version 3, 29 modules, ~0.41 mm/module).
-const QR_SIZE = 96 // ~12 mm
+// alphanumeric (drops to version 3, 29 modules, ~0.38 mm/module).
+const QR_SIZE = 88  // ~11 mm
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://optimizedperformancepeptides.com'
 
-function escapeXml(s) {
-  return String(s).replace(/[<>&"']/g, (c) => ({
-    '<': '&lt;',
-    '>': '&gt;',
-    '&': '&amp;',
-    '"': '&quot;',
-    "'": '&apos;',
-  }[c]))
-}
-
-async function buildLabelSvg({ qrPng, lotNumber }) {
+async function buildLabelSvg({ qrPng }) {
   const qrDataUri = `data:image/png;base64,${qrPng.toString('base64')}`
-  const lotText = escapeXml(`LOT ${lotNumber}`)
 
-  // Two-up: identical content twice; user cuts down the middle. Each tile
-  // gets centered QR (top) + LOT text (bottom). Top margin is 2 px (white
-  // space already in QR's quiet zone), bottom margin gives ~12 px for an
-  // 11pt LOT line.
-  function tile(xOffset) {
+  // 4-up grid: 2 cols × 2 rows of identical QR tiles. User makes two
+  // scissor cuts (vertical at TILE_W, horizontal at TILE_H) → 4 stickers.
+  // QR is centered within each tile with a 1px quiet-zone gap.
+  function tile(xOffset, yOffset) {
     const qrX = xOffset + (TILE_W - QR_SIZE) / 2
-    return `
-      <image href="${qrDataUri}" x="${qrX}" y="2" width="${QR_SIZE}" height="${QR_SIZE}" />
-      <text x="${xOffset + TILE_W / 2}" y="${LABEL_H - 3}" text-anchor="middle"
-            font-family="Helvetica, Arial, sans-serif" font-size="11" font-weight="700" fill="#000">${lotText}</text>
-    `
+    const qrY = yOffset + (TILE_H - QR_SIZE) / 2
+    return `<image href="${qrDataUri}" x="${qrX}" y="${qrY}" width="${QR_SIZE}" height="${QR_SIZE}" />`
   }
 
-  // Subtle middle cut guide
-  const cutGuide = `<line x1="${TILE_W}" y1="0" x2="${TILE_W}" y2="${LABEL_H}"
-                          stroke="#bbb" stroke-width="1" stroke-dasharray="3,3" />`
+  // Subtle cross-shaped cut guide: one vertical + one horizontal at midpoints
+  const cutGuide = `
+    <line x1="${TILE_W}" y1="0" x2="${TILE_W}" y2="${LABEL_H}"
+          stroke="#bbb" stroke-width="1" stroke-dasharray="3,3" />
+    <line x1="0" y1="${TILE_H}" x2="${LABEL_W}" y2="${TILE_H}"
+          stroke="#bbb" stroke-width="1" stroke-dasharray="3,3" />
+  `
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${LABEL_W}" height="${LABEL_H}" viewBox="0 0 ${LABEL_W} ${LABEL_H}">
     <rect width="${LABEL_W}" height="${LABEL_H}" fill="#fff" />
-    ${tile(0)}
-    ${tile(TILE_W)}
+    ${tile(0, 0)}
+    ${tile(TILE_W, 0)}
+    ${tile(0, TILE_H)}
+    ${tile(TILE_W, TILE_H)}
     ${cutGuide}
   </svg>`
 }
@@ -106,10 +105,7 @@ export default async function handler(req, res) {
       color: { dark: '#000000', light: '#FFFFFF' },
     })
 
-    const svg = await buildLabelSvg({
-      qrPng,
-      lotNumber: batch.lot_number,
-    })
+    const svg = await buildLabelSvg({ qrPng })
 
     const png = await sharp(Buffer.from(svg)).png().toBuffer()
 
