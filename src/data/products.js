@@ -318,6 +318,20 @@ const products = [
     parentId: 'nad-500mg',
     vialCount: 10,
   },
+  {
+    id: 'bac-water-10ml',
+    sku: 'OP-BAC-10ML',
+    name: 'Bacteriostatic Water',
+    dosage: '10 mL',
+    price: 9.95,
+    description: 'Sterile bacteriostatic water (0.9% benzyl alcohol preservative). Used for reconstitution of lyophilized research peptides.',
+    category: 'Supplies',
+    format: 'Bacteriostatic Solution',
+    vialSize: '10 mL Vial',
+    inStock: true,
+    badge: null,
+    stock: 40,
+  },
 ];
 
 // Helper: get effective stock for a product (kits derive from parent).

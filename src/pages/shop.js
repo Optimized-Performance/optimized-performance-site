@@ -7,7 +7,7 @@ import { getCohortFromRequest } from '../lib/cohort-session';
 import SEO from '../components/SEO';
 import { Icon } from '../components/Primitives';
 
-const ALL_CATEGORIES = ['All', 'GLPs', 'Peptides', 'GH Peptides', 'Combos', 'Supplements'];
+const ALL_CATEGORIES = ['All', 'GLPs', 'Peptides', 'GH Peptides', 'Combos', 'Supplements', 'Supplies'];
 
 export default function Shop({ inventory, visibleProducts: visibleProductsProp }) {
   const router = useRouter();

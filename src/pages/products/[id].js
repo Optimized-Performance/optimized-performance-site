@@ -280,7 +280,12 @@ export default function ProductDetail({
           {/* COA / compliance */}
           <div className="mt-6 grid gap-3">
             <ComplianceRow icon="doc" title="Certificate of Analysis">
-              {coaQr ? (
+              {product.category === 'Supplies' ? (
+                <>
+                  USP Grade Sterile. Manufacturer sterility certificate available on request
+                  at <a href="mailto:admin@optimizedperformancepeptides.com" className="text-accent-strong hover:underline">admin@optimizedperformancepeptides.com</a>.
+                </>
+              ) : coaQr ? (
                 <div className="flex items-start gap-4">
                   <div className="flex-1">
                     Independent third-party HPLC verified. Current batch is
