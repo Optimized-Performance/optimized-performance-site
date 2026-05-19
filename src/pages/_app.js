@@ -1,6 +1,7 @@
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/router';
 import { Inter_Tight, JetBrains_Mono } from 'next/font/google';
+import { Analytics } from '@vercel/analytics/next';
 import { CartProvider } from '../context/CartContext';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
@@ -48,6 +49,7 @@ export default function App({ Component, pageProps }) {
           </>
         )}
       </div>
+      <Analytics />
     </CartProvider>
   );
 }

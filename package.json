@@ -10,6 +10,7 @@
   "dependencies": {
     "@paypal/react-paypal-js": "^9.2.0",
     "@supabase/supabase-js": "^2.101.1",
+    "@vercel/analytics": "^2.0.1",
     "next": "^14.2.0",
     "pdfkit": "^0.18.0",
     "puppeteer-core": "^24.40.0",
