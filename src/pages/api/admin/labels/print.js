@@ -9,37 +9,43 @@ function requireAuth(req) {
   return validateSessionToken(token)
 }
 
-// Phomemo label media: 2" × 1" (50.8mm × 25.4mm) rolls. 4-up grid — print
-// one label, two scissor cuts (vertical + horizontal at midpoints) = four
-// ~25.4×12.7mm QR tiles per label. The Avery WePrint brand label sits on
-// the vial body carrying SKU + EXP + RUO; the Phomemo sticker overlays a
-// portion of it with a scannable QR pointer to the COA. Lot + SKU are
-// encoded in the QR URL (/coa/{sku}/{lot}), so the sticker is QR-only —
-// no inline text needed.
+// Phomemo label media: 40mm × 30mm rolls. 4-up grid — print one label,
+// two scissor cuts (vertical + horizontal at midpoints) = four ~20×15mm
+// QR tiles per label. The Avery WePrint brand label sits on the vial
+// body carrying SKU + EXP + RUO; the Phomemo sticker overlays a portion
+// of it with a scannable QR pointer to the COA. Lot + SKU are encoded
+// in the QR URL (/coa/{sku}/{lot}), so the sticker is QR-only — no
+// inline text needed.
 //
-// Switched from 40×14mm media in v2: Phomemo's gap sensor + thermal head
-// print unreliably at sub-2-inch media widths, and the 14mm height took up
-// too much vial real estate. 25.4×12.7mm final stickers print clean and
-// leave more room for the Avery label on the 3mL vial body.
+// Media-size history:
+//   v1: 40×14mm 2-up — failed. Phomemo gap sensor can't lock onto
+//       die-cut gaps below ~20mm label height.
+//   v2: 50.8×25.4mm 4-up — printed clean but 25.4mm-wide individual
+//       tiles took too much vial circumference (3mL vial has ~25mm
+//       clear arc beside the Avery label, leaving zero margin).
+//   v3 (this): 40×30mm 4-up — 30mm height is comfortably above the
+//       gap-sensor threshold; 20mm tile width sits inside the vial's
+//       clear arc with margin; 13mm QR is a meaningful scan-reliability
+//       upgrade over v2's 11mm.
 //
-// 203 DPI is the Phomemo native resolution. 50.8mm × 25.4mm at 203 DPI = 406×203 px.
+// 203 DPI is the Phomemo native resolution. 40mm × 30mm at 203 DPI = 320×240 px.
 const DPI = 203
 const MM_TO_PX = DPI / 25.4
-const LABEL_W_MM = 50.8
-const LABEL_H_MM = 25.4
-const LABEL_W = Math.round(LABEL_W_MM * MM_TO_PX)  // 406
-const LABEL_H = Math.round(LABEL_H_MM * MM_TO_PX)  // 203
-const TILE_W = Math.round(LABEL_W / 2)  // 203 — 25.4mm
-const TILE_H = Math.round(LABEL_H / 2)  // 102 — 12.7mm (rounding favors top row)
+const LABEL_W_MM = 40
+const LABEL_H_MM = 30
+const LABEL_W = Math.round(LABEL_W_MM * MM_TO_PX)  // 320
+const LABEL_H = Math.round(LABEL_H_MM * MM_TO_PX)  // 240
+const TILE_W = Math.round(LABEL_W / 2)  // 160 — 20mm
+const TILE_H = Math.round(LABEL_H / 2)  // 120 — 15mm
 
-// QR ~11 mm sq — sized to fit within the 12.7mm tile height with a 1px
+// QR ~13 mm sq — sized to fit within the 15mm tile height with a 1mm
 // quiet-zone gap. With the current ~62-char URL in byte mode at 'L' error
-// correction, that lands at QR version 4 (33×33 modules) = ~0.33 mm per
-// module on the printout — at the lower end of phone-camera comfort but
-// scannable in normal light. If real-world scans suffer, the lever to pull
-// is path-normalization middleware that lets us encode the URL as uppercase
-// alphanumeric (drops to version 3, 29 modules, ~0.38 mm/module).
-const QR_SIZE = 88  // ~11 mm
+// correction, that lands at QR version 4 (33×33 modules) = ~0.39 mm per
+// module on the printout — comfortably in phone-camera readable range.
+// If real-world scans ever suffer, the lever to pull is path-normalization
+// middleware that lets us encode the URL as uppercase alphanumeric
+// (drops to version 3, 29 modules, ~0.45 mm/module).
+const QR_SIZE = 104  // ~13 mm
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://optimizedperformancepeptides.com'
 
