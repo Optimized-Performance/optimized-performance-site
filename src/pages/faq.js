@@ -6,8 +6,8 @@ const faqs = [
   {
     category: 'Products',
     items: [
-      { q: 'What are research peptides?', a: 'Research peptides are short chains of amino acids used in scientific research and laboratory studies. Our products are synthesized to 99%+ purity and are intended strictly for in-vitro research use.' },
-      { q: 'What purity level are your peptides?', a: 'All of our peptides are synthesized to 99% purity or higher. Each batch is third-party tested and a Certificate of Analysis (COA) is available upon request.' },
+      { q: 'What are research peptides?', a: 'Research peptides are short chains of amino acids used in scientific research and laboratory studies. Our products are synthesized to 98%+ purity and are intended strictly for in-vitro research use.' },
+      { q: 'What purity level are your peptides?', a: 'All of our peptides are synthesized to 98% purity or higher. Each batch is third-party tested and a Certificate of Analysis (COA) is available upon request.' },
       { q: 'What format do your products come in?', a: 'All products are supplied as lyophilized (freeze-dried) powder in sealed 2 mL glass vials with flip-top caps. Kits contain 10 vials.' },
       { q: 'How should I store the peptides?', a: 'Store lyophilized peptides at -20°C for long-term storage. Reconstituted peptides should be stored at 2–8°C and used within the timeframe specified on the product documentation.' },
       { q: 'Do you provide Certificates of Analysis (COAs)?', a: 'Yes. COAs are available for every batch. Contact us with your order number and we will provide the relevant COA.' },

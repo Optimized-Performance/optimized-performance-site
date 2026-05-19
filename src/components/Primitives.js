@@ -240,7 +240,7 @@ function VialFallback({ label = '—', dosage = '', size = 220, purity, kit = fa
       {/* Purity */}
       <text x="106" y="196" fontSize="6" fill="#FFFFFF"
             fontFamily="var(--font-display)" fontWeight="600">
-        Purity: &gt;{purity ? Math.floor(purity) : 99}%
+        Purity: &gt;{purity ? Math.floor(purity) : 98}%
       </text>
       {/* Store at right */}
       <text x="138" y="196" fontSize="4.5" fill="#8a96a8"

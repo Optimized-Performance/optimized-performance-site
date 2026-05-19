@@ -7,10 +7,10 @@ const SITE_URL = 'https://optimizedperformancepeptides.com';
 // description stays AUP-clean. Pages that need cohort-aware descriptions
 // (shop, homepage) pass their own `description` prop derived from the
 // resolved cohort flag.
-const DEFAULT_DESC = 'Research-grade peptides. 99% purity, third-party tested, US owned & operated. BPC-157, TB-500, Ipamorelin, MT-2, NAD+, and more. Ships within 24 hours.';
+const DEFAULT_DESC = 'Research-grade peptides. 98% purity, third-party tested, US owned & operated. BPC-157, TB-500, Ipamorelin, MT-2, NAD+, and more. Ships within 24 hours.';
 
 export default function SEO({ title, description, path = '', noindex = false }) {
-  const pageTitle = title ? `${title} | ${SITE_NAME}` : `${SITE_NAME} — Research Peptides | 99% Purity`;
+  const pageTitle = title ? `${title} | ${SITE_NAME}` : `${SITE_NAME} — Research Peptides | 98% Purity`;
   const pageDesc = description || DEFAULT_DESC;
   const url = `${SITE_URL}${path}`;
   // Cohort-gated views (private inquiry pages for unflagged visitors hitting

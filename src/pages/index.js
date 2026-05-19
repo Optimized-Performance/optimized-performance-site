@@ -15,7 +15,7 @@ const METHOD_STEPS = [
 ];
 
 const TRUST = [
-  { icon: 'shield', k: '99% Purity', v: 'Third-party tested — purity, mass, identity confirmed.' },
+  { icon: 'shield', k: '98% Purity', v: 'Third-party tested — purity, mass, identity confirmed.' },
   { icon: 'doc', k: 'Signed COAs', v: 'Traceable by batch. Available on request.' },
   { icon: 'truck', k: '24h Shipping', v: 'US owned & operated. Orders ship within 1 business day.' },
   { icon: 'lock', k: 'Secure Checkout', v: 'Card payments processed securely off-site by Bankful. Crypto via NOWPayments.' },
@@ -65,7 +65,7 @@ export default function Home({ visibleProducts }) {
               verified per batch.
             </h1>
             <p className="text-[17px] leading-relaxed text-ink-soft max-w-[500px] m-0 mb-9">
-              Lyophilized powders for in-vitro research. 99% pure, US owned &amp; operated,
+              Lyophilized powders for in-vitro research. 98% pure, US owned &amp; operated,
               shipped discreetly within 24 hours.
             </p>
             <div className="flex gap-3 mb-14">
@@ -79,7 +79,7 @@ export default function Home({ visibleProducts }) {
             <dl className="grid grid-cols-3 gap-6 border-t border-line pt-6 m-0">
               <div>
                 <dt className="opp-meta-mono uppercase mb-2">Average purity</dt>
-                <dd className="font-display font-semibold text-[36px] tracking-display leading-none text-ink m-0">99%</dd>
+                <dd className="font-display font-semibold text-[36px] tracking-display leading-none text-ink m-0">98%</dd>
               </div>
               <div>
                 <dt className="opp-meta-mono uppercase mb-2">Active SKUs</dt>
@@ -99,7 +99,7 @@ export default function Home({ visibleProducts }) {
                   label={heroShowcase.name}
                   dosage={heroShowcase.dosage}
                   size={280}
-                  purity={heroShowcase.purity ?? 99}
+                  purity={heroShowcase.purity ?? 98}
                   sku={heroShowcase.sku}
                   kit={heroShowcase.isKit}
                   subtitle={heroSubtitle}
@@ -108,7 +108,7 @@ export default function Home({ visibleProducts }) {
               <div className="w-full max-w-[320px] px-5 py-4 bg-surface border border-line rounded-opp flex flex-col gap-2 opp-meta-mono">
                 <SpecLine k="SKU" v={heroShowcase.sku} />
                 <SpecLine k="CLASS" v={heroClass} />
-                <SpecLine k="PURITY" v={`${heroShowcase.purity ?? 99}%`} />
+                <SpecLine k="PURITY" v={`${heroShowcase.purity ?? 98}%`} />
                 <SpecLine k="FORMAT" v={`${heroShowcase.format || 'Lyophilized'} / ${heroShowcase.vialSize || '2mL Vial'}`} />
                 <SpecLine k="STORAGE" v="-20°C" />
               </div>
@@ -184,7 +184,7 @@ export default function Home({ visibleProducts }) {
         <div className="max-w-3xl mx-auto">
           <span className="opp-eyebrow" style={{ color: 'var(--accent)' }}>No. 001</span>
           <p className="font-display font-semibold tracking-display text-[clamp(24px,3vw,40px)] leading-snug m-0 mt-4 text-balance">
-            Research deserves honest material. 99% purity, third-party verified, shipped the next business day.
+            Research deserves honest material. 98% purity, third-party verified, shipped the next business day.
             <span className="text-accent"> If a batch doesn&apos;t meet spec, it doesn&apos;t ship.</span>
           </p>
         </div>
