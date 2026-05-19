@@ -10,11 +10,15 @@ import { sendEmailAlert, sendSmsAlert, sendOrderConfirmation } from '../alerts'
 // into webhook_events first and short-circuit on the 23505 unique violation
 // before calling this.
 export async function finalizePaidOrder({ orderNumber }) {
+  // Accept both 'pending' (zelle/venmo manual rails + fraud-flagged) and
+  // 'awaiting_payment' (instant rails before webhook capture) as valid
+  // pre-finalize states. v17 split these for admin-view clarity, but every
+  // path that ends in capture flows through here and must transition either.
   const { data: order, error: fetchError } = await supabaseAdmin
     .from('orders')
     .select('*')
     .eq('order_number', orderNumber)
-    .eq('payment_status', 'pending')
+    .in('payment_status', ['pending', 'awaiting_payment'])
     .single()
 
   if (fetchError || !order) {

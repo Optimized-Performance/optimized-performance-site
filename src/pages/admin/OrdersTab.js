@@ -100,6 +100,20 @@ function isAwaitingVenmo(order) {
   return order.payment_method === 'venmo' && order.payment_status === 'pending';
 }
 
+// "Awaiting Payment" — instant-rail orders that haven't been captured yet
+// (paypal/card/crypto). v17 split these out of 'pending' so the verification
+// queue isn't polluted by abandoned carts. Webhook will flip to 'completed',
+// or the 48h sweep cron flips to 'abandoned'.
+function isAwaitingPayment(order) {
+  return order.payment_status === 'awaiting_payment';
+}
+
+// "Abandoned" — awaiting_payment orders that aged out at 48h without a
+// capture webhook. Kept for cart-abandonment analytics + fraud forensics.
+function isAbandoned(order) {
+  return order.payment_status === 'abandoned';
+}
+
 export default function OrdersTab({ products = [], showSaveMsg, token }) {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -302,6 +316,8 @@ export default function OrdersTab({ products = [], showSaveMsg, token }) {
     else if (filter === 'ready_to_ship') out = list.filter(isReadyToShip);
     else if (filter === 'awaiting_zelle') out = list.filter(isAwaitingZelle);
     else if (filter === 'awaiting_venmo') out = list.filter(isAwaitingVenmo);
+    else if (filter === 'awaiting_payment') out = list.filter(isAwaitingPayment);
+    else if (filter === 'abandoned') out = list.filter(isAbandoned);
     else out = list.filter((o) => (o.fulfillment_status || 'pending') === filter);
     if (preorderOnly) out = out.filter(hasPreorderItems);
     return out;
@@ -554,6 +570,8 @@ export default function OrdersTab({ products = [], showSaveMsg, token }) {
     ready_to_ship: orders.filter(isReadyToShip).length,
     awaiting_zelle: orders.filter(isAwaitingZelle).length,
     awaiting_venmo: orders.filter(isAwaitingVenmo).length,
+    awaiting_payment: orders.filter(isAwaitingPayment).length,
+    abandoned: orders.filter(isAbandoned).length,
   };
   ALL_STATUSES.forEach((st) => {
     counts[st] = orders.filter((o) => (o.fulfillment_status || 'pending') === st).length;
@@ -646,6 +664,34 @@ export default function OrdersTab({ products = [], showSaveMsg, token }) {
             title="Venmo orders awaiting payment confirmation — match against @optimizedperformance deposits then click Mark Venmo Paid"
           >
             ⏱ Awaiting Venmo ({counts.awaiting_venmo})
+          </button>
+        )}
+        {counts.awaiting_payment > 0 && (
+          <button
+            key="awaiting_payment"
+            onClick={() => setFilter('awaiting_payment')}
+            className={`px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
+              filter === 'awaiting_payment'
+                ? 'bg-ink/10 text-ink border-ink'
+                : 'bg-surface text-ink-soft border-line hover:border-ink'
+            }`}
+            title="Instant-rail orders (PayPal/card/crypto) created but not yet captured. Webhook will finalize or 48h cron will mark abandoned. Not a verification queue — informational."
+          >
+            ◌ Awaiting Payment ({counts.awaiting_payment})
+          </button>
+        )}
+        {counts.abandoned > 0 && (
+          <button
+            key="abandoned"
+            onClick={() => setFilter('abandoned')}
+            className={`px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
+              filter === 'abandoned'
+                ? 'bg-ink-mute/20 text-ink-mute border-ink-mute'
+                : 'bg-surface text-ink-mute border-line hover:border-ink-mute'
+            }`}
+            title="Awaiting-payment orders that timed out at 48h. Kept for cart-abandonment analytics."
+          >
+            ✕ Abandoned ({counts.abandoned})
           </button>
         )}
         {['all', ...ALL_STATUSES].map((st) => (
@@ -817,14 +863,22 @@ export default function OrdersTab({ products = [], showSaveMsg, token }) {
                               ? 'text-danger'
                               : order.payment_status === 'completed'
                                 ? 'text-success'
-                                : 'text-warning'
+                                : order.payment_status === 'abandoned'
+                                  ? 'text-ink-mute'
+                                  : order.payment_status === 'awaiting_payment'
+                                    ? 'text-ink-soft'
+                                    : 'text-warning'
                           }`}
                         >
                           {order.payment_status === 'refunded'
                             ? 'Refunded'
                             : order.payment_status === 'completed'
                               ? 'Paid'
-                              : 'Pending'}
+                              : order.payment_status === 'abandoned'
+                                ? 'Abandoned'
+                                : order.payment_status === 'awaiting_payment'
+                                  ? 'Awaiting'
+                                  : 'Pending'}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-center">

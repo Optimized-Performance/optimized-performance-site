@@ -181,14 +181,20 @@ export default function OrderLookup() {
                         ? 'text-danger'
                         : order.payment_status === 'completed'
                           ? 'text-success'
-                          : 'text-warning'
+                          : order.payment_status === 'abandoned'
+                            ? 'text-ink-mute'
+                            : 'text-warning'
                     }`}
                   >
                     {order.payment_status === 'refunded'
                       ? 'Refunded'
                       : order.payment_status === 'completed'
                         ? 'Paid'
-                        : 'Pending'}
+                        : order.payment_status === 'abandoned'
+                          ? 'Abandoned'
+                          : order.payment_status === 'awaiting_payment'
+                            ? 'Awaiting payment'
+                            : 'Pending'}
                   </span>
                 </div>
               </div>

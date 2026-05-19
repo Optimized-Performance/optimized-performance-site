@@ -124,6 +124,18 @@ export default async function handler(req, res) {
 
     const orderNumber = generateOrderNumber()
 
+    // payment_status taxonomy (v17):
+    //   'awaiting_payment' — instant rail (paypal/card/crypto) not yet captured.
+    //                        Webhook flips to 'completed', or cron flips to
+    //                        'abandoned' after 48h. NOT in the admin Pending
+    //                        view — those abandoned carts shouldn't drown the
+    //                        legitimate verification queue.
+    //   'pending'          — needs human review: zelle/venmo awaiting bank
+    //                        deposit confirmation, OR fraud-blocked at any
+    //                        rail. This IS the admin Pending view.
+    const isInstantRail = paymentMethod === 'paypal' || paymentMethod === 'card' || paymentMethod === 'crypto'
+    const initialPaymentStatus = (velocity.status === 'block' || !isInstantRail) ? 'pending' : 'awaiting_payment'
+
     const insertData = {
       order_number: orderNumber,
       customer_name: name,
@@ -136,7 +148,7 @@ export default async function handler(req, res) {
       subtotal,
       shipping,
       total,
-      payment_status: 'pending',
+      payment_status: initialPaymentStatus,
       payment_method: paymentMethod,
       customer_ip: customerIp,
       user_agent: userAgent,
