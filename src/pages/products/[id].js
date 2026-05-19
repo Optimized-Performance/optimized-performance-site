@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
+import QRCode from 'qrcode';
 import products, {
   getEffectiveStock,
   shouldShowRestricted,
@@ -14,6 +15,8 @@ import { Vial, Icon } from '../../components/Primitives';
 import { supabaseAdmin } from '../../lib/supabase';
 import { getCohortFromRequest } from '../../lib/cohort-session';
 
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://optimizedperformancepeptides.com';
+
 const LOW_STOCK_THRESHOLD = 20;
 
 export default function ProductDetail({
@@ -22,6 +25,7 @@ export default function ProductDetail({
   relatedProducts,
   privateInquiry,
   inquiryUrl,
+  coaQr,
 }) {
   const router = useRouter();
   const { addToCart } = useCart();
@@ -276,8 +280,31 @@ export default function ProductDetail({
           {/* COA / compliance */}
           <div className="mt-6 grid gap-3">
             <ComplianceRow icon="doc" title="Certificate of Analysis">
-              Independent third-party HPLC verified. COA available per batch upon request
-              at <a href="mailto:admin@optimizedperformancepeptides.com" className="text-accent-strong hover:underline">admin@optimizedperformancepeptides.com</a>.
+              {coaQr ? (
+                <div className="flex items-start gap-4">
+                  <div className="flex-1">
+                    Independent third-party HPLC verified. Current batch is
+                    {' '}<span className="font-mono text-ink">{coaQr.lotNumber}</span>{' '}
+                    — scan the QR or{' '}
+                    <Link href={coaQr.path} className="text-accent-strong hover:underline">
+                      view the COA
+                    </Link>
+                    {' '}directly. Earlier batches available on request at{' '}
+                    <a href="mailto:admin@optimizedperformancepeptides.com" className="text-accent-strong hover:underline">admin@optimizedperformancepeptides.com</a>.
+                  </div>
+                  <div
+                    className="shrink-0 p-1.5 bg-surface border border-line rounded-opp"
+                    style={{ width: 88, height: 88 }}
+                    aria-label={`QR code linking to COA for lot ${coaQr.lotNumber}`}
+                    dangerouslySetInnerHTML={{ __html: coaQr.svg }}
+                  />
+                </div>
+              ) : (
+                <>
+                  Independent third-party HPLC verified. COA available per batch upon request
+                  at <a href="mailto:admin@optimizedperformancepeptides.com" className="text-accent-strong hover:underline">admin@optimizedperformancepeptides.com</a>.
+                </>
+              )}
             </ComplianceRow>
             <ComplianceRow icon="truck" title="Shipping">
               Ships within 1 business day in discrete, unbranded packaging.{' '}
@@ -416,6 +443,41 @@ export async function getServerSideProps(context) {
     ? getEffectiveStock(product, inventory)
     : inventory[product.id] ?? product.stock ?? 0;
 
+  // Latest-batch COA lookup for the on-page QR. We query the most recent
+  // batch that has an actual coa_pdf_path so the QR always lands on a real
+  // PDF (the /coa/[sku]/[lot] route handles the no-COA-yet case gracefully,
+  // but routing customers to a "pending" page from a product page reads bad).
+  // For kits, the COA lives on the parent SKU since kits are bundles of
+  // parent vials.
+  let coaQr = null;
+  const coaLookupSku = product.isKit ? product.parentId : product.id;
+  if (coaLookupSku && supabaseAdmin) {
+    try {
+      const { data: latestBatch } = await supabaseAdmin
+        .from('batches')
+        .select('sku, lot_number')
+        .ilike('sku', coaLookupSku)
+        .not('coa_pdf_path', 'is', null)
+        .order('production_date', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (latestBatch) {
+        const coaPath = `/coa/${encodeURIComponent(latestBatch.sku)}/${encodeURIComponent(latestBatch.lot_number)}`;
+        const coaUrl = `${SITE_URL}${coaPath}`;
+        const svg = await QRCode.toString(coaUrl, {
+          type: 'svg',
+          errorCorrectionLevel: 'M',
+          margin: 0,
+          color: { dark: '#08111A', light: '#FFFFFF' },
+        });
+        coaQr = { lotNumber: latestBatch.lot_number, path: coaPath, svg };
+      }
+    } catch {
+      // Soft-fail — page still renders, just without QR. Falls back to the
+      // existing "available on request" copy.
+    }
+  }
+
   // Related products: up to 4 other products in same category, excluding
   // any restricted SKUs the visitor isn't cleared to see.
   const relatedProducts = products
@@ -443,6 +505,7 @@ export async function getServerSideProps(context) {
       relatedProducts,
       privateInquiry: false,
       inquiryUrl: null,
+      coaQr,
     },
   };
 }
