@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import Link from 'next/link';
 import { Logo } from './Primitives';
 
@@ -27,7 +28,7 @@ export default function Footer() {
           <p className="text-ink-soft text-sm max-w-md leading-relaxed mb-4">
             High-purity lyophilized research peptides. Third-party verified. Shipped from the United States.
           </p>
-          <div className="flex flex-col gap-1.5 text-sm">
+          <div className="flex flex-col gap-1.5 text-sm mb-6">
             <a
               href="mailto:admin@optimizedperformancepeptides.com"
               className="text-ink-soft hover:text-accent-strong transition-colors"
@@ -41,6 +42,7 @@ export default function Footer() {
               +1 (831) 218-5147
             </a>
           </div>
+          <NewsletterSignup />
         </div>
 
         <FooterCol title="Shop">
@@ -99,5 +101,84 @@ function FooterLink({ href, children }) {
     >
       {children}
     </Link>
+  );
+}
+
+// Footer email capture. POSTs to /api/newsletter/subscribe and renders
+// success / already-subscribed / error inline. Deliberately minimal — one
+// input, one button, one status line. Server treats already-subscribed as
+// success so we never tell a stranger whether an email is in our list.
+function NewsletterSignup() {
+  const [email, setEmail] = useState('');
+  const [status, setStatus] = useState('idle'); // 'idle' | 'submitting' | 'success' | 'error'
+  const [message, setMessage] = useState('');
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    if (status === 'submitting') return;
+    setStatus('submitting');
+    setMessage('');
+    try {
+      const res = await fetch('/api/newsletter/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, source: 'footer' }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setStatus('error');
+        setMessage(data.error || 'Could not subscribe. Try again.');
+        return;
+      }
+      setStatus('success');
+      setMessage(
+        data.alreadySubscribed
+          ? "You're already on the list — thanks!"
+          : "You're in — we'll be in touch."
+      );
+      setEmail('');
+    } catch {
+      setStatus('error');
+      setMessage('Could not subscribe. Try again.');
+    }
+  }
+
+  return (
+    <div>
+      <h4 className="font-mono text-[11px] font-semibold tracking-[0.14em] uppercase text-ink-mute mb-3">
+        Stock updates &amp; newsletter
+      </h4>
+      <form onSubmit={handleSubmit} className="flex gap-2 max-w-md">
+        <input
+          type="email"
+          required
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="you@example.com"
+          className="input-field flex-1 text-sm"
+          aria-label="Email address"
+          disabled={status === 'submitting'}
+        />
+        <button
+          type="submit"
+          className="btn-primary text-xs px-4 py-2 whitespace-nowrap"
+          disabled={status === 'submitting'}
+        >
+          {status === 'submitting' ? 'Subscribing…' : 'Subscribe'}
+        </button>
+      </form>
+      {message && (
+        <p
+          className={`opp-meta-mono mt-2 m-0 ${
+            status === 'success' ? 'text-success' : 'text-danger'
+          }`}
+        >
+          {message}
+        </p>
+      )}
+      <p className="opp-meta-mono text-ink-mute mt-2 m-0">
+        Restock alerts + new SKU drops. No spam.
+      </p>
+    </div>
   );
 }
