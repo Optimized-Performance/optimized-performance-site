@@ -295,7 +295,7 @@ export default function Checkout() {
                   }}
                   placeholder="Enter code"
                 />
-                <button type="button" onClick={applyAffiliateCode} className="btn-primary px-5 whitespace-nowrap">
+                <button type="button" onClick={() => applyAffiliateCode()} className="btn-primary px-5 whitespace-nowrap">
                   Apply
                 </button>
               </div>
