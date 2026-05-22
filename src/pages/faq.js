@@ -6,11 +6,11 @@ const faqs = [
   {
     category: 'Products',
     items: [
-      { q: 'What are research peptides?', a: 'Research peptides are short chains of amino acids used in scientific research and laboratory studies. Our products are synthesized to 98%+ purity and are intended strictly for in-vitro research use.' },
-      { q: 'What purity level are your peptides?', a: 'All of our peptides are synthesized to 98% purity or higher. Each batch is third-party tested and a Certificate of Analysis (COA) is available upon request.' },
+      { q: 'What are research peptides?', a: 'Research peptides are short chains of amino acids used in scientific research and laboratory studies. Our products are synthesized to 99%+ purity and are intended strictly for in-vitro research use.' },
+      { q: 'What purity level are your peptides?', a: 'Our average tested purity is 99%, and most COAs come in at 99.8% on the published Certificate of Analysis. One SKU (Ipamorelin) tested at 98% on its most recent batch — we list it at 98% rather than advertise a number we can\'t consistently match. Every lot has a publicly published COA at /coa/{sku}/{lot} on this site; we\'d rather under-promise and ship better than over-promise and ship inconsistent.' },
       { q: 'What format do your products come in?', a: 'All products are supplied as lyophilized (freeze-dried) powder in sealed 2 mL glass vials with flip-top caps. Kits contain 10 vials.' },
       { q: 'How should I store the peptides?', a: 'Store lyophilized peptides at -20°C for long-term storage. Reconstituted peptides should be stored at 2–8°C and used within the timeframe specified on the product documentation.' },
-      { q: 'Do you provide Certificates of Analysis (COAs)?', a: 'Yes. COAs are available for every batch. Contact us with your order number and we will provide the relevant COA.' },
+      { q: 'Do you provide Certificates of Analysis (COAs)?', a: 'Yes. Every batch has a publicly published COA on this site at /coa/{sku}/{lot} — the lot number is printed on every vial label and linked from each product page. All testing is independent third-party HPLC + mass spec verification.' },
     ],
   },
   {
@@ -37,7 +37,7 @@ const faqs = [
     items: [
       { q: 'What is your return policy?', a: 'Due to the nature of research compounds, all sales are final once shipped. We do offer replacements or refunds for damaged, defective, or incorrect items — contact us within 7 days of delivery.' },
       { q: 'What if my order arrives damaged?', a: 'Contact us within 7 days with photos of the damage. We will send a replacement or issue a full refund.' },
-      { q: 'How do I contact support?', a: 'Email us at admin@optimizedperformancepeptides.com or call +1 (831) 218-5147 with your order number and a description of your issue. We respond within 24 hours.' },
+      { q: 'How do I contact support?', a: 'Three channels: (1) email admin@optimizedperformancepeptides.com, (2) call/text +1 (831) 218-5147, or (3) join our customer Telegram group for direct access to the team and other customers. Email and phone both respond within 24 hours; Telegram is typically real-time during business hours. Customers who place an order receive a Telegram invite link in their order confirmation.' },
     ],
   },
   {

@@ -59,7 +59,7 @@ export default function Shop({ inventory, visibleProducts: visibleProductsProp }
     <div className="max-w-container mx-auto px-8 pt-14 pb-20">
       <SEO
         title="Shop Research Peptides"
-        description="Browse our catalog of research-grade peptides. BPC-157, TB-500, Ipamorelin, MT-2, NAD+, and combo kits. 98% purity, fast shipping."
+        description="Browse our catalog of research-grade peptides. BPC-157, TB-500, Ipamorelin, MT-2, NAD+, and combo kits. 99% average purity, fast shipping."
         path="/shop"
       />
 

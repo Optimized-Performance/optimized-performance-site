@@ -41,7 +41,7 @@ export default function ProductCard({ product, qty }) {
         aria-label={`View ${product.name} ${product.dosage} details`}
       >
         <div className="absolute top-3 right-3 px-2 py-1 bg-surface border border-line rounded-sm opp-meta-mono">
-          {product.purity ?? 98}% · HPLC
+          {product.purity ?? 99}% · HPLC
         </div>
         {product.badge && (
           <div

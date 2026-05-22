@@ -177,7 +177,7 @@ export default function ProductDetail({
         {/* Image panel */}
         <div className="card-premium relative flex items-center justify-center min-h-[420px] p-8 opp-grid-bg">
           <div className="absolute top-5 right-5 px-2.5 py-1 bg-surface border border-line rounded-sm opp-meta-mono">
-            {product.purity ?? 98}% · HPLC
+            {product.purity ?? 99}% · HPLC
           </div>
           {product.badge && (
             <div
@@ -215,7 +215,7 @@ export default function ProductDetail({
           <div className="border border-line rounded-opp overflow-hidden mb-6">
             <SpecRow label="SKU" value={product.sku} />
             <SpecRow label="Class" value={product.category} />
-            <SpecRow label="Purity" value={`${product.purity ?? 98}% — HPLC verified`} />
+            <SpecRow label="Purity" value={`${product.purity ?? 99}% — HPLC verified`} />
             <SpecRow label="Format" value={product.format || 'Lyophilized Powder'} />
             <SpecRow label="Vial size" value={product.vialSize || '2 mL Vial'} />
             <SpecRow label="Storage" value="−20°C recommended" last />
