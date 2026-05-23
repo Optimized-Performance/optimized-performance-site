@@ -6,6 +6,7 @@ import { createPaypalCheckoutSession } from '../../../lib/payments/paypalProcess
 import { runVelocityChecks, extractClientIP } from '../../../lib/fraud-checks'
 import { calcShipping } from '../../../lib/shipping'
 import { sendZelleInstructions, sendVenmoInstructions } from '../../../lib/alerts'
+import { isMemorialDaySaleActive, applyMemorialDiscount, MEMORIAL_DAY_DISCOUNT_PCT } from '../../../lib/sale'
 
 function generateOrderNumber() {
   const date = new Date()
@@ -97,10 +98,27 @@ export default async function handler(req, res) {
       }
     }
 
-    const discountedTotal = subtotal - discount
+    // Memorial Day sale (or any future site-wide sale): apply BEFORE affiliate
+    // discount so the affiliate stacks multiplicatively (their % comes off the
+    // sale-discounted price, not original retail). Affiliate commission is
+    // calculated on amount-actually-paid downstream, which is the standard
+    // commission model and stays consistent here.
+    const saleActive = isMemorialDaySaleActive()
+    const { discount: memorialDiscount, post: subtotalPostMemorial } = applyMemorialDiscount(subtotal)
+
+    // Recompute affiliate discount against the sale-discounted subtotal (was
+    // computed earlier against raw subtotal — overwrite for correctness when
+    // sale is active).
+    if (validatedAffiliateCode && discount > 0) {
+      const affiliateDiscountPct = (discount / subtotal) * 100
+      discount = subtotalPostMemorial * (affiliateDiscountPct / 100)
+    }
+
+    const discountedTotal = subtotalPostMemorial - discount
     // Shipping math lives in lib/shipping.js — same helper drives the
-    // client-side checkout summary so the totals match exactly.
-    const shippingCalc = calcShipping({ items: validatedItems, discountedSubtotal: discountedTotal })
+    // client-side checkout summary so the totals match exactly. saleActive
+    // flag triggers the free-shipping override during the sale window.
+    const shippingCalc = calcShipping({ items: validatedItems, discountedSubtotal: discountedTotal, saleActive })
     const shipping = shippingCalc.total
     const total = Math.round((discountedTotal + shipping) * 100) / 100
 
@@ -160,6 +178,15 @@ export default async function handler(req, res) {
       insertData.affiliate_code = validatedAffiliateCode
       insertData.discount = discount
       insertData.affiliate_commission_pct = validatedCommissionPct
+    }
+
+    // Memorial Day (or any other site-wide sale) — log discount for audit
+    // trail + future revenue attribution. memorial_day_discount column is
+    // additive to the existing affiliate `discount` field above. If the
+    // orders table doesn't have the column yet, the insert will fail noisily
+    // — needs a migration to add: `memorial_day_discount NUMERIC DEFAULT 0`.
+    if (saleActive && memorialDiscount > 0) {
+      insertData.memorial_day_discount = Math.round(memorialDiscount * 100) / 100
     }
 
     const { data: order, error } = await supabaseAdmin

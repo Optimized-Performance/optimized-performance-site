@@ -14,6 +14,7 @@ import SEO from '../../components/SEO';
 import { Vial, Icon } from '../../components/Primitives';
 import { supabaseAdmin } from '../../lib/supabase';
 import { getCohortFromRequest } from '../../lib/cohort-session';
+import { isMemorialDaySaleActive, getSalePrice, MEMORIAL_DAY_DISCOUNT_PCT } from '../../lib/sale';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://optimizedperformancepeptides.com';
 
@@ -224,9 +225,25 @@ export default function ProductDetail({
           {/* Price + action */}
           <div className="flex items-end justify-between pb-5 border-b border-line mb-5">
             <div>
-              <div className="font-display font-semibold text-4xl tracking-display text-ink leading-none">
-                ${product.price.toFixed(2)}
-              </div>
+              {(() => {
+                const saleActive = isMemorialDaySaleActive();
+                const salePrice = saleActive ? getSalePrice(product.price) : product.price;
+                return saleActive ? (
+                  <div className="flex items-baseline gap-3">
+                    <span className="font-display font-semibold text-4xl tracking-display text-accent-strong leading-none">
+                      ${salePrice.toFixed(2)}
+                    </span>
+                    <span className="font-mono text-base text-ink-mute line-through">
+                      ${product.price.toFixed(2)}
+                    </span>
+                    <span className="opp-meta-mono text-accent-strong">−{MEMORIAL_DAY_DISCOUNT_PCT}% MEMORIAL DAY</span>
+                  </div>
+                ) : (
+                  <div className="font-display font-semibold text-4xl tracking-display text-ink leading-none">
+                    ${product.price.toFixed(2)}
+                  </div>
+                );
+              })()}
               <div className={`opp-stock opp-stock--${status} mt-2`}>
                 <span className="opp-stock-dot" /> {statusText}
               </div>

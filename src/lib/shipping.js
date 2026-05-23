@@ -27,10 +27,16 @@ export function cartRequiresColdPack(items) {
   return items.some((it) => it && it.isKit === true)
 }
 
-export function calcShipping({ items, discountedSubtotal }) {
+export function calcShipping({ items, discountedSubtotal, saleActive = false }) {
   const coldPack = cartRequiresColdPack(items)
+  // Memorial Day (and any future) site-wide sale: free shipping overrides
+  // normal calc including cold-pack surcharge. Cold-chain is still used for
+  // kits — we just absorb the cost during the sale window.
+  if (saleActive) {
+    return { base: 0, coldPack: 0, total: 0, hasColdPack: coldPack, freeShipApplied: true, saleApplied: true }
+  }
   if (!coldPack && discountedSubtotal >= FREE_SHIPPING_THRESHOLD) {
-    return { base: 0, coldPack: 0, total: 0, hasColdPack: false, freeShipApplied: true }
+    return { base: 0, coldPack: 0, total: 0, hasColdPack: false, freeShipApplied: true, saleApplied: false }
   }
   return {
     base: SHIPPING_BASE,
@@ -38,5 +44,6 @@ export function calcShipping({ items, discountedSubtotal }) {
     total: SHIPPING_BASE + (coldPack ? COLD_PACK_SURCHARGE : 0),
     hasColdPack: coldPack,
     freeShipApplied: false,
+    saleApplied: false,
   }
 }

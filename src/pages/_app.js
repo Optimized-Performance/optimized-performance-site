@@ -24,12 +24,14 @@ const jetbrainsMono = JetBrains_Mono({
 
 const AgeGate = dynamic(() => import('../components/AgeGate'), { ssr: false });
 const LaunchBanner = dynamic(() => import('../components/LaunchBanner'), { ssr: false });
+const MemorialDayBanner = dynamic(() => import('../components/MemorialDayBanner'), { ssr: false });
 
 export default function App({ Component, pageProps }) {
   const router = useRouter();
   const isAdmin = router.pathname.startsWith('/admin');
   const isCheckout = router.pathname.startsWith('/checkout');
   const showLaunchBanner = !isAdmin && !isCheckout;
+  const showMemorialDayBanner = !isAdmin; // Show on checkout too — reinforces the sale at the moment of purchase
 
   return (
     <CartProvider>
@@ -38,6 +40,7 @@ export default function App({ Component, pageProps }) {
           <Component {...pageProps} />
         ) : (
           <>
+            {showMemorialDayBanner && <MemorialDayBanner />}
             {showLaunchBanner && <LaunchBanner />}
             <Header />
             <CartDrawer />

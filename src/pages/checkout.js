@@ -4,6 +4,7 @@ import { useCart } from '../context/CartContext';
 import SEO from '../components/SEO';
 import { Vial, Icon } from '../components/Primitives';
 import { calcShipping, FREE_SHIPPING_THRESHOLD } from '../lib/shipping';
+import { isMemorialDaySaleActive, applyMemorialDiscount, MEMORIAL_DAY_DISCOUNT_PCT } from '../lib/sale';
 import PaypalCheckoutButtons from '../components/PaypalCheckoutButtons';
 
 // Read the opp_ref cookie set by lib/cohort-session when a visitor arrives
@@ -88,14 +89,21 @@ export default function Checkout() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Memorial Day sale: applied BEFORE the affiliate discount so the affiliate
+  // % stacks multiplicatively (their discount comes off the sale-discounted
+  // price). Mirrors the server-side calc in /api/orders/create.js exactly so
+  // the customer-visible total matches what gets charged.
+  const saleActive = isMemorialDaySaleActive();
+  const { discount: memorialDiscount, post: cartTotalPostMemorial } = applyMemorialDiscount(cartTotal);
+
   const discountPct = affiliateApplied ? affiliateApplied.discountPct : 0;
-  const discountAmount = cartTotal * (discountPct / 100);
-  const discountedSubtotal = cartTotal - discountAmount;
+  const discountAmount = cartTotalPostMemorial * (discountPct / 100);
+  const discountedSubtotal = cartTotalPostMemorial - discountAmount;
   // Shipping math lives in lib/shipping.js — same helper runs server-side
   // in /api/orders/create so the totals match exactly. cartItems carry isKit
   // via spread in CartContext.addToCart, which the helper reads to detect
-  // cold-pack carts.
-  const shippingBreakdown = calcShipping({ items: cartItems, discountedSubtotal });
+  // cold-pack carts. saleActive flag triggers the free-shipping override.
+  const shippingBreakdown = calcShipping({ items: cartItems, discountedSubtotal, saleActive });
   const shippingCost = shippingBreakdown.total;
   const discountedTotal = discountedSubtotal + shippingCost;
 
@@ -443,6 +451,14 @@ export default function Checkout() {
               <span className="text-ink-soft">Subtotal</span>
               <span className="text-ink">${cartTotal.toFixed(2)}</span>
             </div>
+            {saleActive && memorialDiscount > 0 && (
+              <div className="flex justify-between text-[13px]">
+                <span className="text-accent-strong font-semibold">
+                  Memorial Day Sale ({MEMORIAL_DAY_DISCOUNT_PCT}% off)
+                </span>
+                <span className="text-accent-strong font-semibold">-${memorialDiscount.toFixed(2)}</span>
+              </div>
+            )}
             {affiliateApplied && (
               <div className="flex justify-between text-[13px]">
                 <span className="text-success font-semibold">

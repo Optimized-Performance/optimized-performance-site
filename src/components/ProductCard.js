@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { useCart } from '../context/CartContext';
 import { isPreorderable, formatPreorderShipDate } from '../data/products';
+import { isMemorialDaySaleActive, getSalePrice, MEMORIAL_DAY_DISCOUNT_PCT } from '../lib/sale';
 import { Vial, Icon } from './Primitives';
 
 const LOW_STOCK_THRESHOLD = 20;
@@ -8,6 +9,8 @@ const LOW_STOCK_THRESHOLD = 20;
 export default function ProductCard({ product, qty }) {
   const { addToCart } = useCart();
   const stock = qty ?? product.stock ?? 0;
+  const saleActive = isMemorialDaySaleActive();
+  const salePrice = saleActive ? getSalePrice(product.price) : product.price;
   const preorderEnabled = stock === 0 && isPreorderable(product);
   const shipDate = preorderEnabled ? formatPreorderShipDate(product) : null;
 
@@ -76,9 +79,20 @@ export default function ProductCard({ product, qty }) {
         <p className="text-[13px] text-ink-soft leading-relaxed my-1 flex-1">{product.description}</p>
         <div className="flex items-end justify-between pt-3.5 border-t border-line gap-3">
           <div>
-            <div className="font-display font-semibold text-2xl tracking-display text-ink leading-none">
-              ${product.price.toFixed(2)}
-            </div>
+            {saleActive ? (
+              <div className="flex items-baseline gap-2">
+                <span className="font-display font-semibold text-2xl tracking-display text-accent-strong leading-none">
+                  ${salePrice.toFixed(2)}
+                </span>
+                <span className="font-mono text-[12px] text-ink-mute line-through">
+                  ${product.price.toFixed(2)}
+                </span>
+              </div>
+            ) : (
+              <div className="font-display font-semibold text-2xl tracking-display text-ink leading-none">
+                ${product.price.toFixed(2)}
+              </div>
+            )}
             <div className={`opp-stock opp-stock--${status} mt-1.5`}>
               <span className="opp-stock-dot" /> {statusText}
             </div>
