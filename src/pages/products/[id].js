@@ -308,9 +308,14 @@ export default function ProductDetail({
                     Independent third-party HPLC verified. Current batch is
                     {' '}<span className="font-mono text-ink">{coaQr.lotNumber}</span>{' '}
                     — scan the QR or{' '}
-                    <Link href={coaQr.path} className="text-accent-strong hover:underline">
+                    <a
+                      href={coaQr.path}
+                      target="_blank"
+                      rel="noopener"
+                      className="text-accent-strong hover:underline"
+                    >
                       view the COA
-                    </Link>
+                    </a>
                     {' '}directly. Earlier batches available on request at{' '}
                     <a href="mailto:admin@optimizedperformancepeptides.com" className="text-accent-strong hover:underline">admin@optimizedperformancepeptides.com</a>.
                   </div>
