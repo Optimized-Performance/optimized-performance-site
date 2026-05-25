@@ -45,15 +45,13 @@
   <line x1="184" y1="200" x2="636" y2="200" stroke="#00B4D8" stroke-width="0.6" opacity="0.25"/>
 
   <!-- RUO header (red, high contrast — same treatment as peptide labels) -->
-  <text x="184" y="222" font-family="'Helvetica Neue', Arial, sans-serif" font-size="13" font-weight="700" fill="#FF4D6D" letter-spacing="1">FOR RESEARCH USE ONLY</text>
-  <text x="184" y="240" font-family="'Helvetica Neue', Arial, sans-serif" font-size="9" font-weight="500" fill="#FF8FA3" letter-spacing="0.3">Not for human consumption. Not a drug, food, or cosmetic.</text>
+  <text x="184" y="232" font-family="'Helvetica Neue', Arial, sans-serif" font-size="14" font-weight="700" fill="#FF4D6D" letter-spacing="1">FOR RESEARCH USE ONLY</text>
+  <text x="184" y="254" font-family="'Helvetica Neue', Arial, sans-serif" font-size="10" font-weight="500" fill="#FF8FA3" letter-spacing="0.3">Not for human consumption. Not a drug, food, or cosmetic.</text>
 
-  <!-- Lot / MFG / EXP stamp area -->
-  <text x="184" y="278" font-family="'Helvetica Neue', Arial, sans-serif" font-size="11" font-weight="400" fill="#7BA3C4" opacity="0.65">Lot: ___________</text>
-  <text x="324" y="278" font-family="'Helvetica Neue', Arial, sans-serif" font-size="11" font-weight="400" fill="#7BA3C4" opacity="0.65">MFG: ___________</text>
-  <text x="476" y="278" font-family="'Helvetica Neue', Arial, sans-serif" font-size="11" font-weight="400" fill="#7BA3C4" opacity="0.65">EXP: ___________</text>
+  <!-- Lot / batch info is carried on a separate Phomemo QR sticker per OPP's
+       two-sticker labeling protocol — this Avery label is brand-only. -->
 
   <!-- Footer: website + SKU -->
-  <text x="184" y="316" font-family="'Helvetica Neue', Arial, sans-serif" font-size="10" font-weight="500" fill="#90CAF9" opacity="0.75" letter-spacing="0.4">optimizedperformancepeptides.com</text>
-  <text x="636" y="316" text-anchor="end" font-family="'Helvetica Neue', Arial, sans-serif" font-size="10" font-weight="500" fill="#7BA3C4" opacity="0.7">OP-TAD-20MG · 30 mL Dropper Bottle</text>
+  <text x="184" y="316" font-family="'Helvetica Neue', Arial, sans-serif" font-size="11" font-weight="500" fill="#90CAF9" opacity="0.78" letter-spacing="0.4">optimizedperformancepeptides.com</text>
+  <text x="636" y="316" text-anchor="end" font-family="'Helvetica Neue', Arial, sans-serif" font-size="11" font-weight="500" fill="#7BA3C4" opacity="0.72">OP-TAD-20MG · 30 mL Dropper Bottle</text>
 </svg>
