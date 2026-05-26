@@ -192,13 +192,17 @@ export default function OrdersTab({ products = [], showSaveMsg, token }) {
     }
   }
 
-  // Refund + cancel a paid order. Records OPP-side bookkeeping and notifies
-  // the customer; Bankful refund itself still happens manually via Bankful
-  // dashboard for v1 (Diana hasn't confirmed the refund-API endpoint yet).
+  // Refund a paid order. Full refund (amount = order total) cancels the
+  // fulfillment as well; partial refund (amount < order total) leaves the
+  // order open so it ships normally — used for sale-discount corrections,
+  // shipping adjustments, broken-item credits, etc. Records OPP-side
+  // bookkeeping and emails the customer either way. The processor-side
+  // refund (PayPal/Bankful/NOWPayments) is still done manually via the
+  // processor's dashboard.
   async function refundAndCancel(order) {
     const defaultAmt = Number(order.total || 0).toFixed(2);
     const amtStr = window.prompt(
-      `Refund amount for order ${order.order_number}? Full total = $${defaultAmt}. Enter a smaller number for partial refund.`,
+      `Refund amount for order ${order.order_number}? Full total = $${defaultAmt}. Enter a smaller number for partial refund (order stays open and ships normally).`,
       defaultAmt
     );
     if (amtStr === null) return;
@@ -207,16 +211,20 @@ export default function OrdersTab({ products = [], showSaveMsg, token }) {
       showSaveMsg('Invalid refund amount.');
       return;
     }
+    const isPartial = amount < Number(order.total || 0) - 0.01;
     const reason = window.prompt(
       'Refund reason (audit log + appears in customer email if non-empty):',
       ''
     );
     if (reason === null) return;
-    if (!window.confirm(
-      `Refund $${amount.toFixed(2)} on order ${order.order_number}?\n\n` +
-      `This records the refund in OPP, marks the order cancelled, and emails the customer. ` +
-      `Process the actual refund in Bankful's dashboard if you haven't already.`
-    )) return;
+    const confirmMsg = isPartial
+      ? `Partial refund of $${amount.toFixed(2)} on order ${order.order_number}?\n\n` +
+        `Order remains open and will ship normally. Customer is emailed about the refund. ` +
+        `Process the actual refund via your payment processor's dashboard (PayPal/Bankful/etc.) if you haven't already.`
+      : `Full refund of $${amount.toFixed(2)} on order ${order.order_number}?\n\n` +
+        `This cancels the order, records the refund in OPP, and emails the customer. ` +
+        `Process the actual refund via your payment processor's dashboard if you haven't already.`;
+    if (!window.confirm(confirmMsg)) return;
 
     try {
       const res = await fetch('/api/admin/orders/refund', {
@@ -230,9 +238,11 @@ export default function OrdersTab({ products = [], showSaveMsg, token }) {
         return;
       }
       await fetchOrders();
+      const successPrefix = isPartial
+        ? `Partial refund of $${amount.toFixed(2)} recorded on ${order.order_number} (order stays open).`
+        : `Refunded $${amount.toFixed(2)} on ${order.order_number} (order cancelled).`;
       showSaveMsg(
-        `Refunded $${amount.toFixed(2)} on ${order.order_number}. Customer notified. ` +
-        `Process the Bankful-side refund if not already done.`
+        `${successPrefix} Customer notified. Process the processor-side refund if not already done.`
       );
     } catch (err) {
       showSaveMsg(`Refund failed: ${err.message}`);
@@ -919,9 +929,9 @@ export default function OrdersTab({ products = [], showSaveMsg, token }) {
                             <button
                               className="text-[11px] px-2.5 py-1 rounded-opp border border-danger/40 bg-danger/10 text-danger hover:bg-danger/20 font-semibold"
                               onClick={() => refundAndCancel(order)}
-                              title="Record refund + cancel order + email customer. Process the Bankful-side refund manually for now."
+                              title="Full refund cancels the order; partial refund keeps it open and ships normally. Process the processor-side refund (PayPal/Bankful/etc.) manually."
                             >
-                              Refund &amp; Cancel
+                              Refund
                             </button>
                           )}
                           {status !== 'cancelled' && order.payment_status !== 'completed' && (

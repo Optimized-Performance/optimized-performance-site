@@ -61,17 +61,32 @@ export default async function handler(req, res) {
     const refundReason = String(reason || '').slice(0, 500)
     const nowIso = new Date().toISOString()
 
+    // Partial refunds (refund_amount < total) leave the order open so it
+    // ships normally — used when correcting an overcharge (e.g. sale-discount
+    // bug fix, broken-item credit, shipping adjustment) without canceling
+    // fulfillment. Full refunds flip payment_status to 'refunded' and
+    // fulfillment_status to 'cancelled' as before.
+    const orderTotal = Number(order.total || 0)
+    const isFullRefund = refundAmount >= orderTotal - 0.01
+
+    const update = {
+      refunded_at: nowIso,
+      refund_amount: refundAmount,
+      refund_reason: refundReason || null,
+      refunded_by: 'admin',
+      updated_at: nowIso,
+    }
+    if (isFullRefund) {
+      update.payment_status = 'refunded'
+      update.fulfillment_status = 'cancelled'
+    }
+    // For partial refunds, payment_status stays at its current value (likely
+    // 'completed') and fulfillment_status is untouched so the admin Pending
+    // / Packed / Shipped pipeline continues normally.
+
     const { data: updated, error: updateErr } = await supabaseAdmin
       .from('orders')
-      .update({
-        payment_status: 'refunded',
-        fulfillment_status: 'cancelled',
-        refunded_at: nowIso,
-        refund_amount: refundAmount,
-        refund_reason: refundReason || null,
-        refunded_by: 'admin',
-        updated_at: nowIso,
-      })
+      .update(update)
       .eq('id', id)
       .select()
       .single()
