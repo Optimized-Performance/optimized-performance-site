@@ -12,6 +12,7 @@ import products, {
 import { useCart } from '../../context/CartContext';
 import SEO from '../../components/SEO';
 import { Vial, Icon } from '../../components/Primitives';
+import NotifyMe from '../../components/NotifyMe';
 import { supabaseAdmin } from '../../lib/supabase';
 import { getCohortFromRequest } from '../../lib/cohort-session';
 import { isMemorialDaySaleActive, getSalePrice, MEMORIAL_DAY_DISCOUNT_PCT } from '../../lib/sale';
@@ -286,12 +287,15 @@ export default function ProductDetail({
           </button>
 
           {status === 'preorder' && (
-            <div className="mt-3 p-3 bg-surfaceAlt border border-line rounded-opp text-[12px] text-ink-soft leading-snug">
-              <span className="opp-meta-mono text-accent-strong">PREORDER</span>{' '}
-              {shipDate
-                ? `This SKU is currently out of stock. Estimated ship date: ${shipDate}. Card is charged at checkout; the order ships when inventory arrives.`
-                : 'This SKU is currently out of stock. Ship date is being confirmed; we\'ll email you with an updated ETA. Card is charged at checkout; the order ships when inventory arrives.'}
-            </div>
+            <>
+              <div className="mt-3 p-3 bg-surfaceAlt border border-line rounded-opp text-[12px] text-ink-soft leading-snug">
+                <span className="opp-meta-mono text-accent-strong">PREORDER</span>{' '}
+                {shipDate
+                  ? `This SKU is currently out of stock. Estimated ship date: ${shipDate}. Card is charged at checkout; the order ships when inventory arrives.`
+                  : 'This SKU is currently out of stock. Ship date is being confirmed; we\'ll email you with an updated ETA. Card is charged at checkout; the order ships when inventory arrives.'}
+              </div>
+              <NotifyMe sku={product.sku} productId={product.id} productName={product.name} />
+            </>
           )}
 
           {/* COA / compliance */}
