@@ -9,7 +9,7 @@ import { sendEmailAlert, sendSmsAlert, sendOrderConfirmation } from '../alerts'
 // Replay protection is the caller's responsibility — webhook handlers insert
 // into webhook_events first and short-circuit on the 23505 unique violation
 // before calling this.
-export async function finalizePaidOrder({ orderNumber }) {
+export async function finalizePaidOrder({ orderNumber, sendConfirmation = true }) {
   // Accept both 'pending' (zelle/venmo manual rails + fraud-flagged) and
   // 'awaiting_payment' (instant rails before webhook capture) as valid
   // pre-finalize states. v17 split these for admin-view clarity, but every
@@ -81,7 +81,12 @@ export async function finalizePaidOrder({ orderNumber }) {
     }
   }
 
-  await sendOrderConfirmation(order)
+  // Manual admin orders can suppress the confirmation email (e.g. comped
+  // orders, or customers already being handled directly). Webhook callers
+  // pass nothing → default true → unchanged behavior.
+  if (sendConfirmation) {
+    await sendOrderConfirmation(order)
+  }
 
   const criticalItems = lowStockItems.filter((i) => i.level === 'critical')
   const reorderItems = lowStockItems.filter((i) => i.level === 'reorder')

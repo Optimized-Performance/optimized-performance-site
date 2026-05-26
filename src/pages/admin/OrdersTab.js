@@ -129,9 +129,94 @@ export default function OrdersTab({ products = [], showSaveMsg, token }) {
   const [bulkPasteText, setBulkPasteText] = useState('');
   const [bulkPasteSubmitting, setBulkPasteSubmitting] = useState(false);
 
+  // Manual order entry (off-platform Zelle/Venmo/cash payments).
+  const MANUAL_FORM_BLANK = {
+    name: '', email: '', address: '', city: '', state: '', zip: '',
+    affiliateCode: '', paymentMethod: 'zelle', priceOverride: '', sendConfirmation: true,
+    lines: [{ productId: '', quantity: 1 }],
+  };
+  const [manualOpen, setManualOpen] = useState(false);
+  const [manualSubmitting, setManualSubmitting] = useState(false);
+  const [manualForm, setManualForm] = useState(MANUAL_FORM_BLANK);
+
   useEffect(() => {
     fetchOrders();
   }, []);
+
+  // Sellable products for the manual-order picker (exclude nothing — admin can
+  // enter any catalog SKU, incl. preorder/coming-soon).
+  const manualCatalogSubtotal = manualForm.lines.reduce((sum, line) => {
+    const p = products.find((x) => x.id === line.productId);
+    return sum + (p ? p.price * (parseInt(line.quantity) || 0) : 0);
+  }, 0);
+
+  function setManualField(field, value) {
+    setManualForm((f) => ({ ...f, [field]: value }));
+  }
+  function setManualLine(idx, field, value) {
+    setManualForm((f) => ({
+      ...f,
+      lines: f.lines.map((l, i) => (i === idx ? { ...l, [field]: value } : l)),
+    }));
+  }
+  function addManualLine() {
+    setManualForm((f) => ({ ...f, lines: [...f.lines, { productId: '', quantity: 1 }] }));
+  }
+  function removeManualLine(idx) {
+    setManualForm((f) => ({ ...f, lines: f.lines.filter((_, i) => i !== idx) }));
+  }
+
+  async function submitManualOrder() {
+    if (manualSubmitting) return;
+    const items = manualForm.lines
+      .filter((l) => l.productId && (parseInt(l.quantity) || 0) > 0)
+      .map((l) => ({ id: l.productId, quantity: parseInt(l.quantity) }));
+    if (items.length === 0) {
+      showSaveMsg('Add at least one product line.');
+      return;
+    }
+    if (!manualForm.email || !manualForm.name || !manualForm.address || !manualForm.city || !manualForm.state || !manualForm.zip) {
+      showSaveMsg('Fill in customer name, email, and full shipping address.');
+      return;
+    }
+    setManualSubmitting(true);
+    try {
+      const res = await fetch('/api/admin/orders/create-manual', {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({
+          name: manualForm.name,
+          email: manualForm.email,
+          address: manualForm.address,
+          city: manualForm.city,
+          state: manualForm.state,
+          zip: manualForm.zip,
+          items,
+          affiliateCode: manualForm.affiliateCode.trim() || undefined,
+          paymentMethod: manualForm.paymentMethod,
+          priceOverride: manualForm.priceOverride.trim() || undefined,
+          sendConfirmation: manualForm.sendConfirmation,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        showSaveMsg(`Manual order failed: ${data.error || res.status}`);
+        setManualSubmitting(false);
+        return;
+      }
+      await fetchOrders();
+      setManualOpen(false);
+      setManualForm(MANUAL_FORM_BLANK);
+      showSaveMsg(
+        `Manual order ${data.order_number} created ($${Number(data.total).toFixed(2)}` +
+        `${data.affiliate_code ? `, ${data.affiliate_code} credited` : ''}` +
+        `${data.emailed ? ', customer emailed' : ', no email sent'}). Inventory decremented.`
+      );
+    } catch (err) {
+      showSaveMsg(`Manual order failed: ${err.message}`);
+    }
+    setManualSubmitting(false);
+  }
 
   function authHeaders() {
     return {
@@ -595,6 +680,9 @@ export default function OrdersTab({ products = [], showSaveMsg, token }) {
       <div className="flex justify-between items-center mb-5 flex-wrap gap-3">
         <h2 className="font-display font-semibold tracking-display text-xl m-0 text-ink">Orders</h2>
         <div className="flex gap-2 flex-wrap">
+          <button className="btn-primary text-xs px-4 py-2" onClick={() => setManualOpen(true)} title="Record an off-platform order (Zelle/Venmo/cash paid directly). Creates the order, decrements inventory, credits the affiliate, and optionally emails the customer.">
+            + New Manual Order
+          </button>
           <button className="btn-outline text-xs px-4 py-2" onClick={fetchOrders}>Refresh</button>
           <button className="btn-outline text-xs px-4 py-2" onClick={openPickList} title="Aggregate vials needed across the ready-to-ship queue, grouped by category">
             Pick list
@@ -1218,6 +1306,174 @@ export default function OrdersTab({ products = [], showSaveMsg, token }) {
                 disabled={bulkPasteSubmitting || !bulkPasteText.trim()}
               >
                 {bulkPasteSubmitting ? 'Applying…' : 'Apply tracking + ship'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {manualOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-[100] flex items-start justify-center p-6 overflow-auto"
+          onClick={() => !manualSubmitting && setManualOpen(false)}
+        >
+          <div
+            className="bg-surface rounded-opp-lg max-w-2xl w-full p-6 md:p-8 my-12"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-start mb-4 pb-4 border-b border-line">
+              <div>
+                <span className="opp-eyebrow">Manual Order</span>
+                <h3 className="font-display font-semibold tracking-display text-2xl m-0 mt-1 text-ink">
+                  New manual order
+                </h3>
+                <p className="opp-meta-mono text-ink-mute mt-1 m-0">
+                  Off-platform payment (Zelle/Venmo/cash). Records the sale, decrements inventory, credits the affiliate.
+                </p>
+              </div>
+              <button
+                className="text-[11px] px-3 py-1.5 rounded-opp border border-line text-ink-soft hover:border-ink"
+                onClick={() => setManualOpen(false)}
+                disabled={manualSubmitting}
+              >
+                Cancel
+              </button>
+            </div>
+
+            {/* Customer */}
+            <div className="grid md:grid-cols-2 gap-3 mb-4">
+              <div>
+                <div className="opp-meta-mono uppercase mb-1">Customer name</div>
+                <input className="input-field text-sm w-full" value={manualForm.name} onChange={(e) => setManualField('name', e.target.value)} disabled={manualSubmitting} />
+              </div>
+              <div>
+                <div className="opp-meta-mono uppercase mb-1">Email</div>
+                <input type="email" className="input-field text-sm w-full" value={manualForm.email} onChange={(e) => setManualField('email', e.target.value)} disabled={manualSubmitting} />
+              </div>
+              <div className="md:col-span-2">
+                <div className="opp-meta-mono uppercase mb-1">Shipping address</div>
+                <input className="input-field text-sm w-full" value={manualForm.address} onChange={(e) => setManualField('address', e.target.value)} disabled={manualSubmitting} />
+              </div>
+              <div>
+                <div className="opp-meta-mono uppercase mb-1">City</div>
+                <input className="input-field text-sm w-full" value={manualForm.city} onChange={(e) => setManualField('city', e.target.value)} disabled={manualSubmitting} />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <div className="opp-meta-mono uppercase mb-1">State</div>
+                  <input className="input-field text-sm w-full" value={manualForm.state} onChange={(e) => setManualField('state', e.target.value)} disabled={manualSubmitting} />
+                </div>
+                <div>
+                  <div className="opp-meta-mono uppercase mb-1">ZIP</div>
+                  <input className="input-field text-sm w-full" value={manualForm.zip} onChange={(e) => setManualField('zip', e.target.value)} disabled={manualSubmitting} />
+                </div>
+              </div>
+            </div>
+
+            {/* Line items */}
+            <div className="mb-4">
+              <div className="opp-meta-mono uppercase mb-1.5">Products</div>
+              <div className="space-y-2">
+                {manualForm.lines.map((line, idx) => (
+                  <div key={idx} className="flex gap-2 items-center">
+                    <select
+                      className="input-field text-sm flex-1"
+                      value={line.productId}
+                      onChange={(e) => setManualLine(idx, 'productId', e.target.value)}
+                      disabled={manualSubmitting}
+                    >
+                      <option value="">— select product —</option>
+                      {products.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name} {p.dosage} — ${p.price.toFixed(2)}{p.isKit ? ' (kit)' : ''}
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      type="number"
+                      min="1"
+                      max="100"
+                      className="input-field text-sm w-20"
+                      value={line.quantity}
+                      onChange={(e) => setManualLine(idx, 'quantity', e.target.value)}
+                      disabled={manualSubmitting}
+                      aria-label="Quantity"
+                    />
+                    <button
+                      className="text-[11px] px-2 py-2 rounded-opp border border-line text-ink-mute hover:text-danger hover:border-danger/40"
+                      onClick={() => removeManualLine(idx)}
+                      disabled={manualSubmitting || manualForm.lines.length === 1}
+                      aria-label="Remove line"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <button
+                className="btn-outline text-[11px] px-3 py-1.5 mt-2"
+                onClick={addManualLine}
+                disabled={manualSubmitting}
+              >
+                + Add line
+              </button>
+            </div>
+
+            {/* Affiliate + payment + override */}
+            <div className="grid md:grid-cols-3 gap-3 mb-4">
+              <div>
+                <div className="opp-meta-mono uppercase mb-1">Affiliate code <span className="text-ink-mute">(optional)</span></div>
+                <input className="input-field text-sm w-full uppercase" value={manualForm.affiliateCode} onChange={(e) => setManualField('affiliateCode', e.target.value)} placeholder="e.g. TRIS" disabled={manualSubmitting} />
+              </div>
+              <div>
+                <div className="opp-meta-mono uppercase mb-1">Paid via</div>
+                <select className="input-field text-sm w-full" value={manualForm.paymentMethod} onChange={(e) => setManualField('paymentMethod', e.target.value)} disabled={manualSubmitting}>
+                  <option value="zelle">Zelle</option>
+                  <option value="venmo">Venmo</option>
+                  <option value="crypto">Crypto</option>
+                  <option value="cash">Cash</option>
+                  <option value="paypal">PayPal</option>
+                  <option value="card">Card</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+              <div>
+                <div className="opp-meta-mono uppercase mb-1">Price override <span className="text-ink-mute">(optional)</span></div>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  className="input-field text-sm w-full"
+                  value={manualForm.priceOverride}
+                  onChange={(e) => setManualField('priceOverride', e.target.value)}
+                  placeholder={`auto: $${manualCatalogSubtotal.toFixed(2)}`}
+                  disabled={manualSubmitting}
+                />
+              </div>
+            </div>
+
+            <label className="flex items-center gap-2 mb-4 text-sm text-ink-soft cursor-pointer">
+              <input
+                type="checkbox"
+                checked={manualForm.sendConfirmation}
+                onChange={(e) => setManualField('sendConfirmation', e.target.checked)}
+                disabled={manualSubmitting}
+              />
+              Send order-confirmation email to customer
+            </label>
+
+            <div className="flex justify-between items-center pt-4 border-t border-line">
+              <p className="opp-meta-mono text-ink-mute m-0">
+                {manualForm.priceOverride.trim()
+                  ? `Override total: $${(Number(manualForm.priceOverride) || 0).toFixed(2)}`
+                  : `Catalog subtotal: $${manualCatalogSubtotal.toFixed(2)} (+ shipping, − affiliate disc. computed server-side)`}
+              </p>
+              <button
+                className="btn-primary text-xs px-5 py-2"
+                onClick={submitManualOrder}
+                disabled={manualSubmitting}
+              >
+                {manualSubmitting ? 'Creating…' : 'Create + finalize order'}
               </button>
             </div>
           </div>
