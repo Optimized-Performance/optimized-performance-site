@@ -28,6 +28,7 @@ export default function ProductDetail({
   privateInquiry,
   inquiryUrl,
   coaQr,
+  bacCrossSell,
 }) {
   const router = useRouter();
   const { addToCart } = useCart();
@@ -220,6 +221,10 @@ export default function ProductDetail({
             <SpecRow label="Purity" value={`${product.purity ?? 99}% — HPLC verified`} />
             <SpecRow label="Format" value={product.format || 'Lyophilized Powder'} />
             <SpecRow label="Vial size" value={product.vialSize || '2 mL Vial'} />
+            {product.mw && <SpecRow label="Molecular weight" value={product.mw} />}
+            {product.halfLife && <SpecRow label="Half-life" value={product.halfLife} />}
+            {product.reconShelfLife && <SpecRow label="Recon. shelf-life" value={product.reconShelfLife} />}
+            {product.expiry && <SpecRow label="Expiry" value={product.expiry} />}
             <SpecRow label="Storage" value="−20°C recommended" last />
           </div>
 
@@ -245,6 +250,11 @@ export default function ProductDetail({
                   </div>
                 );
               })()}
+              {product.vialCount > 1 && (
+                <div className="font-mono text-[12px] text-ink-mute mt-1">
+                  ${(product.price / product.vialCount).toFixed(2)} per vial
+                </div>
+              )}
               <div className={`opp-stock opp-stock--${status} mt-2`}>
                 <span className="opp-stock-dot" /> {statusText}
               </div>
@@ -298,8 +308,33 @@ export default function ProductDetail({
             </>
           )}
 
+          {/* BAC reconstitution cross-sell (for lyophilized peptides) */}
+          {bacCrossSell && (
+            <div className="mt-4 p-4 bg-surfaceAlt border border-line rounded-opp">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <div className="opp-meta-mono text-ink-mute mb-1">Required for reconstitution</div>
+                  <div className="font-display font-semibold text-base text-ink leading-tight">
+                    {bacCrossSell.name}{' '}
+                    <span className="font-mono text-[11px] text-ink-mute">({bacCrossSell.dosage})</span>
+                  </div>
+                  <div className="font-mono text-sm text-ink mt-1">${bacCrossSell.price.toFixed(2)}</div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => addToCart(bacCrossSell, {})}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 bg-surface border border-line rounded-opp text-sm text-ink hover:border-ink transition-colors whitespace-nowrap"
+                  aria-label={`Add ${bacCrossSell.name} to cart`}
+                >
+                  <Icon name="plus" size={14} /> Add BAC
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* COA / compliance */}
           <div className="mt-6 grid gap-3">
+            {!product.noCoa && (
             <ComplianceRow icon="doc" title="Certificate of Analysis">
               {product.category === 'Supplies' ? (
                 <>
@@ -337,8 +372,11 @@ export default function ProductDetail({
                 </>
               )}
             </ComplianceRow>
+            )}
             <ComplianceRow icon="truck" title="Shipping">
-              Ships within 1 business day in discrete, unbranded packaging.{' '}
+              Ships within 1 business day in discrete, unbranded packaging.
+              {product.format === 'Lyophilized Powder' && ' Cold pack included for temperature-controlled transit.'}
+              {' '}
               <Link href="/shipping" className="text-accent-strong hover:underline">Full policy</Link>.
             </ComplianceRow>
             <ComplianceRow icon="lock" title="Research Use Only">
@@ -529,6 +567,19 @@ export async function getServerSideProps(context) {
       isKit: p.isKit || false,
     }));
 
+  // BAC cross-sell for any lyophilized-powder peptide (skipped when viewing BAC itself
+  // or when BAC is out of stock — silent fall-through, no broken cart adds).
+  let bacCrossSell = null;
+  if (product.format === 'Lyophilized Powder' && product.id !== 'bac-water-10ml') {
+    const bacProduct = products.find((p) => p.id === 'bac-water-10ml');
+    if (bacProduct) {
+      const bacStock = inventory[bacProduct.id] ?? bacProduct.stock ?? 0;
+      if (bacStock > 0) {
+        bacCrossSell = { ...bacProduct, stock: bacStock };
+      }
+    }
+  }
+
   return {
     props: {
       product,
@@ -537,6 +588,7 @@ export async function getServerSideProps(context) {
       privateInquiry: false,
       inquiryUrl: null,
       coaQr,
+      bacCrossSell,
     },
   };
 }
