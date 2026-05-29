@@ -25,6 +25,9 @@ const cryptoEnabled = process.env.NEXT_PUBLIC_CRYPTO_ENABLED === 'true';
 const zelleEnabled = process.env.NEXT_PUBLIC_ZELLE_ENABLED === 'true';
 const venmoEnabled = process.env.NEXT_PUBLIC_VENMO_ENABLED === 'true';
 const paypalEnabled = process.env.NEXT_PUBLIC_PAYPAL_ENABLED === 'true';
+// Account-required-to-purchase gate. Ships off; flip on when a processor
+// (e.g. AllayPay) requires account-gated checkout. Enforced server-side too.
+const requireAccount = process.env.NEXT_PUBLIC_REQUIRE_ACCOUNT === 'true';
 
 // Research-field declaration required at checkout — high-risk card underwriting
 // (AllayPay et al.) requires the buyer to affirm a research purpose. Kept in
@@ -53,6 +56,8 @@ export default function Checkout() {
   const [affiliateError, setAffiliateError] = useState('');
   const [researchAck, setResearchAck] = useState(false);
   const [researchField, setResearchField] = useState('');
+  const [customer, setCustomer] = useState(null);
+  const [authChecked, setAuthChecked] = useState(!requireAccount);
   const autoAppliedRef = useRef(false);
   const router = useRouter();
 
@@ -99,6 +104,25 @@ export default function Checkout() {
       setAffiliateCode(upper);
       applyAffiliateCode(upper);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Account-gating: when NEXT_PUBLIC_REQUIRE_ACCOUNT is on, check the customer
+  // session on mount so the gate below renders sign-in vs. the order form.
+  // No-op (authChecked starts true) when the flag is off.
+  useEffect(() => {
+    if (!requireAccount) return;
+    let cancelled = false;
+    fetch('/api/customers/me')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (cancelled) return;
+        setCustomer(data?.customer || null);
+        if (data?.customer?.email) setEmail((prev) => prev || data.customer.email);
+        setAuthChecked(true);
+      })
+      .catch(() => { if (!cancelled) setAuthChecked(true); });
+    return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -151,6 +175,33 @@ export default function Checkout() {
         <p className="text-ink-soft mb-6">Your cart is empty. Add a product before proceeding.</p>
         <button className="btn-primary" onClick={() => router.push('/shop')}>
           Browse catalog
+        </button>
+      </div>
+    );
+  }
+
+  // Account-required-to-purchase gate. When NEXT_PUBLIC_REQUIRE_ACCOUNT is on
+  // and the visitor isn't signed in, show a sign-in / create-account prompt
+  // instead of the order form. Server-side enforced in /api/orders/create too.
+  if (requireAccount && !authChecked) {
+    return (
+      <div className="max-w-container mx-auto px-8 py-24 text-center text-ink-soft">
+        Loading…
+      </div>
+    );
+  }
+  if (requireAccount && !customer) {
+    return (
+      <div className="max-w-container mx-auto px-8 py-24 text-center">
+        <span className="opp-eyebrow">Checkout</span>
+        <h1 className="font-display font-semibold tracking-display text-4xl mt-3 mb-3 text-ink">
+          Sign in to complete your order.
+        </h1>
+        <p className="text-ink-soft mb-6 max-w-md mx-auto">
+          An account is required to purchase research compounds. Sign in or create one — it only takes a moment.
+        </p>
+        <button className="btn-primary" onClick={() => router.push('/account/login?next=/checkout')}>
+          Sign in / Create account
         </button>
       </div>
     );

@@ -4,6 +4,7 @@ import { createCheckoutSession } from '../../../lib/payments/cardProcessor'
 import { createCryptoCheckoutSession } from '../../../lib/payments/cryptoProcessor'
 import { createPaypalCheckoutSession } from '../../../lib/payments/paypalProcessor'
 import { runVelocityChecks, extractClientIP } from '../../../lib/fraud-checks'
+import { getCustomerIdFromReq } from '../../../lib/customer-session'
 import { calcShipping } from '../../../lib/shipping'
 import { sendZelleInstructions, sendVenmoInstructions } from '../../../lib/alerts'
 import { isMemorialDaySaleActive, applyMemorialDiscount, MEMORIAL_DAY_DISCOUNT_PCT } from '../../../lib/sale'
@@ -25,7 +26,7 @@ export default async function handler(req, res) {
   if (!rateLimit(req, { maxRequests: 10, windowMs: 60000 })) return res.status(429).json({ error: 'Too many requests' })
 
   try {
-    const { name, email, address, city, state, zip, items, affiliateCode, researchUseAck, paymentMethod } = req.body
+    const { name, email, address, city, state, zip, items, affiliateCode, researchUseAck, researchField, paymentMethod } = req.body
 
     if (!validateString(name) || !validateEmail(email) || !validateString(address) ||
         !validateString(city) || !validateString(state, { minLength: 1, maxLength: 50 }) || !validateZip(zip) ||
@@ -49,12 +50,27 @@ export default async function handler(req, res) {
       return res.status(503).json({ error: 'PayPal payments are temporarily unavailable.' })
     }
 
+    // Account-required-to-purchase (NEXT_PUBLIC_REQUIRE_ACCOUNT). When on, a
+    // valid customer session cookie is required server-side — defends the gate
+    // against direct API hits even if the UI is bypassed.
+    if (process.env.NEXT_PUBLIC_REQUIRE_ACCOUNT === 'true' && !getCustomerIdFromReq(req)) {
+      return res.status(401).json({ error: 'Please sign in to complete your purchase.' })
+    }
+
     // Research-use acknowledgment (RUO + 21+ + no-consumption) must be explicitly confirmed.
     // This is enforced server-side so the audit trail survives any client tampering —
     // required for high-risk payment processor underwriting. Checked before DB so the
     // server rejects bad requests without touching backend resources.
     if (researchUseAck !== true) {
       return res.status(400).json({ error: 'Research-use acknowledgment is required.' })
+    }
+
+    // Research-field declaration (parity with the ack — survives client tampering
+    // for the underwriting audit trail). Allowed list mirrors RESEARCH_FIELDS in
+    // src/pages/checkout.js; keep the two in sync.
+    const ALLOWED_RESEARCH_FIELDS = ['Pharmacology', 'Molecular Biology', 'Medicinal Chemistry', 'Biochemistry', 'Clinical Research', 'Other']
+    if (!ALLOWED_RESEARCH_FIELDS.includes(researchField)) {
+      return res.status(400).json({ error: 'A valid field of research is required.' })
     }
 
     if (!supabaseAdmin) {
@@ -168,6 +184,7 @@ export default async function handler(req, res) {
       total,
       payment_status: initialPaymentStatus,
       payment_method: paymentMethod,
+      research_field: researchField,
       customer_ip: customerIp,
       user_agent: userAgent,
       fraud_status: velocity.status === 'block' ? 'blocked' : velocity.status === 'flag' ? 'flagged' : 'unreviewed',
