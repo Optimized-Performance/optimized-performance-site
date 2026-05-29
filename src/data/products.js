@@ -264,6 +264,7 @@ const products = [
     halfLife: '~3-4 hours',
     reconShelfLife: '28 days at 2-8°C',
     expiry: '24 months at -20°C unopened',
+    preorderShipDate: '2026-06-12',
   },
   {
     id: 'mt2-5mg',
