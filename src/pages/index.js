@@ -39,7 +39,7 @@ export default function Home({ visibleProducts }) {
       : heroShowcase?.category === 'GH Peptides'
       ? 'Growth Hormone Secretagogue'
       : heroShowcase?.category === 'Combos'
-      ? 'Peptide Stack'
+      ? 'Peptide Combination'
       : 'Research Peptide';
   const heroClass =
     heroShowcase?.category === 'GLPs'

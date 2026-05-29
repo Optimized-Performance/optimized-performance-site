@@ -26,6 +26,18 @@ const zelleEnabled = process.env.NEXT_PUBLIC_ZELLE_ENABLED === 'true';
 const venmoEnabled = process.env.NEXT_PUBLIC_VENMO_ENABLED === 'true';
 const paypalEnabled = process.env.NEXT_PUBLIC_PAYPAL_ENABLED === 'true';
 
+// Research-field declaration required at checkout — high-risk card underwriting
+// (AllayPay et al.) requires the buyer to affirm a research purpose. Kept in
+// sync with the allowed list validated server-side in /api/orders/create.js.
+const RESEARCH_FIELDS = [
+  'Pharmacology',
+  'Molecular Biology',
+  'Medicinal Chemistry',
+  'Biochemistry',
+  'Clinical Research',
+  'Other',
+];
+
 export default function Checkout() {
   const { cartItems, cartTotal } = useCart();
   const [email, setEmail] = useState('');
@@ -40,6 +52,7 @@ export default function Checkout() {
   const [affiliateApplied, setAffiliateApplied] = useState(null);
   const [affiliateError, setAffiliateError] = useState('');
   const [researchAck, setResearchAck] = useState(false);
+  const [researchField, setResearchField] = useState('');
   const autoAppliedRef = useRef(false);
   const router = useRouter();
 
@@ -150,6 +163,10 @@ export default function Checkout() {
       alert('Please fill in all shipping fields.');
       return false;
     }
+    if (!researchField) {
+      alert('Please select your field of research to proceed.');
+      return false;
+    }
     if (!researchAck) {
       alert('You must acknowledge the research-use terms (21+ and non-consumption) to proceed.');
       return false;
@@ -167,6 +184,7 @@ export default function Checkout() {
     })),
     affiliateCode: affiliateApplied?.code || null,
     researchUseAck: researchAck,
+    researchField,
     paymentMethod,
   });
 
@@ -315,6 +333,20 @@ export default function Checkout() {
               {affiliateError && <p className="opp-meta-mono text-danger mt-1.5 m-0">{affiliateError}</p>}
             </Field>
 
+            <Field label="Field of Research">
+              <select
+                className="input-field"
+                required
+                value={researchField}
+                onChange={(e) => setResearchField(e.target.value)}
+              >
+                <option value="" disabled>Select your field of research…</option>
+                {RESEARCH_FIELDS.map((f) => (
+                  <option key={f} value={f}>{f}</option>
+                ))}
+              </select>
+            </Field>
+
             <label className="flex items-start gap-2.5 p-4 bg-surfaceAlt rounded-opp text-[13px] text-ink-soft leading-snug mt-4 mb-6">
               <input
                 type="checkbox"
@@ -334,7 +366,7 @@ export default function Checkout() {
                 <button
                   type="submit"
                   className="btn-primary w-full py-4 text-base"
-                  disabled={submitting || !researchAck}
+                  disabled={submitting || !researchAck || !researchField}
                 >
                   <Icon name="card" size={18} />
                   {submitting && submittingMethod === 'card'
@@ -358,7 +390,7 @@ export default function Checkout() {
                         type="button"
                         onClick={() => handleCheckout('crypto')}
                         className="btn-outline w-full py-4 text-base"
-                        disabled={submitting || !researchAck}
+                        disabled={submitting || !researchAck || !researchField}
                       >
                         {submitting && submittingMethod === 'crypto'
                           ? 'Processing…'
@@ -370,7 +402,7 @@ export default function Checkout() {
                         type="button"
                         onClick={() => handleCheckout('zelle')}
                         className="btn-outline w-full py-4 text-base"
-                        disabled={submitting || !researchAck}
+                        disabled={submitting || !researchAck || !researchField}
                       >
                         {submitting && submittingMethod === 'zelle'
                           ? 'Processing…'
@@ -382,7 +414,7 @@ export default function Checkout() {
                         type="button"
                         onClick={() => handleCheckout('venmo')}
                         className="btn-outline w-full py-4 text-base"
-                        disabled={submitting || !researchAck}
+                        disabled={submitting || !researchAck || !researchField}
                       >
                         {submitting && submittingMethod === 'venmo'
                           ? 'Processing…'
@@ -400,7 +432,7 @@ export default function Checkout() {
                     <div className="flex-1 h-px bg-line" />
                   </div>
                   <PaypalCheckoutButtons
-                    disabled={!researchAck || submitting}
+                    disabled={!researchAck || !researchField || submitting}
                     validateBeforeCheckout={validateCheckoutForm}
                     createOrderOnServer={createPaypalOrderOnServer}
                     onSuccess={handlePaypalSuccess}

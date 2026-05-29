@@ -71,8 +71,9 @@ export default function Footer() {
         <div className="flex gap-3.5 items-start">
           <span className="opp-ruo-tag">RUO</span>
           <p className="text-xs text-ink-soft leading-relaxed m-0">
-            All products are intended strictly for in-vitro research and laboratory use only. They are not drugs,
-            foods, or cosmetics and are not intended for human or animal consumption. Purchasers must be 21 years of age or older.
+            All products are intended strictly for in-vitro research, laboratory, and identification purposes only.
+            They are not drugs, foods, or cosmetics and are not intended for human or animal consumption, dosing,
+            injection, or ingestion. Purchasers must be 21 years of age or older.
           </p>
         </div>
         <div className="flex justify-between font-mono text-[11px] text-ink-mute tracking-wide">
