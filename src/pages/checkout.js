@@ -4,7 +4,7 @@ import { useCart } from '../context/CartContext';
 import SEO from '../components/SEO';
 import { Vial, Icon } from '../components/Primitives';
 import { calcShipping, FREE_SHIPPING_THRESHOLD } from '../lib/shipping';
-import { isMemorialDaySaleActive, applyMemorialDiscount, MEMORIAL_DAY_DISCOUNT_PCT } from '../lib/sale';
+import { isMemorialDaySaleActive, applyMemorialDiscount, MEMORIAL_DAY_DISCOUNT_PCT, calcGlp3Bogo } from '../lib/sale';
 import PaypalCheckoutButtons from '../components/PaypalCheckoutButtons';
 
 // Read the opp_ref cookie set by lib/cohort-session when a visitor arrives
@@ -132,10 +132,13 @@ export default function Checkout() {
   // the customer-visible total matches what gets charged.
   const saleActive = isMemorialDaySaleActive();
   const { discount: memorialDiscount, post: cartTotalPostMemorial } = applyMemorialDiscount(cartTotal);
+  // GLP-3 Buy 2 Get 1 Free — dollar discount off subtotal, before affiliate %.
+  const { discount: bogoDiscount, freeVials: bogoFreeVials } = calcGlp3Bogo(cartItems);
+  const cartTotalPostPromos = cartTotalPostMemorial - bogoDiscount;
 
   const discountPct = affiliateApplied ? affiliateApplied.discountPct : 0;
-  const discountAmount = cartTotalPostMemorial * (discountPct / 100);
-  const discountedSubtotal = cartTotalPostMemorial - discountAmount;
+  const discountAmount = cartTotalPostPromos * (discountPct / 100);
+  const discountedSubtotal = cartTotalPostPromos - discountAmount;
   // Shipping math lives in lib/shipping.js — same helper runs server-side
   // in /api/orders/create so the totals match exactly. cartItems carry isKit
   // via spread in CartContext.addToCart, which the helper reads to detect
@@ -540,6 +543,14 @@ export default function Checkout() {
                   Memorial Day Sale ({MEMORIAL_DAY_DISCOUNT_PCT}% off)
                 </span>
                 <span className="text-accent-strong font-semibold">-${memorialDiscount.toFixed(2)}</span>
+              </div>
+            )}
+            {bogoDiscount > 0 && (
+              <div className="flex justify-between text-[13px]">
+                <span className="text-accent-strong font-semibold">
+                  GLP-3 Buy 2 Get 1 Free ({bogoFreeVials} free)
+                </span>
+                <span className="text-accent-strong font-semibold">-${bogoDiscount.toFixed(2)}</span>
               </div>
             )}
             {affiliateApplied && (

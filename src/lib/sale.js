@@ -91,3 +91,57 @@ export function saleWindowLabel() {
   // "Sat May 23 — Mon May 25" — used in banner + product card strikethrough subline.
   return 'MAY 23 — MAY 25'
 }
+
+// ============================================================
+// GLP-3 "Buy 2 Get 1 Free" promo — 2026.
+// ============================================================
+// Same-mg B2G1 on GLP-3 SINGLE vials only (glp3-10mg, glp3-20mg). Kits excluded
+// by design. For every 3 units of an eligible single SKU, 1 is free
+// (floor(qty / 3) free vials per SKU, computed per-SKU so 10mg and 20mg don't
+// cross-subsidize). Stacks with affiliate codes the same way MD did: the B2G1
+// dollar discount comes off the subtotal first, then the affiliate % applies to
+// the post-promo subtotal.
+//
+// Window: Fri May 29 2026 00:00 PT → Fri Jun 5 2026 23:59:59 PT (one week).
+// MUST be pinned in explicit UTC (same hard lesson as the MD window above) so
+// the client (customer-TZ browser) and server (UTC Vercel) evaluate the same
+// instant — otherwise late-PT carts disagree with server order-creation.
+//   start: 5/29 00:00 PT = 5/29 07:00 UTC
+//   end:   6/05 23:59:59.999 PT = 6/06 06:59:59.999 UTC  (June is still PDT, UTC-7)
+const BOGO_START_MS = Date.UTC(2026, 4, 29, PT_UTC_OFFSET_HOURS, 0, 0, 0)
+const BOGO_END_MS = Date.UTC(2026, 5, 6, PT_UTC_OFFSET_HOURS - 1, 59, 59, 999)
+
+// Eligible single-vial product IDs. Kits (glp3-10mg-kit / glp3-20mg-kit) are
+// intentionally excluded.
+export const GLP3_BOGO_IDS = ['glp3-10mg', 'glp3-20mg']
+const GLP3_BOGO_ID_SET = new Set(GLP3_BOGO_IDS)
+
+export function isGlp3BogoActive(now = new Date()) {
+  const t = now.getTime()
+  return t >= BOGO_START_MS && t <= BOGO_END_MS
+}
+
+// Compute the Buy-2-Get-1-Free discount. `items` = [{ id, price, quantity }].
+// Callers MUST pass server-validated product prices (create.js) or the cart's
+// own prices (checkout.js) — never client-supplied prices server-side. Returns
+// { discount, freeVials }; zero when inactive so callers can call freely.
+export function calcGlp3Bogo(items = [], now = new Date()) {
+  if (!isGlp3BogoActive(now)) return { discount: 0, freeVials: 0 }
+  let discount = 0
+  let freeVials = 0
+  for (const it of items) {
+    if (!it || !GLP3_BOGO_ID_SET.has(it.id)) continue
+    const qty = parseInt(it.quantity, 10) || 0
+    const price = Number(it.price) || 0
+    const free = Math.floor(qty / 3)
+    if (free > 0) {
+      discount += free * price
+      freeVials += free
+    }
+  }
+  return { discount: Math.round(discount * 100) / 100, freeVials }
+}
+
+export function bogoWindowLabel() {
+  return 'MAY 29 — JUN 5'
+}

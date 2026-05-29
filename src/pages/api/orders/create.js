@@ -7,7 +7,7 @@ import { runVelocityChecks, extractClientIP } from '../../../lib/fraud-checks'
 import { getCustomerIdFromReq } from '../../../lib/customer-session'
 import { calcShipping } from '../../../lib/shipping'
 import { sendZelleInstructions, sendVenmoInstructions } from '../../../lib/alerts'
-import { isMemorialDaySaleActive, applyMemorialDiscount, MEMORIAL_DAY_DISCOUNT_PCT } from '../../../lib/sale'
+import { isMemorialDaySaleActive, applyMemorialDiscount, MEMORIAL_DAY_DISCOUNT_PCT, calcGlp3Bogo } from '../../../lib/sale'
 
 function generateOrderNumber() {
   const date = new Date()
@@ -83,6 +83,9 @@ export default async function handler(req, res) {
     // Track isKit per line so the shipping calc can detect cold-pack carts
     // server-side without trusting the client-supplied flag.
     const validatedItems = []
+    // Server-validated line list for the GLP-3 B2G1 calc — uses PRODUCT price
+    // (not the client-supplied price) so the promo can't be tampered with.
+    const bogoItems = []
     for (const item of items) {
       const product = products.find(p => p.sku === item.sku || p.id === item.id)
       if (!product) {
@@ -94,6 +97,7 @@ export default async function handler(req, res) {
       }
       subtotal += product.price * qty
       validatedItems.push({ isKit: product.isKit === true })
+      bogoItems.push({ id: product.id, price: product.price, quantity: qty })
     }
 
     // Validate affiliate code server-side (cannot trust client-supplied discount/commission)
@@ -121,16 +125,20 @@ export default async function handler(req, res) {
     // commission model and stays consistent here.
     const saleActive = isMemorialDaySaleActive()
     const { discount: memorialDiscount, post: subtotalPostMemorial } = applyMemorialDiscount(subtotal)
+    // GLP-3 Buy 2 Get 1 Free — dollar discount off subtotal, before affiliate %.
+    // Mirrors the client calc in checkout.js exactly (same lib/sale helper).
+    const { discount: bogoDiscount } = calcGlp3Bogo(bogoItems)
+    const subtotalPostPromos = subtotalPostMemorial - bogoDiscount
 
-    // Recompute affiliate discount against the sale-discounted subtotal (was
-    // computed earlier against raw subtotal — overwrite for correctness when
-    // sale is active).
+    // Recompute affiliate discount against the promo-discounted subtotal (was
+    // computed earlier against raw subtotal — overwrite for correctness when a
+    // promo is active).
     if (validatedAffiliateCode && discount > 0) {
       const affiliateDiscountPct = (discount / subtotal) * 100
-      discount = subtotalPostMemorial * (affiliateDiscountPct / 100)
+      discount = subtotalPostPromos * (affiliateDiscountPct / 100)
     }
 
-    const discountedTotal = subtotalPostMemorial - discount
+    const discountedTotal = subtotalPostPromos - discount
     // Shipping math lives in lib/shipping.js — same helper drives the
     // client-side checkout summary so the totals match exactly. saleActive
     // flag triggers the free-shipping override during the sale window.

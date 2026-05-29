@@ -25,6 +25,7 @@ const jetbrainsMono = JetBrains_Mono({
 const AgeGate = dynamic(() => import('../components/AgeGate'), { ssr: false });
 const LaunchBanner = dynamic(() => import('../components/LaunchBanner'), { ssr: false });
 const MemorialDayBanner = dynamic(() => import('../components/MemorialDayBanner'), { ssr: false });
+const Glp3BogoBanner = dynamic(() => import('../components/Glp3BogoBanner'), { ssr: false });
 
 export default function App({ Component, pageProps }) {
   const router = useRouter();
@@ -32,6 +33,7 @@ export default function App({ Component, pageProps }) {
   const isCheckout = router.pathname.startsWith('/checkout');
   const showLaunchBanner = !isAdmin && !isCheckout;
   const showMemorialDayBanner = !isAdmin; // Show on checkout too — reinforces the sale at the moment of purchase
+  const showBogoBanner = !isAdmin; // GLP-3 B2G1 — show on checkout too
 
   return (
     <CartProvider>
@@ -41,6 +43,7 @@ export default function App({ Component, pageProps }) {
         ) : (
           <>
             {showMemorialDayBanner && <MemorialDayBanner />}
+            {showBogoBanner && <Glp3BogoBanner />}
             {showLaunchBanner && <LaunchBanner />}
             <Header />
             <CartDrawer />
