@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { useCart } from '../context/CartContext';
 import { isPreorderable, formatPreorderShipDate } from '../data/products';
-import { isMemorialDaySaleActive, getSalePrice, MEMORIAL_DAY_DISCOUNT_PCT } from '../lib/sale';
+import { isMemorialDaySaleActive, getSalePrice, MEMORIAL_DAY_DISCOUNT_PCT, isBogoProduct } from '../lib/sale';
 import { Vial, Icon } from './Primitives';
 
 const LOW_STOCK_THRESHOLD = 20;
@@ -11,6 +11,7 @@ export default function ProductCard({ product, qty }) {
   const stock = qty ?? product.stock ?? 0;
   const saleActive = isMemorialDaySaleActive();
   const salePrice = saleActive ? getSalePrice(product.price) : product.price;
+  const bogo = isBogoProduct(product);
   const preorderEnabled = stock === 0 && isPreorderable(product);
   const shipDate = preorderEnabled ? formatPreorderShipDate(product) : null;
 
@@ -53,6 +54,11 @@ export default function ProductCard({ product, qty }) {
             }`}
           >
             {product.badge}
+          </div>
+        )}
+        {bogo && (
+          <div className="absolute bottom-3 left-3 right-3 font-mono text-[10px] font-bold tracking-[0.1em] px-2 py-1 rounded-sm bg-accent text-surface text-center">
+            🎁 BUY 2 GET 1 FREE
           </div>
         )}
         <Vial

@@ -15,7 +15,7 @@ import { Vial, Icon } from '../../components/Primitives';
 import NotifyMe from '../../components/NotifyMe';
 import { supabaseAdmin } from '../../lib/supabase';
 import { getCohortFromRequest } from '../../lib/cohort-session';
-import { isMemorialDaySaleActive, getSalePrice, MEMORIAL_DAY_DISCOUNT_PCT } from '../../lib/sale';
+import { isMemorialDaySaleActive, getSalePrice, MEMORIAL_DAY_DISCOUNT_PCT, isBogoProduct } from '../../lib/sale';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://optimizedperformancepeptides.com';
 
@@ -118,6 +118,7 @@ export default function ProductDetail({
 
   const preorderEnabled = stock === 0 && isPreorderable(product);
   const shipDate = preorderEnabled ? formatPreorderShipDate(product) : null;
+  const bogoActive = isBogoProduct(product);
 
   let status; // 'in' | 'low' | 'out' | 'preorder'
   if (stock === 0) {
@@ -281,6 +282,12 @@ export default function ProductDetail({
               </button>
             </div>
           </div>
+
+          {bogoActive && (
+            <div className="mb-4 px-4 py-3 bg-accent text-surface rounded-opp text-sm leading-snug">
+              <span className="font-bold tracking-wide">🎁 BUY 2 GET 1 FREE</span> — every 3rd vial is free, applied automatically in your cart. Through Jun 5.
+            </div>
+          )}
 
           <button
             type="button"

@@ -145,3 +145,10 @@ export function calcGlp3Bogo(items = [], now = new Date()) {
 export function bogoWindowLabel() {
   return 'MAY 29 — JUN 5'
 }
+
+// True when the B2G1 promo is active AND this product is one of the eligible
+// GLP-3 singles — drives the sale badge on product cards + PDPs. Auto-false
+// once the window closes, so callers can render unconditionally.
+export function isBogoProduct(product, now = new Date()) {
+  return isGlp3BogoActive(now) && !!product && GLP3_BOGO_ID_SET.has(product.id)
+}
