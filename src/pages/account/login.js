@@ -8,7 +8,9 @@ import SEO from '../../components/SEO'
 // account-required-to-purchase gate (NEXT_PUBLIC_REQUIRE_ACCOUNT).
 export default function AccountAuth() {
   const router = useRouter()
-  const [mode, setMode] = useState('login') // 'login' | 'register'
+  // Default to 'register': the account gate just went live, so most visitors —
+  // including returning guest-checkout buyers — don't have an account yet.
+  const [mode, setMode] = useState('register') // 'login' | 'register'
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [name, setName] = useState('')
@@ -32,7 +34,11 @@ export default function AccountAuth() {
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
-        setError(data.error || 'Something went wrong. Please try again.')
+        setError(
+          mode === 'login'
+            ? `${data.error || 'Invalid email or password.'} First time, or ordered before? You likely need to Create an account below.`
+            : data.error || 'Something went wrong. Please try again.'
+        )
         setSubmitting(false)
         return
       }
@@ -55,6 +61,12 @@ export default function AccountAuth() {
           ? 'Sign in to continue to checkout.'
           : 'Create an account to purchase research compounds.'}
       </p>
+
+      <div className="mb-6 px-4 py-3 bg-surfaceAlt border border-line rounded-opp text-[13px] text-ink-soft leading-snug">
+        <span className="font-semibold text-ink">New: customer accounts.</span> We just added accounts to the site.
+        If this is your first order <em>or you&apos;ve ordered with us before</em>, choose{' '}
+        <span className="font-semibold text-ink">Create account</span> — past orders aren&apos;t linked to a login yet.
+      </div>
 
       <form onSubmit={handleSubmit} className="card-premium p-8 flex flex-col gap-4">
         {mode === 'register' && (
