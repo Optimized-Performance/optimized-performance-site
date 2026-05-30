@@ -17,7 +17,7 @@ const faqs = [
     category: 'Ordering',
     items: [
       { q: 'How do I place an order?', a: 'Browse our shop, add products to your cart, and proceed to checkout. Fill in your shipping information and complete payment off-site through our secure payment processor.' },
-      { q: 'What payment methods do you accept?', a: 'We accept credit and debit cards (processed by Bankful) and cryptocurrency (BTC, ETH, USDC, USDT — processed by NOWPayments). Both options are presented at checkout.' },
+      { q: 'What payment methods do you accept?', a: 'We accept credit and debit cards and cryptocurrency (BTC, ETH, USDC, USDT — processed by NOWPayments). Both options are presented at checkout.' },
       { q: 'Do you offer bulk discounts?', a: 'Yes — every product has a 10-vial kit option at a significant discount (up to 30% off the individual-vial price). The kits are how we handle volume.' },
       { q: 'Do you have promo or affiliate codes?', a: 'Yes. If you have an affiliate or promo code, enter it at checkout to receive your discount. Contact us if you are interested in becoming an affiliate.' },
       { q: 'Is there a minimum order?', a: 'No minimum order. You can purchase a single vial or a 10-vial kit.' },

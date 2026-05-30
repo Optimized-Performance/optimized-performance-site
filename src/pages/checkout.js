@@ -497,7 +497,7 @@ export default function Checkout() {
             </div>
             <p className="opp-meta-mono text-center mt-3 leading-relaxed m-0">
               {[
-                cardEnabled && 'Card processed by Bankful',
+                cardEnabled && 'Card processed securely off-site',
                 paypalEnabled && 'PayPal, Pay Later & card via PayPal',
                 cryptoEnabled && 'Crypto (BTC, ETH, USDC, USDT) by NOWPayments',
                 zelleEnabled && 'Zelle direct to OPP (manual review)',

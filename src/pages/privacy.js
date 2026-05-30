@@ -43,7 +43,7 @@ export default function PrivacyPolicy() {
             <Subsection title="Payment Information">
               <p className="text-sm text-ink-soft leading-relaxed">
                 We do not directly collect or store payment card or bank information. All payment processing is
-                handled by third-party payment service providers — <strong className="text-ink">Bankful</strong> for
+                handled by third-party payment service providers — a PCI-compliant card processor for
                 credit/debit card transactions and <strong className="text-ink">NOWPayments</strong> for cryptocurrency
                 transactions (when enabled). When you complete a purchase, you are subject to the terms of service
                 and privacy policy of the relevant processor. We receive only a confirmation of payment and the
@@ -83,18 +83,14 @@ export default function PrivacyPolicy() {
               you acknowledge and agree that:
             </p>
             <ul className="list-disc pl-5 space-y-1 text-sm text-ink-soft leading-relaxed mb-3">
-              <li>Your payment information is transmitted directly and securely to the processor (Bankful for cards, NOWPayments for cryptocurrency)</li>
+              <li>Your payment information is transmitted directly and securely to the processor (a PCI-compliant card processor for cards, NOWPayments for cryptocurrency)</li>
               <li>The processor may require identity verification as part of their regulatory or fraud-prevention obligations</li>
               <li>The processor may collect, store, and process your personal and financial data per their privacy policy</li>
               <li>We receive only a confirmation of payment and partial card metadata (last four digits, BIN); we do not have access to your full card or bank details</li>
             </ul>
             <p className="text-sm text-ink-soft leading-relaxed">
-              For questions about how each processor handles your data, review their privacy policies directly:
-              Bankful at{' '}
-              <a href="https://paybybankful.com/privacy" className="text-accent-strong hover:underline" target="_blank" rel="noopener noreferrer">
-                paybybankful.com/privacy
-              </a>{' '}
-              and NOWPayments at{' '}
+              For questions about how each processor handles your data, review their privacy policies directly.
+              Cryptocurrency payments are processed by NOWPayments at{' '}
               <a href="https://nowpayments.io/privacy-policy" className="text-accent-strong hover:underline" target="_blank" rel="noopener noreferrer">
                 nowpayments.io/privacy-policy
               </a>.
@@ -104,7 +100,7 @@ export default function PrivacyPolicy() {
           <Section title="4. Sharing of Information">
             <p className="text-sm text-ink-soft leading-relaxed mb-3">We may share your information with:</p>
             <ul className="list-disc pl-5 space-y-1 text-sm text-ink-soft leading-relaxed mb-3">
-              <li><strong className="text-ink">Payment processors</strong> (Bankful, NOWPayments) — for payment processing and fraud prevention</li>
+              <li><strong className="text-ink">Payment processors</strong> (our card processor and NOWPayments) — for payment processing and fraud prevention</li>
               <li><strong className="text-ink">Shipping carriers</strong> (USPS, UPS, FedEx) — to fulfill and track your order</li>
               <li><strong className="text-ink">Shipping software</strong> (e.g., ShipCheer) — to generate shipping labels and tracking</li>
               <li><strong className="text-ink">Email and SMS service providers</strong> (SendGrid, Twilio) — to send transactional notifications</li>
