@@ -4,7 +4,7 @@ import { useCart } from '../context/CartContext';
 import SEO from '../components/SEO';
 import { Vial, Icon } from '../components/Primitives';
 import { calcShipping, FREE_SHIPPING_THRESHOLD } from '../lib/shipping';
-import { isMemorialDaySaleActive, applyMemorialDiscount, MEMORIAL_DAY_DISCOUNT_PCT, calcGlp3Bogo } from '../lib/sale';
+import { isMemorialDaySaleActive, applyMemorialDiscount, MEMORIAL_DAY_DISCOUNT_PCT, calcGlp3Bogo, ALT_PAY_DISCOUNT_PCT } from '../lib/sale';
 import PaypalCheckoutButtons from '../components/PaypalCheckoutButtons';
 
 // Read the opp_ref cookie set by lib/cohort-session when a visitor arrives
@@ -146,6 +146,13 @@ export default function Checkout() {
   const shippingBreakdown = calcShipping({ items: cartItems, discountedSubtotal, saleActive });
   const shippingCost = shippingBreakdown.total;
   const discountedTotal = discountedSubtotal + shippingCost;
+  // 10% off for crypto/Zelle — routes volume to un-freezable rails. Applied to
+  // the post-all-discount subtotal (stacks with promos + affiliate codes),
+  // pre-shipping. Server recomputes authoritatively in /api/orders/create.js.
+  const altPayDiscount = discountedSubtotal * (ALT_PAY_DISCOUNT_PCT / 100);
+  const altPayTotal = discountedTotal - altPayDiscount;
+  const altPayEnabled = cryptoEnabled || zelleEnabled;
+  const altPayLabel = [cryptoEnabled && 'Crypto', zelleEnabled && 'Zelle'].filter(Boolean).join(' or ');
 
   // Preorder summary — derive from cart line metadata persisted by addToCart
   const preorderItems = cartItems.filter((item) => item.isPreorder);
@@ -294,29 +301,34 @@ export default function Checkout() {
     <div className="max-w-container mx-auto px-8 pt-14 pb-20">
       <SEO title="Checkout" description="Complete your order — secure card or crypto payment." path="/checkout" />
 
-      <div className="pb-8 border-b border-line">
-        <span className="opp-eyebrow">Checkout</span>
-        <h1 className="font-display font-semibold tracking-display text-[clamp(36px,5vw,64px)] leading-none mt-3 mb-2 text-ink">
-          Secure order
-        </h1>
-        <ol className="flex gap-8 list-none p-0 mt-6">
-          {['Details', 'Payment', 'Confirmation'].map((s, i) => {
-            const step = submitting ? 2 : 1;
-            const isActive = step === i + 1;
-            return (
-              <li key={s} className={`flex items-center gap-2.5 text-sm ${isActive ? 'text-ink font-semibold' : 'text-ink-mute'}`}>
-                <span
-                  className={`w-7 h-7 rounded-full flex items-center justify-center border opp-meta-mono text-[11px] ${
-                    isActive ? 'bg-ink text-paper border-ink' : 'border-line'
-                  }`}
-                >
-                  {String(i + 1).padStart(2, '0')}
-                </span>
-                <span>{s}</span>
-              </li>
-            );
-          })}
-        </ol>
+      <div className="pb-8 border-b border-line flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+        <div>
+          <span className="opp-eyebrow">Checkout</span>
+          <h1 className="font-display font-semibold tracking-display text-[clamp(36px,5vw,64px)] leading-none mt-3 mb-2 text-ink">
+            Secure order
+          </h1>
+          <ol className="flex gap-8 list-none p-0 mt-6">
+            {['Details', 'Payment', 'Confirmation'].map((s, i) => {
+              const step = submitting ? 2 : 1;
+              const isActive = step === i + 1;
+              return (
+                <li key={s} className={`flex items-center gap-2.5 text-sm ${isActive ? 'text-ink font-semibold' : 'text-ink-mute'}`}>
+                  <span
+                    className={`w-7 h-7 rounded-full flex items-center justify-center border opp-meta-mono text-[11px] ${
+                      isActive ? 'bg-ink text-paper border-ink' : 'border-line'
+                    }`}
+                  >
+                    {String(i + 1).padStart(2, '0')}
+                  </span>
+                  <span>{s}</span>
+                </li>
+              );
+            })}
+          </ol>
+        </div>
+        {altPayEnabled && (
+          <AltPaySaveBanner pct={ALT_PAY_DISCOUNT_PCT} amount={altPayDiscount} label={altPayLabel} className="md:max-w-sm md:shrink-0" />
+        )}
       </div>
 
       {hasPreorders && (
@@ -448,7 +460,7 @@ export default function Checkout() {
                       >
                         {submitting && submittingMethod === 'crypto'
                           ? 'Processing…'
-                          : `Pay $${discountedTotal.toFixed(2)} with crypto`}
+                          : `Pay $${altPayTotal.toFixed(2)} with crypto`}
                       </button>
                     )}
                     {zelleEnabled && (
@@ -460,7 +472,7 @@ export default function Checkout() {
                       >
                         {submitting && submittingMethod === 'zelle'
                           ? 'Processing…'
-                          : `Pay $${discountedTotal.toFixed(2)} with Zelle`}
+                          : `Pay $${altPayTotal.toFixed(2)} with Zelle`}
                       </button>
                     )}
                     {venmoEnabled && (
@@ -499,8 +511,8 @@ export default function Checkout() {
               {[
                 cardEnabled && 'Card processed securely off-site',
                 paypalEnabled && 'PayPal, Pay Later & card via PayPal',
-                cryptoEnabled && 'Crypto (BTC, ETH, USDC, USDT) by NOWPayments',
-                zelleEnabled && 'Zelle direct to OPP (manual review)',
+                cryptoEnabled && 'Crypto (BTC, ETH, USDC, USDT) by NOWPayments — 10% off',
+                zelleEnabled && 'Zelle direct to OPP (manual review) — 10% off',
                 venmoEnabled && 'Venmo to @optimizedperformance (manual review)',
               ].filter(Boolean).join('. ') + '.'}
             </p>
@@ -610,6 +622,10 @@ export default function Checkout() {
               <span>Ships within 1 business day</span>
             </div>
           </div>
+
+          {altPayEnabled && (
+            <AltPaySaveBanner pct={ALT_PAY_DISCOUNT_PCT} amount={altPayDiscount} label={altPayLabel} className="mt-5" />
+          )}
         </aside>
       </div>
     </div>
@@ -624,5 +640,21 @@ function Field({ label, children }) {
       </span>
       {children}
     </label>
+  );
+}
+
+// Prominent "save 5% with crypto/Zelle" callout. Rendered in two spots on the
+// checkout (header banner + under the order summary) to push volume toward the
+// un-freezable rails. `amount` is the dollar savings on the current cart.
+function AltPaySaveBanner({ pct, amount, label, className = '' }) {
+  return (
+    <div className={`rounded-opp-lg border-2 border-accent-strong bg-accent-soft px-5 py-4 text-center ${className}`}>
+      <div className="font-display font-semibold tracking-display text-accent-strong text-[clamp(18px,2.2vw,24px)] leading-tight">
+        Save {pct}% with {label}
+      </div>
+      <div className="opp-meta-mono text-accent-strong mt-1.5">
+        {amount > 0 ? `−$${amount.toFixed(2)} on this order` : `Extra ${pct}% off`} when you pay by {label.toLowerCase()}
+      </div>
+    </div>
   );
 }

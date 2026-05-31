@@ -7,7 +7,7 @@ import { runVelocityChecks, extractClientIP } from '../../../lib/fraud-checks'
 import { getCustomerIdFromReq } from '../../../lib/customer-session'
 import { calcShipping } from '../../../lib/shipping'
 import { sendZelleInstructions, sendVenmoInstructions } from '../../../lib/alerts'
-import { isMemorialDaySaleActive, applyMemorialDiscount, MEMORIAL_DAY_DISCOUNT_PCT, calcGlp3Bogo } from '../../../lib/sale'
+import { isMemorialDaySaleActive, applyMemorialDiscount, MEMORIAL_DAY_DISCOUNT_PCT, calcGlp3Bogo, calcAltPayDiscount } from '../../../lib/sale'
 
 function generateOrderNumber() {
   const date = new Date()
@@ -144,7 +144,11 @@ export default async function handler(req, res) {
     // flag triggers the free-shipping override during the sale window.
     const shippingCalc = calcShipping({ items: validatedItems, discountedSubtotal: discountedTotal, saleActive })
     const shipping = shippingCalc.total
-    const total = Math.round((discountedTotal + shipping) * 100) / 100
+    // 10% off for crypto/Zelle — routes volume to un-freezable rails. Applied to
+    // the post-all-discount subtotal (stacks with promos + affiliate codes),
+    // pre-shipping. Server-authoritative; mirrors the client calc in checkout.js.
+    const altPayDiscount = calcAltPayDiscount(discountedTotal, paymentMethod)
+    const total = Math.round((discountedTotal - altPayDiscount + shipping) * 100) / 100
 
     if (total <= 0 || total > 50000) {
       return res.status(400).json({ error: 'Invalid order total' })
