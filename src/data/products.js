@@ -374,6 +374,7 @@ const products = [
     stock: 0,
     restricted: true,
     noCoa: true,
+    durableRailsOnly: true,
   },
   {
     id: 'bac-water-10ml',

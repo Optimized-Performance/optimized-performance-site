@@ -89,6 +89,9 @@ export default async function handler(req, res) {
     // SERVER-SIDE CALCULATION: recalculate totals from cart items to prevent tampering
     const products = require('../../../data/products').default
     let subtotal = 0
+    // Durable-rails-only: true if any cart item is an ancillary Rx SKU restricted
+    // to Zelle/crypto (keeps the most-pharma items off the card rail).
+    let cartDurableOnly = false
     // Track isKit per line so the shipping calc can detect cold-pack carts
     // server-side without trusting the client-supplied flag.
     const validatedItems = []
@@ -107,6 +110,15 @@ export default async function handler(req, res) {
       subtotal += product.price * qty
       validatedItems.push({ isKit: product.isKit === true })
       bogoItems.push({ id: product.id, price: product.price, quantity: qty })
+      if (product.durableRailsOnly === true) cartDurableOnly = true
+    }
+
+    // Durable-rails-only SKUs (ancillary Rx tablets/tinctures) may only be paid
+    // via Zelle or crypto — keeps the most-pharma items off the card rail to
+    // protect its transaction profile + freeze risk. Server-authoritative; the
+    // checkout UI also hides card/PayPal/Venmo when such an item is in the cart.
+    if (cartDurableOnly && paymentMethod !== 'zelle' && paymentMethod !== 'crypto') {
+      return res.status(400).json({ error: 'One or more items in this order can only be paid via Zelle or crypto. Please choose Zelle or crypto at checkout.' })
     }
 
     // Validate affiliate code server-side (cannot trust client-supplied discount/commission)

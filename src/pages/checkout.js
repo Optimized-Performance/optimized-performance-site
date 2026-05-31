@@ -315,11 +315,15 @@ export default function Checkout() {
   // null railAvail (loading/error) treats every rail as available. Crypto/Zelle
   // are uncapped server-side, so in practice only card/PayPal/Venmo hide here.
   const railUp = (rail) => !railAvail || railAvail[rail] !== false;
-  const cardUp = cardEnabled && railUp('card');
+  // Durable-rails-only: if any cart item is an ancillary Rx SKU flagged for
+  // Zelle/crypto only, hide card/PayPal/Venmo (keeps the most-pharma items off
+  // the card rail). Server-enforced in /api/orders/create.js.
+  const cartDurableOnly = cartItems.some((item) => item.durableRailsOnly);
+  const cardUp = cardEnabled && railUp('card') && !cartDurableOnly;
   const cryptoUp = cryptoEnabled && railUp('crypto');
   const zelleUp = zelleEnabled && railUp('zelle');
-  const venmoUp = venmoEnabled && railUp('venmo');
-  const paypalUp = paypalEnabled && railUp('paypal');
+  const venmoUp = venmoEnabled && railUp('venmo') && !cartDurableOnly;
+  const paypalUp = paypalEnabled && railUp('paypal') && !cartDurableOnly;
 
   return (
     <div className="max-w-container mx-auto px-8 pt-14 pb-20">
@@ -451,6 +455,12 @@ export default function Checkout() {
               </span>
             </label>
 
+            {cartDurableOnly && (
+              <div className="mb-4 p-4 rounded-opp-lg border border-accent-strong bg-accent-soft text-center">
+                <div className="opp-meta-mono text-accent-strong font-semibold">Zelle or crypto only for this order</div>
+                <div className="text-[13px] text-ink-soft mt-1">An item in your cart is fulfilled via direct payment (Zelle or crypto) — and you save 10%.</div>
+              </div>
+            )}
             <div className="grid grid-cols-1 gap-3">
               {cardUp && (
                 <button
