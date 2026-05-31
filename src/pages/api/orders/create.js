@@ -7,6 +7,7 @@ import { runVelocityChecks, extractClientIP } from '../../../lib/fraud-checks'
 import { getCustomerIdFromReq } from '../../../lib/customer-session'
 import { calcShipping } from '../../../lib/shipping'
 import { sendZelleInstructions, sendVenmoInstructions } from '../../../lib/alerts'
+import { isRailAvailable } from '../../../lib/rail-utilization'
 import { isMemorialDaySaleActive, applyMemorialDiscount, MEMORIAL_DAY_DISCOUNT_PCT, calcGlp3Bogo, calcAltPayDiscount } from '../../../lib/sale'
 
 function generateOrderNumber() {
@@ -75,6 +76,14 @@ export default async function handler(req, res) {
 
     if (!supabaseAdmin) {
       return res.status(500).json({ error: 'Database not configured' })
+    }
+
+    // Rail orchestration: reject if the chosen rail is over its volume cap, so
+    // overflow routes to the uncapped durable rails. Crypto/Zelle are uncapped
+    // and never trip this. Authoritative throttle (the checkout UI gating via
+    // /api/rails/availability is convenience). See docs/rail-orchestration-spec.md.
+    if (!(await isRailAvailable(supabaseAdmin, paymentMethod))) {
+      return res.status(503).json({ error: 'This payment method is temporarily at capacity. Please pay with crypto or Zelle — 10% off.' })
     }
 
     // SERVER-SIDE CALCULATION: recalculate totals from cart items to prevent tampering

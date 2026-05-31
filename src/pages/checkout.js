@@ -58,6 +58,7 @@ export default function Checkout() {
   const [researchField, setResearchField] = useState('');
   const [customer, setCustomer] = useState(null);
   const [authChecked, setAuthChecked] = useState(!requireAccount);
+  const [railAvail, setRailAvail] = useState(null);
   const autoAppliedRef = useRef(false);
   const router = useRouter();
 
@@ -124,6 +125,19 @@ export default function Checkout() {
       .catch(() => { if (!cancelled) setAuthChecked(true); });
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Rail orchestration: fetch which payment rails are currently under their
+  // volume cap so we render only available ones. Fail-open — if this errors or
+  // hasn't loaded, all env-enabled rails show and the server (api/orders/create)
+  // is the authoritative cap enforcer. See docs/rail-orchestration-spec.md.
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/rails/availability')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (!cancelled) setRailAvail(d?.availability || {}); })
+      .catch(() => {});
+    return () => { cancelled = true; };
   }, []);
 
   // Memorial Day sale: applied BEFORE the affiliate discount so the affiliate
@@ -297,6 +311,16 @@ export default function Checkout() {
     alert(err?.message || 'PayPal checkout failed. Please try again or use another payment method.');
   };
 
+  // Effective rail availability = env-enabled AND under volume cap. Fail-open:
+  // null railAvail (loading/error) treats every rail as available. Crypto/Zelle
+  // are uncapped server-side, so in practice only card/PayPal/Venmo hide here.
+  const railUp = (rail) => !railAvail || railAvail[rail] !== false;
+  const cardUp = cardEnabled && railUp('card');
+  const cryptoUp = cryptoEnabled && railUp('crypto');
+  const zelleUp = zelleEnabled && railUp('zelle');
+  const venmoUp = venmoEnabled && railUp('venmo');
+  const paypalUp = paypalEnabled && railUp('paypal');
+
   return (
     <div className="max-w-container mx-auto px-8 pt-14 pb-20">
       <SEO title="Checkout" description="Complete your order — secure card or crypto payment." path="/checkout" />
@@ -355,7 +379,7 @@ export default function Checkout() {
             We use your email for order updates. Payments are processed securely off-site.
           </p>
 
-          <form onSubmit={(e) => { e.preventDefault(); if (cardEnabled) handleCheckout('card'); }}>
+          <form onSubmit={(e) => { e.preventDefault(); if (cardUp) handleCheckout('card'); }}>
             <Field label="Email">
               <input
                 className="input-field" type="email" required
@@ -428,7 +452,7 @@ export default function Checkout() {
             </label>
 
             <div className="grid grid-cols-1 gap-3">
-              {cardEnabled && (
+              {cardUp && (
                 <button
                   type="submit"
                   className="btn-primary w-full py-4 text-base"
@@ -440,18 +464,18 @@ export default function Checkout() {
                     : `Pay $${discountedTotal.toFixed(2)} with card`}
                 </button>
               )}
-              {(cryptoEnabled || zelleEnabled || venmoEnabled) && (() => {
+              {(cryptoUp || zelleUp || venmoUp) && (() => {
                 // Grid auto-sizes to the number of alt-payment buttons enabled.
                 // Class names are written literally (not interpolated) so Tailwind's
                 // content scanner picks them up.
-                const altCount = [cryptoEnabled, zelleEnabled, venmoEnabled].filter(Boolean).length;
+                const altCount = [cryptoUp, zelleUp, venmoUp].filter(Boolean).length;
                 const altGridClass =
                   altCount === 3 ? 'sm:grid-cols-3'
                   : altCount === 2 ? 'sm:grid-cols-2'
                   : '';
                 return (
                   <div className={`grid grid-cols-1 ${altGridClass} gap-3`}>
-                    {cryptoEnabled && (
+                    {cryptoUp && (
                       <button
                         type="button"
                         onClick={() => handleCheckout('crypto')}
@@ -463,7 +487,7 @@ export default function Checkout() {
                           : `Pay $${altPayTotal.toFixed(2)} with crypto`}
                       </button>
                     )}
-                    {zelleEnabled && (
+                    {zelleUp && (
                       <button
                         type="button"
                         onClick={() => handleCheckout('zelle')}
@@ -475,7 +499,7 @@ export default function Checkout() {
                           : `Pay $${altPayTotal.toFixed(2)} with Zelle`}
                       </button>
                     )}
-                    {venmoEnabled && (
+                    {venmoUp && (
                       <button
                         type="button"
                         onClick={() => handleCheckout('venmo')}
@@ -490,7 +514,7 @@ export default function Checkout() {
                   </div>
                 );
               })()}
-              {paypalEnabled && (
+              {paypalUp && (
                 <div className="mt-1">
                   <div className="flex items-center gap-3 my-3">
                     <div className="flex-1 h-px bg-line" />
@@ -509,11 +533,11 @@ export default function Checkout() {
             </div>
             <p className="opp-meta-mono text-center mt-3 leading-relaxed m-0">
               {[
-                cardEnabled && 'Card processed securely off-site',
-                paypalEnabled && 'PayPal, Pay Later & card via PayPal',
-                cryptoEnabled && 'Crypto (BTC, ETH, USDC, USDT) by NOWPayments — 10% off',
-                zelleEnabled && 'Zelle direct to OPP (manual review) — 10% off',
-                venmoEnabled && 'Venmo to @optimizedperformance (manual review)',
+                cardUp && 'Card processed securely off-site',
+                paypalUp && 'PayPal, Pay Later & card via PayPal',
+                cryptoUp && 'Crypto (BTC, ETH, USDC, USDT) by NOWPayments — 10% off',
+                zelleUp && 'Zelle direct to OPP (manual review) — 10% off',
+                venmoUp && 'Venmo to @optimizedperformance (manual review)',
               ].filter(Boolean).join('. ') + '.'}
             </p>
           </form>
