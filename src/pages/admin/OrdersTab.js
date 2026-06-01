@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useState } from 'react';
+import { calcCommission } from '../../lib/commission';
 
 // localStorage key for the most recent ShipCheer export's order_numbers.
 // Used by Bulk Tracking Paste so admin can paste tracking #s in row order
@@ -1121,7 +1122,7 @@ export default function OrdersTab({ products = [], showSaveMsg, token }) {
                               {order.affiliate_code && (
                                 <div className="text-[13px] text-warning mt-1">
                                   Affiliate: {order.affiliate_code} ({order.affiliate_commission_pct}% = $
-                                  {(Number(order.total || 0) * Number(order.affiliate_commission_pct || 0) / 100).toFixed(2)})
+                                  {calcCommission(order).toFixed(2)})
                                 </div>
                               )}
                             </div>

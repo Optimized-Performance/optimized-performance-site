@@ -1,5 +1,6 @@
 import { supabaseAdmin } from '../supabase'
 import { sendEmailAlert, sendSmsAlert, sendOrderConfirmation } from '../alerts'
+import { calcCommission } from '../commission'
 
 // Shared post-payment finalization for any processor webhook. Looks up the
 // pending order, marks it completed, decrements inventory (kit-aware), updates
@@ -62,7 +63,9 @@ export async function finalizePaidOrder({ orderNumber, sendConfirmation = true }
   }
 
   if (order.affiliate_code) {
-    const commission = Number(order.total || 0) * Number(order.affiliate_commission_pct || 0) / 100
+    // Commission on product revenue only — shipping is logistics pass-through,
+    // not commissionable (see lib/commission). total_revenue below stays gross.
+    const commission = calcCommission(order)
     const { data: aff } = await supabaseAdmin
       .from('affiliates')
       .select('id, total_sales, total_revenue, total_commission')

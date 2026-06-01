@@ -1,6 +1,7 @@
 import { validateAffiliateToken } from '../../../lib/affiliate-session'
 import { supabaseAdmin } from '../../../lib/supabase'
 import { rateLimit } from '../../../lib/security'
+import { calcCommission } from '../../../lib/commission'
 
 // Tier table — direct affiliates. Recruited affiliates use the same thresholds
 // but the cron applies a -recruiter_override_pct adjustment to commission_pct.
@@ -36,7 +37,7 @@ function periodRange(periodKey) {
 async function sumOrdersWithCommission(code, start, end) {
   const { data, error } = await supabaseAdmin
     .from('orders')
-    .select('total, affiliate_commission_pct')
+    .select('total, shipping, affiliate_commission_pct')
     .eq('affiliate_code', code)
     .eq('payment_status', 'completed')
     .gte('created_at', start)
@@ -45,10 +46,10 @@ async function sumOrdersWithCommission(code, start, end) {
   let total = 0
   let commission = 0
   for (const o of data || []) {
-    const orderTotal = Number(o.total || 0)
-    const rate = Number(o.affiliate_commission_pct || 0)
-    total += orderTotal
-    commission += (orderTotal * rate) / 100
+    // Volume = gross sales (what the customer paid); commission excludes
+    // shipping (logistics pass-through, not commissionable — see lib/commission).
+    total += Number(o.total || 0)
+    commission += calcCommission(o)
   }
   return { total, commission, count: (data || []).length }
 }

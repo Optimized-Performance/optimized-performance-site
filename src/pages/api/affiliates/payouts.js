@@ -1,6 +1,7 @@
 import { validateAffiliateToken } from '../../../lib/affiliate-session'
 import { supabaseAdmin } from '../../../lib/supabase'
 import { rateLimit } from '../../../lib/security'
+import { calcCommission } from '../../../lib/commission'
 
 // GET /api/affiliates/payouts
 //   Returns last 12 months of payouts for the authed affiliate (paid + pending),
@@ -44,7 +45,7 @@ export default async function handler(req, res) {
     // the rate that was in effect when each order was placed.
     const { data: orders, error: oErr } = await supabaseAdmin
       .from('orders')
-      .select('total, affiliate_commission_pct, created_at')
+      .select('total, shipping, affiliate_commission_pct, created_at')
       .eq('affiliate_code', aff.code)
       .eq('payment_status', 'completed')
       .gte('created_at', cutoff.toISOString())
@@ -56,11 +57,10 @@ export default async function handler(req, res) {
       const d = new Date(o.created_at)
       const k = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`
       if (!ordersByMonth[k]) ordersByMonth[k] = { volume: 0, orders: 0, commission: 0 }
-      const orderTotal = Number(o.total || 0)
-      const rate = Number(o.affiliate_commission_pct || 0)
-      ordersByMonth[k].volume += orderTotal
+      // Volume = gross sales; commission excludes shipping (see lib/commission).
+      ordersByMonth[k].volume += Number(o.total || 0)
       ordersByMonth[k].orders += 1
-      ordersByMonth[k].commission += (orderTotal * rate) / 100
+      ordersByMonth[k].commission += calcCommission(o)
     }
     const monthlyVolume = Object.entries(ordersByMonth)
       .map(([period, v]) => ({

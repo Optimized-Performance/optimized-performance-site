@@ -1,6 +1,7 @@
 import { validateAffiliateToken } from '../../../lib/affiliate-session'
 import { supabaseAdmin } from '../../../lib/supabase'
 import { rateLimit } from '../../../lib/security'
+import { commissionableTotal } from '../../../lib/commission'
 
 function periodKey(d = new Date()) {
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`
@@ -17,14 +18,17 @@ async function sumOrders(code, pk) {
   const { start, end } = periodRange(pk)
   const { data, error } = await supabaseAdmin
     .from('orders')
-    .select('total')
+    .select('total, shipping')
     .eq('affiliate_code', code)
     .eq('payment_status', 'completed')
     .gte('created_at', start)
     .lt('created_at', end)
   if (error) throw error
   return {
+    // total = gross sales (volume display); commissionable = shipping excluded,
+    // used for the override projection so it matches the cron's actual payout.
     total: (data || []).reduce((s, o) => s + Number(o.total || 0), 0),
+    commissionable: (data || []).reduce((s, o) => s + commissionableTotal(o), 0),
     count: (data || []).length,
   }
 }
@@ -69,7 +73,7 @@ export default async function handler(req, res) {
     // Compute MTD volume per recruit + projected override
     const enriched = await Promise.all((recruits || []).map(async (r) => {
       const mtd = await sumOrders(r.code, thisPeriod)
-      const projectedOverride = (mtd.total * overridePct) / 100
+      const projectedOverride = (mtd.commissionable * overridePct) / 100
       return {
         id: r.id,
         code: r.code,

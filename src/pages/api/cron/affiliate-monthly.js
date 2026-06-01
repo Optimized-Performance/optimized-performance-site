@@ -1,4 +1,5 @@
 import { supabaseAdmin } from '../../../lib/supabase'
+import { commissionableTotal } from '../../../lib/commission'
 
 // Monthly affiliate processing job.
 // Runs on the 1st of each month at 09:00 UTC via Vercel Cron (vercel.json).
@@ -44,25 +45,27 @@ async function sumOrders(code, pk) {
   const { start, end } = periodRange(pk)
   const { data, error } = await supabaseAdmin
     .from('orders')
-    .select('total')
+    .select('total, shipping')
     .eq('affiliate_code', code)
     .eq('payment_status', 'completed')
     .gte('created_at', start)
     .lt('created_at', end)
   if (error) throw error
-  return (data || []).reduce((s, o) => s + Number(o.total || 0), 0)
+  // Override payout basis: product revenue only, shipping excluded (see lib/commission).
+  return (data || []).reduce((s, o) => s + commissionableTotal(o), 0)
 }
 
 async function sumGrossRevenue(pk) {
   const { start, end } = periodRange(pk)
   const { data, error } = await supabaseAdmin
     .from('orders')
-    .select('total')
+    .select('total, shipping')
     .eq('payment_status', 'completed')
     .gte('created_at', start)
     .lt('created_at', end)
   if (error) throw error
-  return (data || []).reduce((s, o) => s + Number(o.total || 0), 0)
+  // Royalty payout basis: product revenue only, shipping excluded (see lib/commission).
+  return (data || []).reduce((s, o) => s + commissionableTotal(o), 0)
 }
 
 export default async function handler(req, res) {
