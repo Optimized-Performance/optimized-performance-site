@@ -40,6 +40,19 @@ function isInternalSender(email) {
   return e.endsWith('@' + INTERNAL_DOMAIN) || EXTRA_INTERNAL.has(e)
 }
 
+// Support-recipient allowlist. The domain catch-all sweeps EVERY @opp inbox
+// (admin@, mredfearn@, etimmons@, …) into this parse, so only mail addressed to
+// a real support address should be filed — everything else is a personal box and
+// is skipped. Configurable via SUPPORT_EMAILS (comma-separated); defaults to the
+// customer-facing support + orders addresses.
+const SUPPORT_RECIPIENTS = (process.env.SUPPORT_EMAILS
+  || 'admin@optimizedperformancepeptides.com,orders@optimizedperformancepeptides.com')
+  .split(',').map((s) => s.trim().toLowerCase()).filter(Boolean)
+function isSupportRecipient(toRaw) {
+  const t = String(toRaw || '').toLowerCase()
+  return SUPPORT_RECIPIENTS.some((addr) => t.includes(addr))
+}
+
 function parseMultipart(req) {
   return new Promise((resolve, reject) => {
     const fields = {}
@@ -117,6 +130,14 @@ export default async function handler(req, res) {
   if (isInternalSender(fromEmail)) {
     console.log('[inbound-email] internal sender skipped — not filed to support inbox:', fromEmail)
     return res.status(200).json({ ok: true, status: 'internal_skipped' })
+  }
+
+  // Only file mail addressed to a real support address — the domain catch-all
+  // otherwise sweeps personal boxes (mredfearn@, etimmons@) into the queue.
+  // Checks the raw To so a CC to a personal box doesn't drop a real support email.
+  if (!isSupportRecipient(toRaw)) {
+    console.log('[inbound-email] non-support recipient skipped:', parseAddress(toRaw).email || toRaw)
+    return res.status(200).json({ ok: true, status: 'not_support_recipient' })
   }
 
   // Hard spam cutoff — bypass Claude entirely
