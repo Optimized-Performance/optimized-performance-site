@@ -26,6 +26,20 @@ export const config = {
 
 const SPAM_HARD_CUTOFF = 5.0
 
+// Internal senders are filed nowhere — they must never appear in the customer
+// support Inbox (and there's no point burning Claude tokens classifying internal
+// mail). Any sender on OPP's own domain is internal by definition; INTERNAL_EMAILS
+// (comma-separated env) adds off-domain internal addresses (e.g. a personal inbox).
+const INTERNAL_DOMAIN = 'optimizedperformancepeptides.com'
+const EXTRA_INTERNAL = new Set(
+  (process.env.INTERNAL_EMAILS || '').split(',').map((s) => s.trim().toLowerCase()).filter(Boolean)
+)
+function isInternalSender(email) {
+  if (!email) return false
+  const e = String(email).toLowerCase()
+  return e.endsWith('@' + INTERNAL_DOMAIN) || EXTRA_INTERNAL.has(e)
+}
+
 function parseMultipart(req) {
   return new Promise((resolve, reject) => {
     const fields = {}
@@ -96,6 +110,13 @@ export default async function handler(req, res) {
   const { name: fromName, email: fromEmail } = parseAddress(fromRaw)
   if (!fromEmail) {
     return res.status(400).json({ error: 'Missing from address' })
+  }
+
+  // Skip internal senders (OPP-domain or configured) — never file to the support
+  // Inbox. Keeps internal/admin mail (e.g. mredfearn@) out of the customer queue.
+  if (isInternalSender(fromEmail)) {
+    console.log('[inbound-email] internal sender skipped — not filed to support inbox:', fromEmail)
+    return res.status(200).json({ ok: true, status: 'internal_skipped' })
   }
 
   // Hard spam cutoff — bypass Claude entirely
