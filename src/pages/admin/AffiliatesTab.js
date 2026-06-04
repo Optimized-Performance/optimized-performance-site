@@ -29,7 +29,7 @@ export default function AffiliatesTab({ showSaveMsg, token }) {
   }
 
   function emptyForm() {
-    return { name: '', email: '', code: '', discountPct: 10, commissionPct: 5, active: true, notes: '' };
+    return { name: '', email: '', code: '', discountPct: 10, commissionPct: 5, active: true, notes: '', parentAffiliateId: '', isFlatRate: false, recruiterOverridePct: 0 };
   }
 
   function resetForm() {
@@ -70,6 +70,9 @@ export default function AffiliatesTab({ showSaveMsg, token }) {
       commissionPct: aff.commission_pct,
       active: aff.active,
       notes: aff.notes || '',
+      parentAffiliateId: aff.parent_affiliate_id || '',
+      isFlatRate: aff.is_flat_rate || false,
+      recruiterOverridePct: aff.recruiter_override_pct || 0,
     });
     setEditingId(aff.id);
     setShowForm(true);
@@ -234,6 +237,37 @@ export default function AffiliatesTab({ showSaveMsg, token }) {
               </div>
               <Field label="Notes"><input className="input-field" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Optional" /></Field>
             </div>
+
+            {/* Network / recruiter setup — replaces the manual Supabase SQL */}
+            <div className="border-t border-line pt-4 mb-2">
+              <p className="opp-meta-mono uppercase text-ink-mute mb-3">Network (recruiter / recruit setup)</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+                <Field label="Recruiter (parent)">
+                  <select className="input-field" value={form.parentAffiliateId} onChange={(e) => setForm({ ...form, parentAffiliateId: e.target.value })}>
+                    <option value="">None (direct affiliate)</option>
+                    {affiliates.filter((a) => a.id !== editingId).map((a) => (
+                      <option key={a.id} value={a.id}>{a.name} ({a.code})</option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label="Recruiter override % (if they recruit)">
+                  <input type="number" step="0.5" min="0" max="50" className="input-field" value={form.recruiterOverridePct} onChange={(e) => setForm({ ...form, recruiterOverridePct: e.target.value })} />
+                </Field>
+                <div className="flex items-center pt-6">
+                  <label className="flex items-center gap-2 opp-meta-mono uppercase cursor-pointer m-0">
+                    <input type="checkbox" checked={form.isFlatRate} onChange={(e) => setForm({ ...form, isFlatRate: e.target.checked })} />
+                    Flat rate (lock — no tier ratchet)
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            {form.parentAffiliateId && !form.isFlatRate && (
+              <p className="text-warning text-[13px] mb-4">
+                ⚠ Recruit selected but <strong>not flat-rate</strong>: the monthly cron will <strong>subtract the recruiter&apos;s override from this affiliate&apos;s rate</strong> (clawing it down). For the additive model — recruit keeps their full rate, recruiter earns the override on top — turn ON &quot;Flat rate&quot;.
+              </p>
+            )}
+
             <button type="submit" className="btn-primary">{editingId ? 'Update Affiliate' : 'Create Affiliate'}</button>
           </form>
         </div>
@@ -269,6 +303,15 @@ export default function AffiliatesTab({ showSaveMsg, token }) {
                   <td className="px-4 py-3">
                     <div className="font-semibold text-ink">{aff.name}</div>
                     <div className="opp-meta-mono mt-0.5">{aff.email}</div>
+                    {aff.parent_affiliate_id && (
+                      <div className="opp-meta-mono text-accent-strong mt-0.5">
+                        ↳ recruit of {affiliates.find((x) => x.id === aff.parent_affiliate_id)?.code || '?'}
+                        {aff.is_flat_rate ? ' · flat' : ' · ⚠ not flat'}
+                      </div>
+                    )}
+                    {Number(aff.recruiter_override_pct || 0) > 0 && (
+                      <div className="opp-meta-mono text-ink-mute mt-0.5">recruiter · {aff.recruiter_override_pct}% override</div>
+                    )}
                   </td>
                   <td className="px-4 py-3 font-mono font-bold text-accent-strong">{aff.code}</td>
                   <td className="px-4 py-3 text-center">{aff.discount_pct}%</td>

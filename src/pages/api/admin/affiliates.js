@@ -38,7 +38,7 @@ export default async function handler(req, res) {
     }
 
     if (req.method === 'POST') {
-      const { name, email, code, discountPct, commissionPct, active, notes } = req.body
+      const { name, email, code, discountPct, commissionPct, active, notes, parentAffiliateId, isFlatRate, recruiterOverridePct } = req.body
       if (!validateString(name) || !validateEmail(email)) {
         return res.status(400).json({ error: 'Invalid name or email' })
       }
@@ -59,6 +59,9 @@ export default async function handler(req, res) {
           commission_pct: commission,
           active: active !== false,
           notes: notes || '',
+          parent_affiliate_id: parentAffiliateId || null,
+          is_flat_rate: isFlatRate === true,
+          recruiter_override_pct: clampPercent(recruiterOverridePct, 0),
         })
         .select()
         .single()
@@ -91,6 +94,15 @@ export default async function handler(req, res) {
       }
       if (updates.active !== undefined) patch.active = !!updates.active
       if (updates.notes !== undefined) patch.notes = updates.notes
+      if (updates.parentAffiliateId !== undefined) {
+        const pid = updates.parentAffiliateId || null
+        if (pid && pid === id) return res.status(400).json({ error: 'Affiliate cannot be its own recruiter' })
+        patch.parent_affiliate_id = pid
+      }
+      if (updates.isFlatRate !== undefined) patch.is_flat_rate = !!updates.isFlatRate
+      if (updates.recruiterOverridePct !== undefined) {
+        patch.recruiter_override_pct = clampPercent(updates.recruiterOverridePct, 0)
+      }
       patch.updated_at = new Date().toISOString()
 
       const { data, error } = await supabaseAdmin
