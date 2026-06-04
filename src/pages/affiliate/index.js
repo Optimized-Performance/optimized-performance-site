@@ -186,6 +186,41 @@ export default function AffiliateDashboard() {
         </div>
       )}
 
+      {/* Top sellers — best-selling products + earnings per product */}
+      {me.top_items && me.top_items.length > 0 && (
+        <div className="card-premium p-6 mb-6">
+          <h2 className="font-display font-semibold text-lg mb-1 text-ink">Your top sellers</h2>
+          <p className="opp-meta-mono mb-4 text-ink-mute">
+            Your best-selling products and what you&apos;ve earned on each (lifetime).
+          </p>
+          <table className="w-full text-[13px]">
+            <thead className="bg-surfaceAlt">
+              <tr>
+                <th className="px-3 py-2 text-left font-mono text-[10px] uppercase text-ink-mute w-8">#</th>
+                <th className="px-3 py-2 text-left font-mono text-[10px] uppercase text-ink-mute">Product</th>
+                <th className="px-3 py-2 text-right font-mono text-[10px] uppercase text-ink-mute">Units sold</th>
+                <th className="px-3 py-2 text-right font-mono text-[10px] uppercase text-ink-mute">Revenue driven</th>
+                <th className="px-3 py-2 text-right font-mono text-[10px] uppercase text-ink-mute">You earned</th>
+              </tr>
+            </thead>
+            <tbody>
+              {me.top_items.map((it, i) => (
+                <tr key={it.key} className="border-t border-line">
+                  <td className="px-3 py-2 font-mono text-ink-mute">{i + 1}</td>
+                  <td className="px-3 py-2 font-semibold text-ink">{it.name}</td>
+                  <td className="px-3 py-2 text-right">{it.units}</td>
+                  <td className="px-3 py-2 text-right">{fmtUsd(it.revenue)}</td>
+                  <td className="px-3 py-2 text-right text-success font-semibold">{fmtUsd(it.earnings)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p className="opp-meta-mono mt-2 text-ink-mute text-xs">
+            Revenue driven is gross product sales; earnings are your commission on each product (shipping excluded).
+          </p>
+        </div>
+      )}
+
       {/* Code + share */}
       <div className="card-premium p-6 mb-6">
         <h2 className="font-display font-semibold text-lg mb-3 text-ink">Your affiliate code</h2>

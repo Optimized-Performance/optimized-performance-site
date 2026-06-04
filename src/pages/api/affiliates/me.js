@@ -3,6 +3,7 @@ import { supabaseAdmin } from '../../../lib/supabase'
 import { rateLimit } from '../../../lib/security'
 import { calcCommission, commissionableTotal } from '../../../lib/commission'
 import { ROYALTY_PCT } from '../../../lib/affiliate-config'
+import products from '../../../data/products'
 
 // Tier table — direct affiliates. Recruited affiliates use the same thresholds
 // but the cron applies a -recruiter_override_pct adjustment to commission_pct.
@@ -119,6 +120,56 @@ async function affiliateFunnel(code) {
   }
 }
 
+// Top-selling products for one affiliate (lifetime, completed orders).
+// Aggregates units + gross revenue per product and allocates each order's
+// ACTUAL commission across its lines by gross-value share — so per-item
+// earnings sum back to the commission the affiliate was really paid (calcCommission),
+// and the rule in lib/commission can't drift here. Revenue is reported GROSS
+// (retail line value) to match how volume is reported elsewhere; only the
+// allocated earnings exclude shipping/discount (they inherit it from the
+// order-level commission). Returns the top 3 by units sold.
+async function topItemsSold(code) {
+  const { data, error } = await supabaseAdmin
+    .from('orders')
+    .select('items, total, shipping, affiliate_commission_pct')
+    .eq('affiliate_code', code)
+    .eq('payment_status', 'completed')
+  if (error) throw error
+  const byKey = new Map()
+  for (const o of data || []) {
+    const lines = Array.isArray(o.items) ? o.items : []
+    // Price each line from stored per-line price (cart value at order time),
+    // falling back to the live catalog price if a stored line lacks one.
+    const priced = lines.map((it) => {
+      const prod = products.find((p) => p.sku === it.sku || p.id === it.id)
+      const qty = Number(it.quantity || 0)
+      const price = Number(it.price ?? prod?.price ?? 0)
+      const key = it.sku || it.id || it.name || 'unknown'
+      const name = prod?.name || it.name || key
+      return { key, name, qty, gross: price * qty }
+    })
+    const lineSubtotal = priced.reduce((s, p) => s + p.gross, 0)
+    const orderCommission = calcCommission(o)
+    for (const p of priced) {
+      if (p.qty <= 0) continue
+      const earn = lineSubtotal > 0 ? orderCommission * (p.gross / lineSubtotal) : 0
+      const cur = byKey.get(p.key) || { key: p.key, name: p.name, units: 0, revenue: 0, earnings: 0 }
+      cur.units += p.qty
+      cur.revenue += p.gross
+      cur.earnings += earn
+      byKey.set(p.key, cur)
+    }
+  }
+  return Array.from(byKey.values())
+    .map((r) => ({
+      ...r,
+      revenue: Math.round(r.revenue * 100) / 100,
+      earnings: Math.round(r.earnings * 100) / 100,
+    }))
+    .sort((a, b) => b.units - a.units || b.earnings - a.earnings)
+    .slice(0, 3)
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).end()
   if (!rateLimit(req, { maxRequests: 60, windowMs: 60000 })) {
@@ -177,6 +228,9 @@ export default async function handler(req, res) {
     // Payment funnel for this affiliate's referred orders
     const funnel = await affiliateFunnel(aff.code)
 
+    // Top-selling products + earnings per product (lifetime)
+    const topItems = await topItemsSold(aff.code)
+
     // Royalty tracking — only for flat-rate primaries (e.g. Tris). Royalty is
     // ROYALTY_PCT of OPP's TOTAL gross, so the projection reveals gross by
     // division — that's the partner's contractual basis, so it's theirs to see.
@@ -231,6 +285,7 @@ export default async function handler(req, res) {
       pending_payouts: pendingPayouts || [],
       pending_total: pendingTotal,
       funnel,
+      top_items: topItems,
       royalty,
     })
   } catch (err) {
