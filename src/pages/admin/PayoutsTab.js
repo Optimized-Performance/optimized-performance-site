@@ -13,6 +13,14 @@ function fmtPeriod(p) {
   return new Date(Date.UTC(y, m - 1, 1)).toLocaleDateString(undefined, { year: 'numeric', month: 'short' })
 }
 
+const ROYALTY_STATUS_LABELS = { accruing: 'Accruing', paid: 'Paid', pending: 'Pending', not_generated: 'Not generated' }
+const ROYALTY_STATUS_TONES = {
+  accruing: 'bg-accent-soft text-accent-strong',
+  paid: 'bg-success/10 text-success',
+  pending: 'bg-warning/10 text-warning',
+  not_generated: 'bg-danger/10 text-danger',
+}
+
 export default function PayoutsTab({ showSaveMsg, token }) {
   const [payouts, setPayouts] = useState([])
   const [affiliates, setAffiliates] = useState([])
@@ -24,6 +32,7 @@ export default function PayoutsTab({ showSaveMsg, token }) {
   const [selected, setSelected] = useState(new Set())
   const [showManualForm, setShowManualForm] = useState(false)
   const [manualForm, setManualForm] = useState(emptyManualForm())
+  const [royalty, setRoyalty] = useState(null)
 
   useEffect(() => {
     fetchAll()
@@ -45,12 +54,14 @@ export default function PayoutsTab({ showSaveMsg, token }) {
       if (typeFilter) params.set('type', typeFilter)
       if (affiliateFilter) params.set('affiliate_id', affiliateFilter)
       if (periodFilter) params.set('period', periodFilter)
-      const [pRes, aRes] = await Promise.all([
+      const [pRes, aRes, rRes] = await Promise.all([
         fetch(`/api/admin/payouts?${params.toString()}`, { headers: authHeaders() }),
         fetch('/api/admin/affiliates', { headers: authHeaders() }),
+        fetch('/api/admin/royalty', { headers: authHeaders() }),
       ])
       if (pRes.ok) setPayouts(await pRes.json())
       if (aRes.ok) setAffiliates(await aRes.json())
+      if (rRes.ok) setRoyalty(await rRes.json())
     } catch { /* fail */ }
     setSelected(new Set())
     setLoading(false)
@@ -211,6 +222,53 @@ export default function PayoutsTab({ showSaveMsg, token }) {
         <Stat value={fmtUsd(totals.royalty)} label="Royalties" />
         <Stat value={fmtUsd(totals.manual)} label="Manual" />
       </div>
+
+      {/* Royalty tracker — live current-month projection + per-period history */}
+      {royalty && (
+        <div className="card-premium p-5 mb-5">
+          <div className="flex justify-between items-center flex-wrap gap-3 mb-4">
+            <h3 className="font-display font-semibold text-base m-0 text-ink">Royalty tracker</h3>
+            <div className="opp-meta-mono uppercase">{royalty.pct}% of OPP gross · accrues live, paid after month-end</div>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5 mb-4">
+            <Stat value={fmtUsd(royalty.projected.royalty)} label={`${fmtPeriod(royalty.current_period)} projected`} tone="success" />
+            <Stat value={fmtUsd(royalty.projected.opp_gross)} label="OPP gross MTD" />
+            <Stat value={fmtUsd(royalty.pending)} label="Pending royalty" tone="warn" />
+            <Stat value={fmtUsd(royalty.lifetime_paid)} label="Lifetime paid" tone="success" />
+          </div>
+          {royalty.history.length > 0 && (
+            <table className="w-full border-collapse text-[13px]">
+              <thead className="bg-surfaceAlt">
+                <tr>
+                  {['Period', 'OPP gross', `Royalty (${royalty.pct}%)`, 'Recipient', 'Status'].map((h) => (
+                    <th key={h} className="px-3 py-2 font-mono text-[10px] font-semibold tracking-[0.14em] uppercase text-ink-mute border-b border-line text-left">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {royalty.history.map((h) => (
+                  <tr key={h.period} className="border-t border-line hover:bg-surfaceAlt/50">
+                    <td className="px-3 py-2 font-mono">{fmtPeriod(h.period)}</td>
+                    <td className="px-3 py-2">{fmtUsd(h.opp_gross)}</td>
+                    <td className="px-3 py-2 font-semibold text-ink">{fmtUsd(h.payout_amount ?? h.royalty)}</td>
+                    <td className="px-3 py-2 font-mono text-xs">{h.recipient || '—'}</td>
+                    <td className="px-3 py-2">
+                      <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${ROYALTY_STATUS_TONES[h.status]}`}>
+                        {ROYALTY_STATUS_LABELS[h.status]}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+          {royalty.history.some((h) => h.status === 'not_generated') && (
+            <p className="opp-meta-mono mt-3 text-danger">
+              ⚠ &quot;Not generated&quot; = a past month had revenue but no royalty payout was created by the monthly cron. Investigate / backfill that period.
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Filters */}
       <div className="card-premium p-4 mb-5 flex flex-wrap gap-3 items-end">
