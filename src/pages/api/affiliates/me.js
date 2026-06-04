@@ -1,7 +1,8 @@
 import { validateAffiliateToken } from '../../../lib/affiliate-session'
 import { supabaseAdmin } from '../../../lib/supabase'
 import { rateLimit } from '../../../lib/security'
-import { calcCommission } from '../../../lib/commission'
+import { calcCommission, commissionableTotal } from '../../../lib/commission'
+import { ROYALTY_PCT } from '../../../lib/affiliate-config'
 
 // Tier table — direct affiliates. Recruited affiliates use the same thresholds
 // but the cron applies a -recruiter_override_pct adjustment to commission_pct.
@@ -66,6 +67,58 @@ async function sumYtd(code) {
   return sumOrdersWithCommission(code, start, end)
 }
 
+// Company-wide gross (commissionable = shipping-excluded) for a period — the
+// royalty basis. Mirrors the cron's sumGrossRevenue so the projection matches
+// what actually gets paid.
+async function sumOppGross(pk) {
+  const { start, end } = periodRange(pk)
+  const { data, error } = await supabaseAdmin
+    .from('orders')
+    .select('total, shipping')
+    .eq('payment_status', 'completed')
+    .gte('created_at', start)
+    .lt('created_at', end)
+  if (error) throw error
+  return (data || []).reduce((s, o) => s + commissionableTotal(o), 0)
+}
+
+// Payment funnel for one affiliate's referred orders — completion + card/PayPal
+// fall-off. Counts all statuses (not just completed). "Completion" and "fall-off"
+// are computed on RESOLVED attempts only (completed + abandoned), so stranded
+// 'awaiting' rows (e.g. started checkout, paid another way) don't distort them.
+const CARD_RAILS = ['card', 'paypal']
+async function affiliateFunnel(code) {
+  const { data, error } = await supabaseAdmin
+    .from('orders')
+    .select('payment_status, payment_method')
+    .eq('affiliate_code', code)
+  if (error) throw error
+  let completed = 0
+  let abandoned = 0
+  let cardCompleted = 0
+  let cardAbandoned = 0
+  for (const o of data || []) {
+    const s = o.payment_status
+    const isCard = CARD_RAILS.includes(o.payment_method)
+    if (s === 'completed' || s === 'refunded') {
+      completed += 1
+      if (isCard) cardCompleted += 1
+    } else if (s === 'abandoned') {
+      abandoned += 1
+      if (isCard) cardAbandoned += 1
+    }
+  }
+  const resolved = completed + abandoned
+  const cardResolved = cardCompleted + cardAbandoned
+  return {
+    completed,
+    abandoned,
+    completionRate: resolved > 0 ? completed / resolved : null,
+    cardAttempts: cardResolved,
+    cardFallOffRate: cardResolved > 0 ? cardAbandoned / cardResolved : null,
+  }
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).end()
   if (!rateLimit(req, { maxRequests: 60, windowMs: 60000 })) {
@@ -121,6 +174,34 @@ export default async function handler(req, res) {
     // Whether they have a network they can recruit into
     const hasNetwork = Number(aff.recruiter_override_pct || 0) > 0
 
+    // Payment funnel for this affiliate's referred orders
+    const funnel = await affiliateFunnel(aff.code)
+
+    // Royalty tracking — only for flat-rate primaries (e.g. Tris). Royalty is
+    // ROYALTY_PCT of OPP's TOTAL gross, so the projection reveals gross by
+    // division — that's the partner's contractual basis, so it's theirs to see.
+    const royaltyEligible = aff.is_flat_rate === true
+    let royalty = { eligible: false }
+    if (royaltyEligible) {
+      const { data: royaltyPayouts } = await supabaseAdmin
+        .from('affiliate_payouts')
+        .select('amount, period, paid_at')
+        .eq('affiliate_id', aff.id)
+        .eq('payout_type', 'royalty')
+      const rp = royaltyPayouts || []
+      const lastMonthRow = rp.find((p) => p.period === lastPeriod)
+      const oppGrossMtd = await sumOppGross(thisPeriod)
+      royalty = {
+        eligible: true,
+        pct: ROYALTY_PCT,
+        projected_mtd: Math.round((oppGrossMtd * ROYALTY_PCT) / 100 * 100) / 100,
+        pending: rp.filter((p) => !p.paid_at).reduce((s, p) => s + Number(p.amount || 0), 0),
+        lifetime_paid: rp.filter((p) => p.paid_at).reduce((s, p) => s + Number(p.amount || 0), 0),
+        last_month: lastMonthRow ? Number(lastMonthRow.amount || 0) : 0,
+        last_period: lastPeriod,
+      }
+    }
+
     return res.status(200).json({
       affiliate: {
         id: aff.id,
@@ -149,6 +230,8 @@ export default async function handler(req, res) {
       },
       pending_payouts: pendingPayouts || [],
       pending_total: pendingTotal,
+      funnel,
+      royalty,
     })
   } catch (err) {
     console.error('Affiliate me error:', err)

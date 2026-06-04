@@ -18,6 +18,10 @@ function fmtPeriod(p) {
   const [y, m] = p.split('-').map(Number)
   return new Date(Date.UTC(y, m - 1, 1)).toLocaleDateString(undefined, { year: 'numeric', month: 'long' })
 }
+function fmtPct(n) {
+  if (n === null || n === undefined) return '—'
+  return `${(Number(n) * 100).toFixed(1)}%`
+}
 
 export default function AffiliateDashboard() {
   const router = useRouter()
@@ -142,6 +146,45 @@ export default function AffiliateDashboard() {
         <Stat label="MTD commission" value={fmtUsd(stats.mtd_commission)} tone="success" />
         <Stat label="Last month volume" value={fmtUsd(stats.last_month_volume)} sub={`${stats.last_month_orders} orders`} />
       </div>
+
+      {/* Royalty (flat-rate primaries only — e.g. Tris) */}
+      {me.royalty?.eligible && (
+        <div className="card-premium p-6 mb-6">
+          <div className="flex justify-between items-center flex-wrap gap-3 mb-4">
+            <h2 className="font-display font-semibold text-lg m-0 text-ink">Royalty</h2>
+            <div className="opp-meta-mono uppercase">{me.royalty.pct}% of OPP gross revenue</div>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5">
+            <Stat label="Projected this month" value={fmtUsd(me.royalty.projected_mtd)} tone="success" sub="month-to-date, paid after month-end" />
+            <Stat label={fmtPeriod(me.royalty.last_period)} value={fmtUsd(me.royalty.last_month)} sub="last month's royalty" />
+            <Stat label="Pending royalty" value={fmtUsd(me.royalty.pending)} tone="warn" />
+            <Stat label="Lifetime royalty paid" value={fmtUsd(me.royalty.lifetime_paid)} tone="success" />
+          </div>
+          <p className="opp-meta-mono mt-3 text-ink-mute">
+            Royalty is {me.royalty.pct}% of Optimized Performance&apos;s total gross revenue across all sales and channels, processed monthly.
+          </p>
+        </div>
+      )}
+
+      {/* Checkout performance — payment completion + card fall-off */}
+      {me.funnel && (
+        <div className="card-premium p-6 mb-6">
+          <h2 className="font-display font-semibold text-lg mb-1 text-ink">Checkout performance</h2>
+          <p className="opp-meta-mono mb-4 text-ink-mute">
+            How your referred orders complete payment. Customers can pay by card, PayPal, Zelle, or crypto — if one rail doesn&apos;t go through, the others do.
+          </p>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3.5">
+            <Stat label="Orders completed" value={me.funnel.completed} />
+            <Stat label="Payment completion" value={fmtPct(me.funnel.completionRate)} tone="success" />
+            <Stat
+              label="Card / PayPal fall-off"
+              value={fmtPct(me.funnel.cardFallOffRate)}
+              tone={(me.funnel.cardFallOffRate ?? 0) > 0.1 ? 'warn' : 'success'}
+              sub={`${me.funnel.cardAttempts} card attempts`}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Code + share */}
       <div className="card-premium p-6 mb-6">

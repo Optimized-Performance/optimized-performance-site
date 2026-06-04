@@ -1,5 +1,6 @@
 import { supabaseAdmin } from '../../../lib/supabase'
 import { commissionableTotal } from '../../../lib/commission'
+import { ROYALTY_PCT } from '../../../lib/affiliate-config'
 
 // Monthly affiliate processing job.
 // Runs on the 1st of each month at 09:00 UTC via Vercel Cron (vercel.json).
@@ -22,7 +23,7 @@ const TIER_THRESHOLDS = [
   { min: 60000,  max: Infinity, rate: 30 },
 ]
 
-const ROYALTY_PCT = 5  // 5% of OPP gross to flat-rate primary affiliates
+// ROYALTY_PCT now lives in lib/affiliate-config (shared with the dashboard).
 
 function tierLookup(volume) {
   const v = Number(volume) || 0
