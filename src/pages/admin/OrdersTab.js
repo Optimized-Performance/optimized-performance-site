@@ -370,8 +370,28 @@ export default function OrdersTab({ products = [], showSaveMsg, token }) {
     } catch {}
   }
 
+  // Manually mark a stuck instant-rail order (crypto/card in 'awaiting_payment')
+  // as paid. The case this exists for: an UNDERPAID crypto invoice — NOWPayments
+  // returns 'partially_paid', our webhook parks it for manual review by design,
+  // and no dedicated button covers it. Also handles a confirmed-but-unfired
+  // webhook. Bypasses payment verification, so the confirm copy is explicit.
+  async function markPaidManual(order) {
+    const expected = Number(order.total || 0).toFixed(2);
+    if (!window.confirm(
+      `Manually mark order ${order.order_number} as PAID?\n\n` +
+      `Method: ${order.payment_method || '—'} · Expected: $${expected}\n` +
+      `Customer: ${order.customer_email}\n\n` +
+      `Use this for a stuck "Awaiting" crypto/card order — e.g. an underpaid crypto invoice you've reviewed, or a payment you've confirmed in the processor dashboard that never flipped the order. ` +
+      `This BYPASSES payment verification — only confirm after you've verified the funds. It decrements inventory, updates affiliate stats, and emails the customer.`
+    )) return;
+    try {
+      await markPaid('mark-paid', order, 'manual');
+    } catch {}
+  }
+
   // Shared submit path for the manual-confirmation endpoints (Zelle, Venmo,
-  // future P2P rails). Keeps the network + error-surface logic in one place.
+  // generic mark-paid, future P2P rails). Keeps the network + error-surface
+  // logic in one place.
   async function markPaid(endpoint, order, rail) {
     try {
       const res = await fetch(`/api/admin/orders/${endpoint}`, {
@@ -1004,6 +1024,15 @@ export default function OrdersTab({ products = [], showSaveMsg, token }) {
                               title="Mark this Venmo order paid after confirming the deposit on @optimizedperformance. Runs the same finalization as card + crypto webhooks."
                             >
                               Mark Venmo Paid
+                            </button>
+                          )}
+                          {isAwaitingPayment(order) && (
+                            <button
+                              className="text-[11px] px-2.5 py-1 rounded-opp border border-warning bg-warning text-surface hover:bg-warning/90 font-semibold"
+                              onClick={() => markPaidManual(order)}
+                              title="Manually mark a stuck crypto/card 'Awaiting' order paid — e.g. an underpaid crypto invoice (NOWPayments 'partially_paid', parked for review) or a confirmed-but-unfired webhook. Runs the same finalization as the webhooks. Bypasses payment verification — verify funds first."
+                            >
+                              Mark Paid
                             </button>
                           )}
                           {nextStatus && (
