@@ -1,6 +1,8 @@
 // Alert utilities for inventory and order notifications
 // Configure ALERT_EMAIL, TWILIO_*, and SENDGRID_API_KEY in environment variables to enable
 
+import { RECOVERY_DISCOUNT_PCT } from './recovery-config';
+
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://optimizedperformancepeptides.com';
 
 // Build the customer-facing order lookup URL with email pre-filled so the
@@ -186,6 +188,59 @@ export async function sendDeliveryFollowup(order) {
     });
   } catch (err) {
     console.error('[alerts] Delivery follow-up failed:', err.message);
+  }
+}
+
+// Sent ~1 hour after an instant-rail order stalls in 'awaiting_payment' (the
+// checkout was started but the card/PayPal/crypto capture never landed — a
+// timeout, a bail, a closed tab). Goal: recapture the missed sale. Offers an
+// extra discount via a one-click recovery link that pre-applies it at checkout
+// and stacks on top of whatever affiliate code the customer wants to use.
+// `recoverUrl` is built by the cron with a signed token (lib/recovery).
+export async function sendPaymentRecoveryNudge(order, recoverUrl) {
+  const apiKey = process.env.SENDGRID_API_KEY;
+  if (!apiKey || !order.customer_email) {
+    console.log('[alerts] Payment-recovery nudge skipped (not configured) — order:', order.order_number);
+    return;
+  }
+  if (!recoverUrl) {
+    console.log('[alerts] Payment-recovery nudge skipped (no recover URL) — order:', order.order_number);
+    return;
+  }
+
+  const body = [
+    `Hey — looks like you started an order with us but didn't finish.`,
+    ``,
+    `No worries, your spot's still here. To make it easy, here's an extra`,
+    `${RECOVERY_DISCOUNT_PCT}% off — and it stacks right on top of any affiliate code`,
+    `you want to use.`,
+    ``,
+    `Finish your order (discount applied automatically):`,
+    `${recoverUrl}`,
+    ``,
+    `Prefer not to use a card? You can also pay with Zelle or crypto for an`,
+    `additional discount at checkout.`,
+    ``,
+    `Questions or want a hand? Reply to this email or call (831) 218-5147.`,
+    ``,
+    `For research use only.`,
+    `— Optimized Performance`,
+  ].join('\n');
+
+  try {
+    await fetch('https://api.sendgrid.com/v3/mail/send', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        personalizations: [{ to: [{ email: order.customer_email }] }],
+        from: { email: process.env.FROM_EMAIL || 'orders@optimizedperformancepeptides.com', name: 'Optimized Performance' },
+        reply_to: { email: 'admin@optimizedperformancepeptides.com' },
+        subject: `Still want these? Here's ${RECOVERY_DISCOUNT_PCT}% off to finish up`,
+        content: [{ type: 'text/plain', value: body }],
+      }),
+    });
+  } catch (err) {
+    console.error('[alerts] Payment-recovery nudge failed:', err.message);
   }
 }
 

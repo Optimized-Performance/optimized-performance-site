@@ -9,6 +9,7 @@ import { calcShipping } from '../../../lib/shipping'
 import { sendZelleInstructions, sendVenmoInstructions } from '../../../lib/alerts'
 import { isRailAvailable } from '../../../lib/rail-utilization'
 import { isMemorialDaySaleActive, applyMemorialDiscount, MEMORIAL_DAY_DISCOUNT_PCT, calcGlp3Bogo, calcAltPayDiscount } from '../../../lib/sale'
+import { verifyRecoveryToken } from '../../../lib/recovery'
 
 function generateOrderNumber() {
   const date = new Date()
@@ -27,7 +28,7 @@ export default async function handler(req, res) {
   if (!rateLimit(req, { maxRequests: 10, windowMs: 60000 })) return res.status(429).json({ error: 'Too many requests' })
 
   try {
-    const { name, email, address, city, state, zip, items, affiliateCode, researchUseAck, researchField, paymentMethod } = req.body
+    const { name, email, address, city, state, zip, items, affiliateCode, recoveryToken, researchUseAck, researchField, paymentMethod } = req.body
 
     if (!validateString(name) || !validateEmail(email) || !validateString(address) ||
         !validateString(city) || !validateString(state, { minLength: 1, maxLength: 50 }) || !validateZip(zip) ||
@@ -159,14 +160,23 @@ export default async function handler(req, res) {
       discount = subtotalPostPromos * (affiliateDiscountPct / 100)
     }
 
-    const discountedTotal = subtotalPostPromos - discount
+    const subtotalPostAffiliate = subtotalPostPromos - discount
+    // Payment-recovery incentive — extra % off authorized by a signed recovery
+    // token (?recover link in the abandoned-checkout email). Re-verified here
+    // (client total is advisory); pct is server-fixed in lib/recovery so a forged
+    // token can't escalate it. Stacks on top of the affiliate discount, applied
+    // pre-shipping (same tier as alt-pay). Mirrors the client calc in checkout.js.
+    const recovery = recoveryToken ? verifyRecoveryToken(recoveryToken) : { valid: false, pct: 0 }
+    const recoveryPct = recovery.valid ? recovery.pct : 0
+    const recoveryDiscount = Math.round(subtotalPostAffiliate * (recoveryPct / 100) * 100) / 100
+    const discountedTotal = subtotalPostAffiliate - recoveryDiscount
     // Shipping math lives in lib/shipping.js — same helper drives the
     // client-side checkout summary so the totals match exactly. saleActive
     // flag triggers the free-shipping override during the sale window.
     const shippingCalc = calcShipping({ items: validatedItems, discountedSubtotal: discountedTotal, saleActive })
     const shipping = shippingCalc.total
     // 10% off for crypto/Zelle — routes volume to un-freezable rails. Applied to
-    // the post-all-discount subtotal (stacks with promos + affiliate codes),
+    // the post-all-discount subtotal (stacks with promos + affiliate + recovery),
     // pre-shipping. Server-authoritative; mirrors the client calc in checkout.js.
     const altPayDiscount = calcAltPayDiscount(discountedTotal, paymentMethod)
     const total = Math.round((discountedTotal - altPayDiscount + shipping) * 100) / 100
@@ -238,6 +248,13 @@ export default async function handler(req, res) {
     // — needs a migration to add: `memorial_day_discount NUMERIC DEFAULT 0`.
     if (saleActive && memorialDiscount > 0) {
       insertData.memorial_day_discount = Math.round(memorialDiscount * 100) / 100
+    }
+
+    // Recovery incentive — log for audit / recovery-conversion attribution.
+    // total already nets it out; this records how much we gave back. Column
+    // added in migration v23 (recovery_discount NUMERIC DEFAULT 0).
+    if (recoveryDiscount > 0) {
+      insertData.recovery_discount = recoveryDiscount
     }
 
     const { data: order, error } = await supabaseAdmin

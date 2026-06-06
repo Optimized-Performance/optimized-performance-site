@@ -11,6 +11,10 @@
     {
       "path": "/api/cron/expire-awaiting-payment",
       "schedule": "30 9 * * *"
+    },
+    {
+      "path": "/api/cron/payment-recovery",
+      "schedule": "0 * * * *"
     }
   ]
 }

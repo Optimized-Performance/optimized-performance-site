@@ -1,4 +1,6 @@
 import crypto from 'crypto'
+import { verifyRecoveryToken } from './recovery'
+import { RECOVERY_COOKIE, RECOVERY_QUERY_PARAM } from './recovery-config'
 
 // =========================================
 // Cohort gate — referral-token-aware catalog visibility
@@ -130,6 +132,25 @@ function buildRefCookieHeader(code, { secure = true } = {}) {
   return parts.join('; ')
 }
 
+// Companion cookie carrying the recovery TOKEN so the 5%-off recovery link
+// survives the landing-page → shop → checkout navigation (checkout.js reads it
+// client-side, then re-validates server-side at order create). Not HttpOnly —
+// like opp_ref, tampering is harmless: the token is HMAC-verified server-side,
+// a forged one just fails and grants no discount. TTL matches the token's 7-day
+// life rather than the 90-day cohort TTL.
+const RECOVERY_COOKIE_TTL_MS = 7 * 24 * 60 * 60 * 1000
+function buildRecoverCookieHeader(token, { secure = true } = {}) {
+  const maxAge = Math.floor(RECOVERY_COOKIE_TTL_MS / 1000)
+  const parts = [
+    `${RECOVERY_COOKIE}=${encodeURIComponent(token)}`,
+    'Path=/',
+    `Max-Age=${maxAge}`,
+    'SameSite=Lax',
+  ]
+  if (secure) parts.push('Secure')
+  return parts.join('; ')
+}
+
 // Append a Set-Cookie header without clobbering any other Set-Cookie the
 // caller (Next.js, downstream handlers) may already have written.
 function appendSetCookie(res, cookie) {
@@ -169,6 +190,15 @@ export async function getCohortFromRequest(context, supabaseAdmin) {
   const { req, res, query } = context
   const cookies = parseCookies(req?.headers?.cookie)
 
+  // Recovery link (?recover=TOKEN). Persist the token to a cookie so the 5%-off
+  // discount follows the customer from this landing page through checkout, and
+  // treat a valid token as a cohort-unlock credential below (the customer was
+  // already in-cohort when they placed the order it nudges). Set the cookie up
+  // front so it lands even if a cohort/ref param wins the early return.
+  const recoverParam = typeof query?.[RECOVERY_QUERY_PARAM] === 'string' ? query[RECOVERY_QUERY_PARAM] : null
+  const recoverValid = !!(recoverParam && verifyRecoveryToken(recoverParam).valid)
+  if (recoverValid) appendSetCookie(res, buildRecoverCookieHeader(recoverParam))
+
   const cohortParam = typeof query?.cohort === 'string' ? query.cohort : null
   if (cohortParam && isCohortAllowedToken(cohortParam)) {
     appendSetCookie(res, buildSetCookieHeader(createCookieValue()))
@@ -202,6 +232,14 @@ export async function getCohortFromRequest(context, supabaseAdmin) {
         console.warn('[cohort-session] affiliate lookup failed:', err.message)
       }
     }
+  }
+
+  // A valid recovery token unlocks the catalog on its own (when no cohort/ref
+  // param already returned above) — set the cohort cookie so the rest of the
+  // session works normally.
+  if (recoverValid) {
+    appendSetCookie(res, buildSetCookieHeader(createCookieValue()))
+    return { cohortAllowed: true, source: 'recover_param' }
   }
 
   if (cookies[COOKIE_NAME] && isCookieValueValid(cookies[COOKIE_NAME])) {

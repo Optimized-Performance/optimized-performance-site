@@ -5,6 +5,7 @@ import SEO from '../components/SEO';
 import { Vial, Icon } from '../components/Primitives';
 import { calcShipping, FREE_SHIPPING_THRESHOLD } from '../lib/shipping';
 import { isMemorialDaySaleActive, applyMemorialDiscount, MEMORIAL_DAY_DISCOUNT_PCT, calcGlp3Bogo, ALT_PAY_DISCOUNT_PCT } from '../lib/sale';
+import { RECOVERY_COOKIE, RECOVERY_QUERY_PARAM } from '../lib/recovery-config';
 import PaypalCheckoutButtons from '../components/PaypalCheckoutButtons';
 
 // Read the opp_ref cookie set by lib/cohort-session when a visitor arrives
@@ -14,6 +15,16 @@ import PaypalCheckoutButtons from '../components/PaypalCheckoutButtons';
 function readRefCookie() {
   if (typeof document === 'undefined') return '';
   const match = document.cookie.match(/(?:^|;\s*)opp_ref=([^;]+)/);
+  return match ? decodeURIComponent(match[1]) : '';
+}
+
+// Read the opp_recover cookie (set by lib/cohort-session when a visitor arrives
+// via a ?recover=TOKEN payment-recovery link). Carries the signed token so the
+// extra recovery discount follows them from the landing page to checkout. The
+// token is re-verified server-side; this is only for showing the right total.
+function readRecoverCookie() {
+  if (typeof document === 'undefined') return '';
+  const match = document.cookie.match(new RegExp(`(?:^|;\\s*)${RECOVERY_COOKIE}=([^;]+)`));
   return match ? decodeURIComponent(match[1]) : '';
 }
 
@@ -54,6 +65,10 @@ export default function Checkout() {
   const [affiliateCode, setAffiliateCode] = useState('');
   const [affiliateApplied, setAffiliateApplied] = useState(null);
   const [affiliateError, setAffiliateError] = useState('');
+  // Payment-recovery incentive: extra % off granted by a ?recover=TOKEN link
+  // (from the abandoned-checkout email), stacks on top of any affiliate code.
+  const [recoveryToken, setRecoveryToken] = useState(null);
+  const [recoveryPct, setRecoveryPct] = useState(0);
   const [researchAck, setResearchAck] = useState(false);
   const [researchField, setResearchField] = useState('');
   const [customer, setCustomer] = useState(null);
@@ -110,6 +125,34 @@ export default function Checkout() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Payment-recovery link: read the token from ?recover= or the opp_recover
+  // cookie, validate it server-side, and arm the extra discount so the summary
+  // total reflects it. Server re-verifies at order create, so a failed/forged
+  // token just shows no discount here. Runs once on mount.
+  const recoverCheckedRef = useRef(false);
+  useEffect(() => {
+    if (recoverCheckedRef.current) return;
+    if (!router.isReady) return; // wait until router.query is populated
+    recoverCheckedRef.current = true;
+    const fromQuery = typeof router.query?.[RECOVERY_QUERY_PARAM] === 'string' ? router.query[RECOVERY_QUERY_PARAM] : '';
+    const token = (fromQuery || readRecoverCookie() || '').trim();
+    if (!token) return;
+    fetch('/api/recovery/validate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token }),
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (d?.valid && d.pct > 0) {
+          setRecoveryToken(token);
+          setRecoveryPct(Number(d.pct));
+        }
+      })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router.isReady]);
+
   // Account-gating: when NEXT_PUBLIC_REQUIRE_ACCOUNT is on, check the customer
   // session on mount so the gate below renders sign-in vs. the order form.
   // No-op (authChecked starts true) when the flag is off.
@@ -154,7 +197,12 @@ export default function Checkout() {
 
   const discountPct = affiliateApplied ? affiliateApplied.discountPct : 0;
   const discountAmount = cartTotalPostPromos * (discountPct / 100);
-  const discountedSubtotal = cartTotalPostPromos - discountAmount;
+  const subtotalPostAffiliate = cartTotalPostPromos - discountAmount;
+  // Payment-recovery incentive — extra % off from a recovery link, stacks on
+  // top of the affiliate discount (same tier as alt-pay), applied pre-shipping.
+  // Server recomputes authoritatively in /api/orders/create.js.
+  const recoveryDiscount = subtotalPostAffiliate * (recoveryPct / 100);
+  const discountedSubtotal = subtotalPostAffiliate - recoveryDiscount;
   // Shipping math lives in lib/shipping.js — same helper runs server-side
   // in /api/orders/create so the totals match exactly. cartItems carry isKit
   // via spread in CartContext.addToCart, which the helper reads to detect
@@ -163,7 +211,7 @@ export default function Checkout() {
   const shippingCost = shippingBreakdown.total;
   const discountedTotal = discountedSubtotal + shippingCost;
   // 10% off for crypto/Zelle — routes volume to un-freezable rails. Applied to
-  // the post-all-discount subtotal (stacks with promos + affiliate codes),
+  // the post-all-discount subtotal (stacks with promos + affiliate + recovery),
   // pre-shipping. Server recomputes authoritatively in /api/orders/create.js.
   const altPayDiscount = discountedSubtotal * (ALT_PAY_DISCOUNT_PCT / 100);
   const altPayTotal = discountedTotal - altPayDiscount;
@@ -260,6 +308,7 @@ export default function Checkout() {
       preorderShipDate: item.isPreorder ? item.preorderShipDate || null : null,
     })),
     affiliateCode: affiliateApplied?.code || null,
+    recoveryToken: recoveryToken || null,
     researchUseAck: researchAck,
     researchField,
     paymentMethod,
@@ -625,6 +674,14 @@ export default function Checkout() {
                   Discount ({affiliateApplied.discountPct}% — {affiliateApplied.code})
                 </span>
                 <span className="text-success font-semibold">-${discountAmount.toFixed(2)}</span>
+              </div>
+            )}
+            {recoveryPct > 0 && recoveryDiscount > 0 && (
+              <div className="flex justify-between text-[13px]">
+                <span className="text-success font-semibold">
+                  Welcome-back discount ({recoveryPct}% off)
+                </span>
+                <span className="text-success font-semibold">-${recoveryDiscount.toFixed(2)}</span>
               </div>
             )}
             <div className="flex justify-between text-[13px]">
