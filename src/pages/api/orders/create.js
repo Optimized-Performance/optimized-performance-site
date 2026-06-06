@@ -175,19 +175,20 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Invalid order total' })
     }
 
-    // Velocity / fraud checks. Same residential address from multiple identities
-    // within 24h is the strongest fraud signal — block hard. 30-day window flags
-    // for admin review without blocking. See src/lib/fraud-checks.js.
+    // Velocity / fraud checks — GATED OFF by default (Matt 2026-06-06).
+    // Rationale: they false-positived on normal customers (flagging ordinary
+    // emails) and never caught real fraud, while adding sequential DB-query
+    // latency to the PayPal createOrder critical path — a contributor to the
+    // "pay screen timed out" failures. If they're paying, we'd rather take the
+    // order. Re-enable instantly by setting FRAUD_CHECKS_ENABLED=true in Vercel
+    // (no code change) if chargebacks start appearing. When off we skip the DB
+    // work entirely and default to 'unreviewed' (no block, no flag).
     const customerIp = extractClientIP(req)
     const userAgent = String(req.headers['user-agent'] || '').slice(0, 500)
-    const velocity = await runVelocityChecks({
-      email,
-      address,
-      city,
-      state,
-      zip,
-      ip: customerIp,
-    })
+    const fraudChecksEnabled = process.env.FRAUD_CHECKS_ENABLED === 'true'
+    const velocity = fraudChecksEnabled
+      ? await runVelocityChecks({ email, address, city, state, zip, ip: customerIp })
+      : { status: 'unreviewed', reasons: [] }
 
     const orderNumber = generateOrderNumber()
 
