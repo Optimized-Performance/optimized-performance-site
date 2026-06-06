@@ -374,10 +374,15 @@ export default function Checkout() {
   // null railAvail (loading/error) treats every rail as available. Crypto/Zelle
   // are uncapped server-side, so in practice only card/PayPal/Venmo hide here.
   const railUp = (rail) => !railAvail || railAvail[rail] !== false;
-  // Durable-rails-only: if any cart item is an ancillary Rx SKU flagged for
-  // Zelle/crypto only, hide card/PayPal/Venmo (keeps the most-pharma items off
-  // the card rail). Server-enforced in /api/orders/create.js.
-  const cartDurableOnly = cartItems.some((item) => item.durableRailsOnly);
+  // Durable-rails-only gating (Rx ancillaries → Zelle/crypto only) is a
+  // kill-switch, DEFAULT OFF (Matt 2026-06-06): preemptively self-restricting
+  // these SKUs to Zelle/crypto costs conversion, and any processor we land will
+  // take the volume. Sell them through every rail until a compliance audit
+  // forces otherwise — flip NEXT_PUBLIC_DURABLE_RAILS_GATING=true to re-arm
+  // without a code change. The per-SKU durableRailsOnly flag stays as data
+  // (which SKUs would be gated). Server mirrors this in /api/orders/create.js.
+  const durableRailsGating = process.env.NEXT_PUBLIC_DURABLE_RAILS_GATING === 'true';
+  const cartDurableOnly = durableRailsGating && cartItems.some((item) => item.durableRailsOnly);
   const cardUp = cardEnabled && railUp('card') && !cartDurableOnly;
   const cryptoUp = cryptoEnabled && railUp('crypto');
   const zelleUp = zelleEnabled && railUp('zelle');

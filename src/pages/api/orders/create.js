@@ -114,11 +114,14 @@ export default async function handler(req, res) {
       if (product.durableRailsOnly === true) cartDurableOnly = true
     }
 
-    // Durable-rails-only SKUs (ancillary Rx tablets/tinctures) may only be paid
-    // via Zelle or crypto — keeps the most-pharma items off the card rail to
-    // protect its transaction profile + freeze risk. Server-authoritative; the
-    // checkout UI also hides card/PayPal/Venmo when such an item is in the cart.
-    if (cartDurableOnly && paymentMethod !== 'zelle' && paymentMethod !== 'crypto') {
+    // Durable-rails-only gating (ancillary Rx tablets/tinctures → Zelle/crypto
+    // only) is a kill-switch, DEFAULT OFF (Matt 2026-06-06): self-restricting
+    // these SKUs costs conversion and any processor we land will take the
+    // volume — sell them through every rail until a compliance audit forces
+    // otherwise. Flip NEXT_PUBLIC_DURABLE_RAILS_GATING=true to re-arm. Mirrors
+    // the checkout.js gating. Server-authoritative when on.
+    const durableRailsGating = process.env.NEXT_PUBLIC_DURABLE_RAILS_GATING === 'true'
+    if (durableRailsGating && cartDurableOnly && paymentMethod !== 'zelle' && paymentMethod !== 'crypto') {
       return res.status(400).json({ error: 'One or more items in this order can only be paid via Zelle or crypto. Please choose Zelle or crypto at checkout.' })
     }
 
