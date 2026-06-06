@@ -59,7 +59,9 @@ export default function Checkout() {
   const [customer, setCustomer] = useState(null);
   const [authChecked, setAuthChecked] = useState(!requireAccount);
   const [railAvail, setRailAvail] = useState(null);
+  const [paypalFailed, setPaypalFailed] = useState(false);
   const autoAppliedRef = useRef(false);
+  const altPayRef = useRef(null);
   const router = useRouter();
 
   async function applyAffiliateCode(codeOverride) {
@@ -308,7 +310,17 @@ export default function Checkout() {
 
   const handlePaypalError = (err) => {
     console.error('[paypal] checkout failed:', err);
-    alert(err?.message || 'PayPal checkout failed. Please try again or use another payment method.');
+    // PayPal failed — decline, popup error, or the window timing out (the
+    // "pay screen timed out" case). Instead of a dead-end alert, surface the
+    // un-freezable rails inline with the 10% discount and scroll the customer
+    // straight to them, so a failed card becomes a Zelle/crypto sale, not a
+    // lost one. Falls back to the alert only if no alt rail is enabled.
+    if (cryptoEnabled || zelleEnabled) {
+      setPaypalFailed(true);
+      setTimeout(() => altPayRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 60);
+    } else {
+      alert(err?.message || 'PayPal checkout failed. Please try again or use another payment method.');
+    }
   };
 
   // Effective rail availability = env-enabled AND under volume cap. Fail-open:
@@ -473,6 +485,14 @@ export default function Checkout() {
                     ? 'Processing…'
                     : `Pay $${discountedTotal.toFixed(2)} with card`}
                 </button>
+              )}
+              {paypalFailed && (cryptoUp || zelleUp) && (
+                <div ref={altPayRef} className="rounded-opp border border-warning bg-warning/10 p-4 mb-3">
+                  <div className="opp-meta-mono uppercase text-warning font-semibold">Card didn&apos;t go through</div>
+                  <div className="text-[13px] text-ink-soft mt-1">
+                    No problem — cards sometimes decline or the payment window times out. Pay with <strong>{altPayLabel}</strong> below and <strong>save 10%</strong>. Same order, and it clears faster.
+                  </div>
+                </div>
               )}
               {(cryptoUp || zelleUp || venmoUp) && (() => {
                 // Grid auto-sizes to the number of alt-payment buttons enabled.
