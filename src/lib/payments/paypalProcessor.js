@@ -20,7 +20,23 @@ function paypalBaseUrl() {
   return process.env.PAYPAL_ENV === 'live' ? PAYPAL_LIVE_BASE : PAYPAL_SANDBOX_BASE
 }
 
+// Module-level token cache. PayPal client-credentials tokens are valid ~9h,
+// but we were minting a fresh one on EVERY order — a second PayPal round-trip
+// sitting inside the Smart-Buttons createOrder window, which is part of what
+// caused the "pay screen timed out" failures (the popup couldn't open before
+// PayPal's patience ran out). Caching reuses the token across orders within a
+// warm serverless instance, removing that round-trip from the critical path.
+// Persists per warm instance; a cold/new instance just mints its own. No
+// cross-instance store needed for this win.
+let _tokenCache = { token: null, expiresAt: 0 }
+
 async function getAccessToken() {
+  const now = Date.now()
+  // Reuse until 60s before expiry (clock-skew + in-flight safety margin).
+  if (_tokenCache.token && now < _tokenCache.expiresAt - 60_000) {
+    return _tokenCache.token
+  }
+
   const clientId = process.env.PAYPAL_CLIENT_ID
   const secret = process.env.PAYPAL_CLIENT_SECRET
   if (!clientId || !secret) {
@@ -41,6 +57,9 @@ async function getAccessToken() {
   if (!res.ok || !data?.access_token) {
     throw new Error(`[paypal] OAuth token failed (${res.status}): ${text.slice(0, 400)}`)
   }
+  // expires_in is seconds (~32400 = 9h); default to 8h if PayPal omits it.
+  const ttlMs = (Number(data.expires_in) > 0 ? Number(data.expires_in) : 28800) * 1000
+  _tokenCache = { token: data.access_token, expiresAt: now + ttlMs }
   return data.access_token
 }
 
