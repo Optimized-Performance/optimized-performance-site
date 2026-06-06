@@ -77,6 +77,7 @@ export default function Checkout() {
   const [paypalFailed, setPaypalFailed] = useState(false);
   const autoAppliedRef = useRef(false);
   const altPayRef = useRef(null);
+  const paypalRef = useRef(null);
   const router = useRouter();
 
   async function applyAffiliateCode(codeOverride) {
@@ -360,16 +361,13 @@ export default function Checkout() {
   const handlePaypalError = (err) => {
     console.error('[paypal] checkout failed:', err);
     // PayPal failed — decline, popup error, or the window timing out (the
-    // "pay screen timed out" case). Instead of a dead-end alert, surface the
-    // un-freezable rails inline with the 10% discount and scroll the customer
-    // straight to them, so a failed card becomes a Zelle/crypto sale, not a
-    // lost one. Falls back to the alert only if no alt rail is enabled.
-    if (cryptoEnabled || zelleEnabled) {
-      setPaypalFailed(true);
-      setTimeout(() => altPayRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 60);
-    } else {
-      alert(err?.message || 'PayPal checkout failed. Please try again or use another payment method.');
-    }
+    // "pay screen timed out" case). A timeout is NOT a decline, so lead with a
+    // card retry (scroll target is the failure banner, whose primary CTA jumps
+    // back to the PayPal button) and offer Zelle/crypto as the fallback — don't
+    // shove a good card off to Zelle. Always show the banner rather than a
+    // dead-end alert.
+    setPaypalFailed(true);
+    setTimeout(() => altPayRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 60);
   };
 
   // Effective rail availability = env-enabled AND under volume cap. Fail-open:
@@ -535,12 +533,26 @@ export default function Checkout() {
                     : `Pay $${discountedTotal.toFixed(2)} with card`}
                 </button>
               )}
-              {paypalFailed && (cryptoUp || zelleUp) && (
+              {paypalFailed && (
                 <div ref={altPayRef} className="rounded-opp border border-warning bg-warning/10 p-4 mb-3">
                   <div className="opp-meta-mono uppercase text-warning font-semibold">Payment didn&apos;t go through</div>
                   <div className="text-[13px] text-ink-soft mt-1">
-                    Usually that&apos;s a momentary timeout, not your card — <strong>just hit the payment button again</strong>. Or pay with <strong>{altPayLabel}</strong> below and <strong>save 10%</strong>.
+                    That&apos;s usually a momentary timeout, not your card. Give it another try.
                   </div>
+                  {paypalUp && (
+                    <button
+                      type="button"
+                      onClick={() => paypalRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
+                      className="btn-primary w-full py-3 mt-3"
+                    >
+                      <Icon name="card" size={16} /> Try card again
+                    </button>
+                  )}
+                  {(cryptoUp || zelleUp) && (
+                    <div className="text-[13px] text-ink-soft mt-2.5">
+                      Or pay with <strong>{altPayLabel}</strong> below and <strong>save 10%</strong>.
+                    </div>
+                  )}
                 </div>
               )}
               {(cryptoUp || zelleUp || venmoUp) && (() => {
@@ -594,7 +606,7 @@ export default function Checkout() {
                 );
               })()}
               {paypalUp && (
-                <div className="mt-1">
+                <div className="mt-1" ref={paypalRef}>
                   <div className="flex items-center gap-3 my-3">
                     <div className="flex-1 h-px bg-line" />
                     <span className="opp-meta-mono text-ink-mute">OR PAY WITH</span>
