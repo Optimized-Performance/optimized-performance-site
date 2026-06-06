@@ -326,6 +326,13 @@ export default function Checkout() {
         body: JSON.stringify(buildOrderPayload(paymentMethod)),
       });
       const data = await res.json();
+      // Duplicate-order guard tripped: this exact cart was already paid for
+      // moments ago. Send them to that order's confirmation instead of erroring
+      // — no second charge.
+      if (res.status === 409 && data.duplicate && data.existing_order_number) {
+        window.location.href = `/checkout/success?order=${encodeURIComponent(data.existing_order_number)}`;
+        return;
+      }
       if (!res.ok) throw new Error(data.error || 'Failed to create order');
       if (!data.redirect_url) throw new Error('Payment processor returned no redirect URL');
       window.location.href = data.redirect_url;
@@ -348,6 +355,13 @@ export default function Checkout() {
       body: JSON.stringify(buildOrderPayload('paypal')),
     });
     const data = await res.json();
+    // Duplicate-order guard tripped (identical cart already paid moments ago):
+    // bounce to that order's confirmation rather than opening a PayPal popup
+    // that would double-charge. Navigation wins; the throw just halts the SDK.
+    if (res.status === 409 && data.duplicate && data.existing_order_number) {
+      window.location.href = `/checkout/success?order=${encodeURIComponent(data.existing_order_number)}`;
+      throw new Error('This order was already completed.');
+    }
     if (!res.ok || !data.paypal_order_id) {
       throw new Error(data.error || 'Failed to create PayPal order');
     }

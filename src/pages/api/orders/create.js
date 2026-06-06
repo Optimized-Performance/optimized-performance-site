@@ -22,6 +22,22 @@ function generateOrderNumber() {
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://optimizedperformancepeptides.com'
 
+// Stable fingerprint of a cart for duplicate-order detection: sorted sku:qty
+// lines + the order total. Two checkouts of the same cart at the same price
+// produce the same signature regardless of line ordering.
+function orderSignature(items, total) {
+  const lines = (Array.isArray(items) ? items : [])
+    .map((i) => `${String(i.sku || i.id || '').toLowerCase()}:${i.quantity}`)
+    .sort()
+    .join('|')
+  return `${lines}#${Number(total || 0).toFixed(2)}`
+}
+
+// How long an identical, already-PAID cart blocks a re-charge. Covers the
+// "I thought it failed so I paid again" confusion window without blocking a
+// genuine repeat purchase hours/days later. Tunable.
+const DUPLICATE_GUARD_MINUTES = 30
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end()
   if (!validateOrigin(req)) return res.status(403).json({ error: 'Forbidden' })
@@ -216,6 +232,38 @@ export default async function handler(req, res) {
     //                        rail. This IS the admin Pending view.
     const isInstantRail = paymentMethod === 'paypal' || paymentMethod === 'card' || paymentMethod === 'crypto'
     const initialPaymentStatus = (velocity.status === 'block' || !isInstantRail) ? 'pending' : 'awaiting_payment'
+
+    // Duplicate-order guard. Prevents the double-charge seen 2026-06-06 (Chance
+    // Kaiser, two PayPal captures a minute apart): the first payment captured on
+    // PayPal's side but the client-side capture call appeared to fail, the
+    // retry banner prompted "try card again", and a second identical order was
+    // created + charged. If an identical cart from the same email is ALREADY
+    // 'completed' within the guard window, refuse to create another and point
+    // the customer at the order they already paid for. Keyed on 'completed'
+    // (the charged state) specifically so a legitimate retry of a genuinely
+    // FAILED payment — which never reaches 'completed' — still goes through.
+    if (isInstantRail) {
+      const dupCutoff = new Date(Date.now() - DUPLICATE_GUARD_MINUTES * 60 * 1000).toISOString()
+      const sig = orderSignature(items, total)
+      const { data: recentPaid } = await supabaseAdmin
+        .from('orders')
+        .select('order_number, items, total, created_at')
+        .eq('customer_email', email)
+        .eq('payment_status', 'completed')
+        .gte('created_at', dupCutoff)
+        .order('created_at', { ascending: false })
+        .limit(20)
+      const dup = (recentPaid || []).find((o) => orderSignature(o.items, o.total) === sig)
+      if (dup) {
+        console.warn('[orders/create] duplicate-order guard blocked a re-charge:', { email, sig, existing: dup.order_number })
+        return res.status(409).json({
+          error: `It looks like you just completed this order (${dup.order_number}) — we did NOT charge you again. Check your email for the confirmation. If you truly meant to place a second order, reply to that email or call (831) 218-5147 and we'll set it up.`,
+          duplicate: true,
+          existing_order_number: dup.order_number,
+          existing_status: 'completed',
+        })
+      }
+    }
 
     const insertData = {
       order_number: orderNumber,
