@@ -488,9 +488,9 @@ export default function Checkout() {
               )}
               {paypalFailed && (cryptoUp || zelleUp) && (
                 <div ref={altPayRef} className="rounded-opp border border-warning bg-warning/10 p-4 mb-3">
-                  <div className="opp-meta-mono uppercase text-warning font-semibold">Card didn&apos;t go through</div>
+                  <div className="opp-meta-mono uppercase text-warning font-semibold">Payment didn&apos;t go through</div>
                   <div className="text-[13px] text-ink-soft mt-1">
-                    No problem — cards sometimes decline or the payment window times out. Pay with <strong>{altPayLabel}</strong> below and <strong>save 10%</strong>. Same order, and it clears faster.
+                    Usually that&apos;s a momentary timeout, not your card — <strong>just hit the payment button again</strong>. Or pay with <strong>{altPayLabel}</strong> below and <strong>save 10%</strong>.
                   </div>
                 </div>
               )}
