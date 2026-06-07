@@ -969,11 +969,11 @@ function AltRailPanel({ method, previewAmount, recipient, qrSrc, disabled, onCre
         <div className="flex flex-col items-center mb-4">
           <img
             src={qrSrc}
-            alt="Scan to pay by Zelle"
+            alt="Scan with your bank app to pay Optimized Performance Inc by Zelle"
             onError={() => setQrOk(false)}
-            className="w-40 h-40 rounded-opp border border-line bg-white p-2 object-contain"
+            className="w-full max-w-[260px] h-auto rounded-opp border border-line bg-white p-2"
           />
-          <span className="opp-meta-mono text-ink-mute mt-2">Scan with your bank app to pay</span>
+          <span className="opp-meta-mono text-ink-mute mt-2">Scan with your bank app, or use the details below</span>
         </div>
       )}
 
