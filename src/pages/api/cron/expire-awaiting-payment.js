@@ -1,4 +1,5 @@
 import { supabaseAdmin } from '../../../lib/supabase'
+import { PAYMENT_STATUS } from '../../../lib/order-status'
 
 // Expire stale awaiting_payment orders.
 //
@@ -34,8 +35,8 @@ export default async function handler(req, res) {
   try {
     const { data, error } = await supabaseAdmin
       .from('orders')
-      .update({ payment_status: 'abandoned', updated_at: new Date().toISOString() })
-      .eq('payment_status', 'awaiting_payment')
+      .update({ payment_status: PAYMENT_STATUS.ABANDONED, updated_at: new Date().toISOString() })
+      .eq('payment_status', PAYMENT_STATUS.AWAITING_PAYMENT)
       .lt('created_at', cutoff)
       .select('order_number, payment_method, created_at')
 

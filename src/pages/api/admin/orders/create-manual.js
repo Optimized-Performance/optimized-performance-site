@@ -17,6 +17,7 @@ import { validateSessionToken } from '../../../../lib/session'
 import { validateOrigin, rateLimit, validateEmail, validateString, validateZip } from '../../../../lib/security'
 import { calcShipping } from '../../../../lib/shipping'
 import { finalizePaidOrder } from '../../../../lib/payments/finalizeOrder'
+import { PAYMENT_STATUS } from '../../../../lib/order-status'
 
 const VALID_METHODS = new Set(['zelle', 'venmo', 'crypto', 'card', 'paypal', 'cash', 'other'])
 
@@ -156,7 +157,7 @@ export default async function handler(req, res) {
       subtotal: finalSubtotal,
       shipping,
       total,
-      payment_status: 'pending',
+      payment_status: PAYMENT_STATUS.PENDING,
       payment_method: paymentMethod,
       fraud_status: 'unreviewed',
       notes: 'Manual order entered by admin',

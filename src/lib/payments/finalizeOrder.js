@@ -1,6 +1,7 @@
 import { supabaseAdmin } from '../supabase'
 import { sendEmailAlert, sendSmsAlert, sendOrderConfirmation } from '../alerts'
 import { calcCommission } from '../commission'
+import { OPEN_PAYMENT_STATES, PAYMENT_STATUS, assertPaymentTransition } from '../order-status'
 
 // Shared post-payment finalization for any processor webhook. Looks up the
 // pending order, marks it completed, decrements inventory (kit-aware), updates
@@ -19,16 +20,20 @@ export async function finalizePaidOrder({ orderNumber, sendConfirmation = true }
     .from('orders')
     .select('*')
     .eq('order_number', orderNumber)
-    .in('payment_status', ['pending', 'awaiting_payment'])
+    .in('payment_status', OPEN_PAYMENT_STATES)
     .single()
 
   if (fetchError || !order) {
     return { ok: false, reason: 'order_not_found' }
   }
 
+  // Order is in an OPEN state (per the filter above) → completed is always legal
+  // here; the assert catches future filter/logic drift loudly rather than
+  // silently writing an illegal transition.
+  assertPaymentTransition(order.payment_status, PAYMENT_STATUS.COMPLETED)
   const { error: updateError } = await supabaseAdmin
     .from('orders')
-    .update({ payment_status: 'completed', updated_at: new Date().toISOString() })
+    .update({ payment_status: PAYMENT_STATUS.COMPLETED, updated_at: new Date().toISOString() })
     .eq('id', order.id)
 
   if (updateError) {

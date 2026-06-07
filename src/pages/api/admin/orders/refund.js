@@ -18,6 +18,7 @@ import { supabaseAdmin } from '../../../../lib/supabase'
 import { validateSessionToken } from '../../../../lib/session'
 import { validateOrigin, rateLimit } from '../../../../lib/security'
 import { sendRefundNotification } from '../../../../lib/alerts'
+import { PAYMENT_STATUS, canTransitionPayment } from '../../../../lib/order-status'
 
 function requireAuth(req) {
   const token = req.headers['x-admin-token']
@@ -44,7 +45,7 @@ export default async function handler(req, res) {
       .single()
     if (fetchErr || !order) return res.status(404).json({ error: 'Order not found' })
 
-    if (order.payment_status === 'refunded') {
+    if (order.payment_status === PAYMENT_STATUS.REFUNDED) {
       return res.status(409).json({ error: 'Order is already marked refunded' })
     }
 
@@ -77,7 +78,14 @@ export default async function handler(req, res) {
       updated_at: nowIso,
     }
     if (isFullRefund) {
-      update.payment_status = 'refunded'
+      // Guard the transition — refunding from a non-open/non-completed state
+      // (e.g. already abandoned) is illegal; return a clean 409 rather than
+      // writing an illegal transition. (fulfillment_status is a separate column
+      // not modeled by the payment state machine.)
+      if (!canTransitionPayment(order.payment_status, PAYMENT_STATUS.REFUNDED)) {
+        return res.status(409).json({ error: `Cannot refund an order in "${order.payment_status}" state.` })
+      }
+      update.payment_status = PAYMENT_STATUS.REFUNDED
       update.fulfillment_status = 'cancelled'
     }
     // For partial refunds, payment_status stays at its current value (likely

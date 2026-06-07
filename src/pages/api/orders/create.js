@@ -6,6 +6,7 @@ import { createPaypalCheckoutSession } from '../../../lib/payments/paypalProcess
 import { runVelocityChecks, extractClientIP } from '../../../lib/fraud-checks'
 import { getCustomerIdFromReq } from '../../../lib/customer-session'
 import { computeOrderTotals } from '../../../lib/pricing'
+import { PAYMENT_STATUS } from '../../../lib/order-status'
 import { sendZelleInstructions, sendVenmoInstructions } from '../../../lib/alerts'
 import { isRailAvailable } from '../../../lib/rail-utilization'
 import { verifyRecoveryToken } from '../../../lib/recovery'
@@ -223,7 +224,7 @@ export default async function handler(req, res) {
     //                        deposit confirmation, OR fraud-blocked at any
     //                        rail. This IS the admin Pending view.
     const isInstantRail = paymentMethod === 'paypal' || paymentMethod === 'card' || paymentMethod === 'crypto'
-    const initialPaymentStatus = (velocity.status === 'block' || !isInstantRail) ? 'pending' : 'awaiting_payment'
+    const initialPaymentStatus = (velocity.status === 'block' || !isInstantRail) ? PAYMENT_STATUS.PENDING : PAYMENT_STATUS.AWAITING_PAYMENT
 
     // Duplicate-order guard. Prevents the double-charge seen 2026-06-06 (Chance
     // Kaiser, two PayPal captures a minute apart): the first payment captured on
