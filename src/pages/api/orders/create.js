@@ -39,6 +39,16 @@ function orderSignature(items, total) {
 const DUPLICATE_GUARD_MINUTES = 30
 
 export default async function handler(req, res) {
+  // Keep-warm ping (hit by /api/cron/keep-warm). Loading this module already
+  // constructs the Supabase client + primes the bundle, so returning here keeps
+  // THIS function's instance warm — the point being that at low volume the
+  // instance goes idle and the next real checkout eats a 1-3s cold start, which
+  // blows PayPal's createOrder window ("pay screen timed out") and spawns retry
+  // duplicates. No-op: no DB write, no order created. STOPGAP — the durable fix
+  // is the createOrder slim-down (makes this path ~1 PayPal call, cold-immune).
+  if (req.method === 'GET' && req.query.warm) {
+    return res.status(200).json({ warm: true, ready: !!supabaseAdmin })
+  }
   if (req.method !== 'POST') return res.status(405).end()
   if (!validateOrigin(req)) return res.status(403).json({ error: 'Forbidden' })
   if (!rateLimit(req, { maxRequests: 10, windowMs: 60000 })) return res.status(429).json({ error: 'Too many requests' })
