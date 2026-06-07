@@ -1,27 +1,61 @@
-// Funnel analytics — aggregates first-party events + orders into the visitor
-// funnel, conversion-by-source, top products, daily traffic, and rail mix.
-// v1 aggregates in JS over a capped fetch (fine at current/early-July volume);
-// the scale-up path is a SQL rollup / daily aggregate table.
+// Operator analytics — aggregates first-party events + orders into an ecom
+// dashboard: money KPIs (revenue/AOV/conversion/repeat) with prior-period
+// deltas, revenue & funnel, acquisition-by-source (with revenue), product
+// performance (by name + revenue), customers (new vs returning), refunds, and
+// rail mix. v1 aggregates in JS over a capped fetch (fine to ~100k events);
+// the scale-up path is a SQL rollup / daily aggregate table — the response
+// contract stays identical, so that swap is internal-only.
 
 import { supabaseAdmin } from '../../../lib/supabase'
 import { validateSessionToken } from '../../../lib/session'
 import { validateOrigin, rateLimit } from '../../../lib/security'
+import productsData from '../../../data/products'
 
 export const config = { maxDuration: 30 }
 
 const EVENT_CAP = 100000
 const ORDER_CAP = 50000
 
+// product id OR sku -> display label ("MOTS-C 10mg")
+const PRODUCT_LABEL = (() => {
+  const m = new Map()
+  for (const p of productsData) {
+    const label = p.dosage ? `${p.name} ${p.dosage}` : p.name
+    if (p.id) m.set(p.id, label)
+    if (p.sku) m.set(p.sku, label)
+  }
+  return m
+})()
+const labelFor = (pid) => PRODUCT_LABEL.get(pid) || pid
+
 function requireAuth(req) {
   return validateSessionToken(req.headers['x-admin-token'])
 }
-
-function addTo(map, key, n = 1) {
-  map.set(key, (map.get(key) || 0) + n)
-}
+function addTo(map, key, n = 1) { map.set(key, (map.get(key) || 0) + n) }
 function addSession(map, key, sid) {
   if (!map.has(key)) map.set(key, new Set())
   map.get(key).add(sid)
+}
+const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100
+const isPaid = (o) => o.payment_status === 'completed'
+
+// Scalar KPIs for one window (current or prior) — used for the headline cards
+// + their period-over-period deltas.
+function windowKpis(evs, ords) {
+  const visitSessions = new Set()
+  for (const e of evs) if (e.event_type === 'page_view' && e.session_id) visitSessions.add(e.session_id)
+  const paid = ords.filter(isPaid)
+  const revenue = round2(paid.reduce((s, o) => s + Number(o.total || 0), 0))
+  const visits = visitSessions.size
+  const customers = new Set(paid.map((o) => (o.customer_email || '').toLowerCase()).filter(Boolean))
+  return {
+    revenue,
+    orders: paid.length,
+    aov: paid.length ? round2(revenue / paid.length) : 0,
+    visits,
+    conversion: visits ? round2((paid.length / visits) * 100) : 0,
+    customers: customers.size,
+  }
 }
 
 export default async function handler(req, res) {
@@ -32,122 +66,208 @@ export default async function handler(req, res) {
 
   try {
     const days = Math.min(Math.max(Number(req.query.days) || 14, 1), 90)
-    const startIso = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString()
+    const now = Date.now()
+    const curStart = new Date(now - days * 24 * 60 * 60 * 1000)
+    const priorStart = new Date(now - 2 * days * 24 * 60 * 60 * 1000)
+    const curStartIso = curStart.toISOString()
+    const priorStartIso = priorStart.toISOString()
 
+    // Fetch 2× the range so we can compute the prior-period deltas + detect
+    // returning customers, then split locally at curStart.
     const [{ data: events }, { data: orders }] = await Promise.all([
       supabaseAdmin
         .from('events')
         .select('session_id, event_type, product_id, ref, created_at')
-        .gte('created_at', startIso)
+        .gte('created_at', priorStartIso)
         .limit(EVENT_CAP),
       supabaseAdmin
         .from('orders')
-        .select('session_id, affiliate_code, payment_status, payment_method, total, items, created_at')
-        .gte('created_at', startIso)
+        .select('session_id, customer_email, affiliate_code, payment_status, payment_method, total, items, created_at')
+        .gte('created_at', priorStartIso)
         .limit(ORDER_CAP),
     ])
 
-    const ev = events || []
-    const ord = orders || []
-    const truncated = ev.length >= EVENT_CAP || ord.length >= ORDER_CAP
+    const allEv = events || []
+    const allOrd = orders || []
+    const truncated = allEv.length >= EVENT_CAP || allOrd.length >= ORDER_CAP
 
-    // --- sessions per funnel stage ---
-    const stageSessions = new Map() // event_type -> Set(session)
-    const refOfSession = new Map() // session -> ref (first non-null seen)
+    const curEv = allEv.filter((e) => e.created_at >= curStartIso)
+    const priorEv = allEv.filter((e) => e.created_at < curStartIso)
+    const curOrd = allOrd.filter((o) => o.created_at >= curStartIso)
+    const priorOrd = allOrd.filter((o) => o.created_at < curStartIso)
+
+    // ---- headline KPIs + prior-period deltas ----
+    const cur = windowKpis(curEv, curOrd)
+    const prev = windowKpis(priorEv, priorOrd)
+
+    // repeat-purchase rate (within fetched data): of customers who bought in the
+    // current window, how many have >=2 completed orders across the fetched span.
+    const paidByEmail = new Map()
+    for (const o of allOrd.filter(isPaid)) {
+      const em = (o.customer_email || '').toLowerCase()
+      if (!em) continue
+      if (!paidByEmail.has(em)) paidByEmail.set(em, [])
+      paidByEmail.get(em).push(o)
+    }
+    const curEmails = new Set(curOrd.filter(isPaid).map((o) => (o.customer_email || '').toLowerCase()).filter(Boolean))
+    let repeatCustomers = 0
+    for (const em of curEmails) if ((paidByEmail.get(em)?.length || 0) >= 2) repeatCustomers += 1
+    const repeat_rate = curEmails.size ? round2((repeatCustomers / curEmails.size) * 100) : 0
+
+    // new vs returning ORDERS in the current window (returning = email had an
+    // earlier completed order anywhere in the fetched span).
+    let newOrders = 0
+    let returningOrders = 0
+    for (const o of curOrd.filter(isPaid)) {
+      const em = (o.customer_email || '').toLowerCase()
+      const earlier = em && (paidByEmail.get(em) || []).some((x) => x.created_at < o.created_at)
+      if (earlier) returningOrders += 1
+      else newOrders += 1
+    }
+
+    // refunds (current window)
+    const refundedCount = curOrd.filter((o) => o.payment_status === 'refunded').length
+    const refund_rate = cur.orders ? round2((refundedCount / (cur.orders + refundedCount)) * 100) : 0
+
+    const kpis = {
+      revenue: { value: cur.revenue, prev: prev.revenue },
+      orders: { value: cur.orders, prev: prev.orders },
+      aov: { value: cur.aov, prev: prev.aov },
+      conversion: { value: cur.conversion, prev: prev.conversion },
+      repeat_rate: { value: repeat_rate, prev: null },
+      visits: { value: cur.visits, prev: prev.visits },
+    }
+
+    // ---- current-window detail aggregations ----
+    const stageSessions = new Map()
+    const refOfSession = new Map()
     const productViews = new Map()
     const productCarts = new Map()
-    const dailyVisitSessions = new Map() // date -> Set(session)
-
-    for (const e of ev) {
+    const dailyVisitSessions = new Map()
+    for (const e of curEv) {
       const sid = e.session_id
       if (!sid) continue
       addSession(stageSessions, e.event_type, sid)
       if (e.ref && !refOfSession.has(sid)) refOfSession.set(sid, String(e.ref).toUpperCase())
       if (e.event_type === 'product_view' && e.product_id) addTo(productViews, e.product_id)
       if (e.event_type === 'add_to_cart' && e.product_id) addTo(productCarts, e.product_id)
-      if (e.event_type === 'page_view') {
-        const d = String(e.created_at).slice(0, 10)
-        addSession(dailyVisitSessions, d, sid)
-      }
+      if (e.event_type === 'page_view') addSession(dailyVisitSessions, String(e.created_at).slice(0, 10), sid)
     }
-    const sizeOf = (t) => (stageSessions.get(t)?.size || 0)
+    const sizeOf = (t) => stageSessions.get(t)?.size || 0
+    const paidOrders = curOrd.filter(isPaid)
 
-    const paidOrders = ord.filter((o) => o.payment_status === 'completed')
-
-    // --- funnel ---
     const funnel = {
       visits: sizeOf('page_view'),
       product_viewers: sizeOf('product_view'),
       carts: sizeOf('add_to_cart'),
       checkouts: sizeOf('checkout_start'),
-      orders: ord.length,
+      orders: curOrd.length,
       paid: paidOrders.length,
     }
 
-    // --- conversion by source (ref) ---
+    // by source — now with revenue + AOV
     const visitsByRef = new Map()
     for (const [sid, ref] of refOfSession.entries()) {
-      // only count sessions that actually had a page_view (a real visit)
       if (stageSessions.get('page_view')?.has(sid)) addTo(visitsByRef, ref || 'DIRECT')
     }
-    // sessions with NO ref attributed but that visited -> DIRECT
     const pvSessions = stageSessions.get('page_view') || new Set()
     let directVisits = 0
     for (const sid of pvSessions) if (!refOfSession.has(sid)) directVisits += 1
     if (directVisits) addTo(visitsByRef, 'DIRECT', directVisits)
-
     const paidByRef = new Map()
-    for (const o of paidOrders) addTo(paidByRef, (o.affiliate_code || 'DIRECT').toUpperCase())
-
+    const revByRef = new Map()
+    for (const o of paidOrders) {
+      const k = (o.affiliate_code || 'DIRECT').toUpperCase()
+      addTo(paidByRef, k)
+      addTo(revByRef, k, Number(o.total || 0))
+    }
     const refKeys = new Set([...visitsByRef.keys(), ...paidByRef.keys()])
     const by_ref = [...refKeys]
       .map((ref) => {
         const visits = visitsByRef.get(ref) || 0
         const paid = paidByRef.get(ref) || 0
-        return { ref, visits, paid, conv: visits ? Math.round((paid / visits) * 1000) / 10 : null }
+        const revenue = round2(revByRef.get(ref) || 0)
+        return { ref, visits, paid, revenue, aov: paid ? round2(revenue / paid) : 0, conv: visits ? round2((paid / visits) * 100) : null }
       })
-      .sort((a, b) => b.visits - a.visits || b.paid - a.paid)
+      .sort((a, b) => b.revenue - a.revenue || b.visits - a.visits)
       .slice(0, 20)
 
-    // --- top products ---
+    // products — by name + revenue
     const purchasedUnits = new Map()
+    const purchasedRev = new Map()
     for (const o of paidOrders) {
       for (const it of Array.isArray(o.items) ? o.items : []) {
         const pid = it.id || it.sku
-        if (pid) addTo(purchasedUnits, pid, Number(it.quantity) || 1)
+        if (!pid) continue
+        addTo(purchasedUnits, pid, Number(it.quantity) || 1)
+        addTo(purchasedRev, pid, (Number(it.price) || 0) * (Number(it.quantity) || 1))
       }
     }
     const productKeys = new Set([...productViews.keys(), ...productCarts.keys(), ...purchasedUnits.keys()])
     const top_products = [...productKeys]
       .map((pid) => ({
         product_id: pid,
+        name: labelFor(pid),
         views: productViews.get(pid) || 0,
         carts: productCarts.get(pid) || 0,
         purchases: purchasedUnits.get(pid) || 0,
+        revenue: round2(purchasedRev.get(pid) || 0),
       }))
-      .sort((a, b) => b.views - a.views || b.purchases - a.purchases)
+      .sort((a, b) => b.revenue - a.revenue || b.views - a.views)
       .slice(0, 20)
 
-    // --- daily ---
+    // daily — visits, orders, revenue
     const ordersByDay = new Map()
-    for (const o of ord) addTo(ordersByDay, String(o.created_at).slice(0, 10))
+    const revByDay = new Map()
+    for (const o of curOrd) addTo(ordersByDay, String(o.created_at).slice(0, 10))
+    for (const o of paidOrders) addTo(revByDay, String(o.created_at).slice(0, 10), Number(o.total || 0))
     const dayKeys = new Set([...dailyVisitSessions.keys(), ...ordersByDay.keys()])
-    const daily = [...dayKeys]
-      .sort()
-      .map((d) => ({ date: d, visits: dailyVisitSessions.get(d)?.size || 0, orders: ordersByDay.get(d) || 0 }))
+    const daily = [...dayKeys].sort().map((d) => ({
+      date: d,
+      visits: dailyVisitSessions.get(d)?.size || 0,
+      orders: ordersByDay.get(d) || 0,
+      revenue: round2(revByDay.get(d) || 0),
+    }))
 
-    // --- rail mix (paid) ---
-    const railMap = new Map()
-    for (const o of paidOrders) addTo(railMap, o.payment_method || 'unknown')
-    const rail_mix = [...railMap.entries()].map(([method, count]) => ({ method, count })).sort((a, b) => b.count - a.count)
+    // rail mix — count + revenue
+    const railCount = new Map()
+    const railRev = new Map()
+    for (const o of paidOrders) {
+      addTo(railCount, o.payment_method || 'unknown')
+      addTo(railRev, o.payment_method || 'unknown', Number(o.total || 0))
+    }
+    const rail_mix = [...railCount.keys()]
+      .map((method) => ({ method, count: railCount.get(method) || 0, revenue: round2(railRev.get(method) || 0) }))
+      .sort((a, b) => b.revenue - a.revenue)
+
+    // top customers by spend (current window) — admin-only tool, email is fine
+    const spendByEmail = new Map()
+    for (const o of paidOrders) {
+      const em = (o.customer_email || '').toLowerCase()
+      if (em) addTo(spendByEmail, em, Number(o.total || 0))
+    }
+    const top_customers = [...spendByEmail.entries()]
+      .map(([email, spend]) => ({ email, spend: round2(spend), orders: paidByEmail.get(email)?.length || 0 }))
+      .sort((a, b) => b.spend - a.spend)
+      .slice(0, 10)
+
+    const customers = {
+      new_orders: newOrders,
+      returning_orders: returningOrders,
+      repeat_rate,
+      top: top_customers,
+    }
 
     return res.status(200).json({
-      range: { days, start: startIso },
+      range: { days, start: curStartIso },
+      kpis,
       funnel,
       by_ref,
       top_products,
       daily,
       rail_mix,
+      customers,
+      refunds: { count: refundedCount, rate: refund_rate },
       truncated,
     })
   } catch (err) {
