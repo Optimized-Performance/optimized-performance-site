@@ -94,7 +94,11 @@ export default function Home({ visibleProducts }) {
 
           {heroShowcase && (
             <div className="flex flex-col items-center gap-8">
-              <div className="p-8 bg-surface border border-line rounded-opp-lg opp-grid-bg-lg">
+              <Link
+                href={`/products/${heroShowcase.id}`}
+                className="p-8 bg-surface border border-line rounded-opp-lg opp-grid-bg-lg block hover:border-ink transition-colors"
+                aria-label={`View ${heroShowcase.name} ${heroShowcase.dosage}`}
+              >
                 <Vial
                   label={heroShowcase.name}
                   dosage={heroShowcase.dosage}
@@ -104,7 +108,7 @@ export default function Home({ visibleProducts }) {
                   kit={heroShowcase.isKit}
                   subtitle={heroSubtitle}
                 />
-              </div>
+              </Link>
               <div className="w-full max-w-[320px] px-5 py-4 bg-surface border border-line rounded-opp flex flex-col gap-2 opp-meta-mono">
                 <SpecLine k="SKU" v={heroShowcase.sku} />
                 <SpecLine k="CLASS" v={heroClass} />
@@ -112,6 +116,12 @@ export default function Home({ visibleProducts }) {
                 <SpecLine k="FORMAT" v={`${heroShowcase.format || 'Lyophilized'} / ${heroShowcase.vialSize || '2mL Vial'}`} />
                 <SpecLine k="STORAGE" v="-20°C" />
               </div>
+              <Link
+                href={`/products/${heroShowcase.id}`}
+                className="btn-primary w-full max-w-[320px] py-3.5 text-sm flex items-center justify-center gap-2"
+              >
+                Shop {heroShowcase.name}{heroShowcase.price ? ` — $${heroShowcase.price.toFixed(2)}` : ''} <Icon name="arrow" size={14} />
+              </Link>
             </div>
           )}
         </div>
