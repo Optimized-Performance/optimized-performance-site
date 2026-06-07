@@ -101,20 +101,9 @@ export async function isSuppressed(email) {
   return !!ci
 }
 
-// Send one marketing email. `bodyLines` is an array of plain-text lines (the
-// campaign body); this appends the compliance footer. Returns a result object;
-// never throws on a per-recipient problem (so batch sends keep going).
-export async function sendMarketingEmail({ toEmail, subject, bodyLines }) {
-  const apiKey = process.env.SENDGRID_API_KEY
-  if (!apiKey) return { ok: false, reason: 'sendgrid_not_configured' }
-  if (!toEmail) return { ok: false, reason: 'no_recipient' }
-  // CAN-SPAM compliance gate: never send marketing mail without a physical
-  // postal address in the footer. Refuse rather than send a non-compliant email.
-  if (!POSTAL_ADDRESS) return { ok: false, reason: 'no_postal_address' }
-
-  if (await isSuppressed(toEmail)) return { ok: false, reason: 'suppressed' }
-
-  const footer = [
+// Per-recipient compliance footer (one-click unsubscribe + postal address).
+function footerLines(toEmail) {
+  return [
     ``,
     `—`,
     `You're receiving this because you're an Optimized Performance customer.`,
@@ -122,9 +111,17 @@ export async function sendMarketingEmail({ toEmail, subject, bodyLines }) {
     POSTAL_ADDRESS ? POSTAL_ADDRESS : '',
     `For research use only.`,
   ].filter(Boolean)
+}
 
-  const value = [...bodyLines, ...footer].join('\n')
+// Raw send — footer + SendGrid, NO suppression check (callers gate that). Never
+// throws; returns a result so batch sends keep going.
+async function sendOneMarketing({ toEmail, subject, bodyLines }) {
+  const apiKey = process.env.SENDGRID_API_KEY
+  if (!apiKey) return { ok: false, reason: 'sendgrid_not_configured' }
+  if (!toEmail) return { ok: false, reason: 'no_recipient' }
+  if (!POSTAL_ADDRESS) return { ok: false, reason: 'no_postal_address' }
 
+  const value = [...bodyLines, ...footerLines(toEmail)].join('\n')
   try {
     const res = await fetch('https://api.sendgrid.com/v3/mail/send', {
       method: 'POST',
@@ -145,4 +142,59 @@ export async function sendMarketingEmail({ toEmail, subject, bodyLines }) {
   } catch (err) {
     return { ok: false, reason: 'send_error', detail: err.message }
   }
+}
+
+// Send one marketing email (single recipient) — checks suppression first. Used
+// by triggered sends (replenishment, back-in-stock).
+export async function sendMarketingEmail({ toEmail, subject, bodyLines }) {
+  if (!toEmail) return { ok: false, reason: 'no_recipient' }
+  if (await isSuppressed(toEmail)) return { ok: false, reason: 'suppressed' }
+  return sendOneMarketing({ toEmail, subject, bodyLines })
+}
+
+// Load the whole suppression list as a lowercased Set — one query for a batch
+// instead of two per recipient.
+async function getSuppressedSet() {
+  const set = new Set()
+  if (!supabaseAdmin) return set
+  const { data } = await supabaseAdmin.from('email_suppressions').select('email').limit(100000)
+  for (const r of data || []) set.add(String(r.email).trim().toLowerCase())
+  return set
+}
+
+// Send a broadcast to many recipients. `recipients` = [{ email }]. Bulk-filters
+// suppressions once, dedupes, then sends with bounded concurrency so a few
+// hundred recipients finish well inside the function timeout. Each recipient
+// still gets their own unsubscribe footer. Returns counts.
+export async function sendMarketingBatch({ recipients, subject, bodyLines, concurrency = 12 }) {
+  if (!POSTAL_ADDRESS) return { ok: false, reason: 'no_postal_address' }
+  const suppressed = await getSuppressedSet()
+
+  // Dedupe + drop suppressed/invalid.
+  const seen = new Set()
+  const queue = []
+  let suppressedCount = 0
+  for (const r of recipients || []) {
+    const email = String(r?.email || '').trim()
+    const lower = email.toLowerCase()
+    if (!email || !email.includes('@') || seen.has(lower)) continue
+    seen.add(lower)
+    if (suppressed.has(lower)) { suppressedCount += 1; continue }
+    queue.push(email)
+  }
+
+  let sent = 0
+  let failed = 0
+  let idx = 0
+  async function worker() {
+    while (idx < queue.length) {
+      const email = queue[idx++]
+      const r = await sendOneMarketing({ toEmail: email, subject, bodyLines })
+      if (r.ok) sent += 1
+      else failed += 1
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(concurrency, queue.length) }, worker))
+
+  return { ok: true, recipients: seen.size, eligible: queue.length, sent, failed, suppressed: suppressedCount }
 }

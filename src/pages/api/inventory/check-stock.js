@@ -1,6 +1,7 @@
 import { supabaseAdmin } from '../../../lib/supabase'
 import { sendEmailAlert, sendSmsAlert } from '../../../lib/alerts'
 import { runDeliveryFollowups } from '../../../lib/delivery-followup'
+import { runBackInStockNotifications } from '../../../lib/back-in-stock'
 
 // Daily Vercel cron — runs two pipelines:
 //   1. Inventory check (original purpose) — alert on low stock
@@ -53,6 +54,15 @@ export default async function handler(req, res) {
   // both run daily and a stock-check failure shouldn't block customer follow-ups.
   const followupLog = await runDeliveryFollowups()
 
+  // Back-in-stock notifications: email anyone waiting on a SKU that now has
+  // stock. Non-fatal — a failure here shouldn't block the rest of the cron.
+  let backInStockLog = null
+  try {
+    backInStockLog = await runBackInStockNotifications()
+  } catch (err) {
+    backInStockLog = { errors: [{ fatal: err.message }] }
+  }
+
   return res.status(inventoryError ? 500 : 200).json({
     inventory: {
       message: inventoryError
@@ -63,6 +73,7 @@ export default async function handler(req, res) {
       error: inventoryError,
     },
     delivery_followups: followupLog,
+    back_in_stock: backInStockLog,
     checked: new Date(),
   })
 }

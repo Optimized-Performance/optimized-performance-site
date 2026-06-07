@@ -10,6 +10,7 @@ import ChargebacksTab from './ChargebacksTab';
 import InboxTab from './InboxTab';
 import RailsTab from './RailsTab';
 import FunnelTab from './FunnelTab';
+import BroadcastTab from './BroadcastTab';
 import { Logo } from '../../components/Primitives';
 
 // Admin session token is kept in React state only — never in sessionStorage or
@@ -89,6 +90,7 @@ export default function AdminPage() {
     { id: 'chargebacks', label: 'Chargebacks' },
     { id: 'rails', label: 'Rails' },
     { id: 'funnel', label: 'Funnel' },
+    { id: 'broadcast', label: 'Broadcast' },
     { id: 'inbox', label: 'Inbox' },
   ];
 
@@ -149,6 +151,7 @@ export default function AdminPage() {
         {activeTab === 'chargebacks' && <ChargebacksTab showSaveMsg={showSaveMsg} token={token} />}
         {activeTab === 'rails' && <RailsTab showSaveMsg={showSaveMsg} token={token} />}
         {activeTab === 'funnel' && <FunnelTab token={token} />}
+        {activeTab === 'broadcast' && <BroadcastTab showSaveMsg={showSaveMsg} token={token} />}
         {activeTab === 'inbox' && <InboxTab showSaveMsg={showSaveMsg} token={token} />}
       </div>
     </div>
