@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import QRCode from 'qrcode';
@@ -33,6 +33,19 @@ export default function ProductDetail({
   const router = useRouter();
   const { addToCart } = useCart();
   const [qty, setQty] = useState(1);
+  // Track whether the main add-to-cart CTA is on-screen; when it scrolls out of
+  // view, reveal a sticky bottom buy-bar so the action is always one tap away
+  // (esp. mobile / long pages). IntersectionObserver — no scroll-handler jank.
+  // Declared before the early returns so hook order stays stable.
+  const ctaRef = useRef(null);
+  const [ctaVisible, setCtaVisible] = useState(true);
+  useEffect(() => {
+    const el = ctaRef.current;
+    if (!el || typeof IntersectionObserver === 'undefined') return;
+    const io = new IntersectionObserver(([e]) => setCtaVisible(e.isIntersecting), { threshold: 0 });
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
 
   if (router.isFallback || !product) {
     return (
@@ -158,6 +171,26 @@ export default function ProductDetail({
         description={product.description}
         path={`/products/${product.id}`}
       />
+
+      {/* Sticky buy bar — slides up once the main CTA scrolls out of view */}
+      {status !== 'out' && (
+        <div className={`fixed left-0 right-0 bottom-0 z-40 border-t border-line bg-paper/95 backdrop-blur-md transition-transform duration-300 ${ctaVisible ? 'translate-y-full' : 'translate-y-0'}`}>
+          <div className="max-w-container mx-auto px-6 py-3 flex items-center gap-3">
+            <div className="min-w-0 flex-1 hidden sm:block">
+              <div className="text-[13px] font-semibold text-ink truncate">{product.name} <span className="text-ink-mute font-mono text-[11px]">{product.dosage}</span></div>
+              <div className="opp-meta-mono text-ink-mute">{statusText}</div>
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <button type="button" onClick={() => setQty(Math.max(1, qty - 1))} className="w-8 h-8 rounded-full border border-line text-ink-soft hover:text-ink hover:border-ink transition-colors" aria-label="Decrease quantity">−</button>
+              <span className="w-8 text-center font-mono font-semibold text-ink text-sm">{qty}</span>
+              <button type="button" onClick={() => setQty(Math.min(stock || 99, qty + 1))} className="w-8 h-8 rounded-full border border-line text-ink-soft hover:text-ink hover:border-ink transition-colors" aria-label="Increase quantity">+</button>
+            </div>
+            <button type="button" onClick={handleAdd} className="btn-primary px-5 py-2.5 text-sm whitespace-nowrap shrink-0">
+              <Icon name="plus" size={14} /> {status === 'preorder' ? `Preorder · $${(product.price * qty).toFixed(2)}` : `Add · $${(product.price * qty).toFixed(2)}`}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Breadcrumb */}
       <nav className="flex items-center gap-2 text-[12px] opp-meta-mono mb-6">
@@ -290,6 +323,7 @@ export default function ProductDetail({
           )}
 
           <button
+            ref={ctaRef}
             type="button"
             onClick={handleAdd}
             className="btn-primary w-full py-4 text-base"
@@ -302,6 +336,13 @@ export default function ProductDetail({
               ? `Preorder — $${(product.price * qty).toFixed(2)}`
               : `Add to cart — $${(product.price * qty).toFixed(2)}`}
           </button>
+
+          {/* Trust reinforcement at the decision point */}
+          <div className="flex flex-wrap gap-x-4 gap-y-1.5 mt-3 opp-meta-mono text-ink-mute">
+            <span className="inline-flex items-center gap-1"><Icon name="check" size={12} className="text-success" /> Third-party HPLC tested</span>
+            <span className="inline-flex items-center gap-1"><Icon name="truck" size={12} className="text-success" /> Ships within 24h</span>
+            <span className="inline-flex items-center gap-1"><Icon name="lock" size={12} className="text-success" /> Discreet packaging</span>
+          </div>
 
           {status === 'preorder' && (
             <>
