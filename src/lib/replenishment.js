@@ -22,13 +22,16 @@ const DAY_MS = 24 * 60 * 60 * 1000
 // emails. Idempotent via replenishment_nudges. Returns a structured run log.
 //
 // Used by: /api/cron/replenishment (daily Vercel cron + manual CRON_SECRET).
-export async function runReplenishmentNudges() {
+export async function runReplenishmentNudges({ preview = false } = {}) {
   const log = { started_at: new Date().toISOString(), candidates: 0, nudges_sent: 0, skipped_suppressed: 0, errors: [] }
+  if (preview) { log.preview = []; log.would_send = 0 }
 
   // Master enable gate — ships OFF so the cron is inert until you've stood up
   // the marketing subdomain (MARKETING_FROM_EMAIL), set the postal address, and
-  // reviewed the copy. Flip REPLENISHMENT_ENABLED=true to go live.
-  if (process.env.REPLENISHMENT_ENABLED !== 'true') {
+  // reviewed the copy. Flip REPLENISHMENT_ENABLED=true to go live. Preview mode
+  // bypasses the gate (it never sends) so you can inspect the would-send list
+  // BEFORE enabling.
+  if (!preview && process.env.REPLENISHMENT_ENABLED !== 'true') {
     log.disabled = true
     log.finished_at = new Date().toISOString()
     return log
@@ -105,6 +108,17 @@ export async function runReplenishmentNudges() {
 
         const token = signRecoveryToken({ ttlDays: OFFER_TTL_DAYS })
         const reorderUrl = `${SITE_URL}/products/${encodeURIComponent(c.productId)}?recover=${encodeURIComponent(token)}`
+
+        // Preview: record who WOULD be emailed (and the real URL) without
+        // sending or stamping, so the list can be reviewed before going live.
+        if (preview) {
+          log.would_send += 1
+          if (log.preview.length < 200) {
+            log.preview.push({ email: c.email, product: c.productName, age_days: Math.round((now - c.date) / DAY_MS), url: reorderUrl })
+          }
+          continue
+        }
+
         const first = (c.name || '').trim().split(/\s+/)[0]
 
         const bodyLines = [
