@@ -3,8 +3,9 @@ import { useRouter } from 'next/router';
 import { useCart } from '../context/CartContext';
 import SEO from '../components/SEO';
 import { Vial, Icon } from '../components/Primitives';
-import { calcShipping, FREE_SHIPPING_THRESHOLD } from '../lib/shipping';
-import { isMemorialDaySaleActive, applyMemorialDiscount, MEMORIAL_DAY_DISCOUNT_PCT, calcGlp3Bogo, ALT_PAY_DISCOUNT_PCT } from '../lib/sale';
+import { FREE_SHIPPING_THRESHOLD } from '../lib/shipping';
+import { MEMORIAL_DAY_DISCOUNT_PCT, ALT_PAY_DISCOUNT_PCT } from '../lib/sale';
+import { computeOrderTotals } from '../lib/pricing';
 import { RECOVERY_COOKIE, RECOVERY_QUERY_PARAM } from '../lib/recovery-config';
 import { track, getSessionId } from '../lib/track';
 import PaypalCheckoutButtons from '../components/PaypalCheckoutButtons';
@@ -222,36 +223,28 @@ export default function Checkout() {
     return () => { cancelled = true; };
   }, []);
 
-  // Memorial Day sale: applied BEFORE the affiliate discount so the affiliate
-  // % stacks multiplicatively (their discount comes off the sale-discounted
-  // price). Mirrors the server-side calc in /api/orders/create.js exactly so
-  // the customer-visible total matches what gets charged.
-  const saleActive = isMemorialDaySaleActive();
-  const { discount: memorialDiscount, post: cartTotalPostMemorial } = applyMemorialDiscount(cartTotal);
-  // GLP-3 Buy 2 Get 1 Free — dollar discount off subtotal, before affiliate %.
-  const { discount: bogoDiscount, freeVials: bogoFreeVials } = calcGlp3Bogo(cartItems);
-  const cartTotalPostPromos = cartTotalPostMemorial - bogoDiscount;
-
+  // Single source of truth for the order total + discount stacking. The server
+  // (/api/orders/create) calls this SAME computeOrderTotals(), so the customer-
+  // visible total and the charged total cannot drift — the class of bug behind
+  // the May 2026 timezone sale-mispricing. The tiles render BOTH the standard
+  // and the alt-pay (crypto/Zelle 10% off) price from this one breakdown.
+  // cartItems carry isKit (spread in CartContext.addToCart) for the cold-pack
+  // shipping calc. Promo windows are pinned to UTC in lib/sale so client and
+  // server evaluate the same instant.
   const discountPct = affiliateApplied ? affiliateApplied.discountPct : 0;
-  const discountAmount = cartTotalPostPromos * (discountPct / 100);
-  const subtotalPostAffiliate = cartTotalPostPromos - discountAmount;
-  // Payment-recovery incentive — extra % off from a recovery link, stacks on
-  // top of the affiliate discount (same tier as alt-pay), applied pre-shipping.
-  // Server recomputes authoritatively in /api/orders/create.js.
-  const recoveryDiscount = subtotalPostAffiliate * (recoveryPct / 100);
-  const discountedSubtotal = subtotalPostAffiliate - recoveryDiscount;
-  // Shipping math lives in lib/shipping.js — same helper runs server-side
-  // in /api/orders/create so the totals match exactly. cartItems carry isKit
-  // via spread in CartContext.addToCart, which the helper reads to detect
-  // cold-pack carts. saleActive flag triggers the free-shipping override.
-  const shippingBreakdown = calcShipping({ items: cartItems, discountedSubtotal, saleActive });
-  const shippingCost = shippingBreakdown.total;
-  const discountedTotal = discountedSubtotal + shippingCost;
-  // 10% off for crypto/Zelle — routes volume to un-freezable rails. Applied to
-  // the post-all-discount subtotal (stacks with promos + affiliate + recovery),
-  // pre-shipping. Server recomputes authoritatively in /api/orders/create.js.
-  const altPayDiscount = discountedSubtotal * (ALT_PAY_DISCOUNT_PCT / 100);
-  const altPayTotal = discountedTotal - altPayDiscount;
+  const {
+    saleActive,
+    memorialDiscount,
+    bogoDiscount,
+    bogoFreeVials,
+    affiliateDiscount: discountAmount,
+    recoveryDiscount,
+    discountedSubtotal,
+    shipping: shippingBreakdown,
+    altPayDiscount,
+    standardTotal: discountedTotal,
+    altPayTotal,
+  } = computeOrderTotals({ lineItems: cartItems, affiliatePct: discountPct, recoveryPct });
   const altPayEnabled = cryptoEnabled || zelleEnabled;
   const altPayLabel = [cryptoEnabled && 'Crypto', zelleEnabled && 'Zelle'].filter(Boolean).join(' or ');
 

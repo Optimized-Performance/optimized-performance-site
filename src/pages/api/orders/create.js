@@ -5,10 +5,9 @@ import { createCryptoCheckoutSession } from '../../../lib/payments/cryptoProcess
 import { createPaypalCheckoutSession } from '../../../lib/payments/paypalProcessor'
 import { runVelocityChecks, extractClientIP } from '../../../lib/fraud-checks'
 import { getCustomerIdFromReq } from '../../../lib/customer-session'
-import { calcShipping } from '../../../lib/shipping'
+import { computeOrderTotals } from '../../../lib/pricing'
 import { sendZelleInstructions, sendVenmoInstructions } from '../../../lib/alerts'
 import { isRailAvailable } from '../../../lib/rail-utilization'
-import { isMemorialDaySaleActive, applyMemorialDiscount, MEMORIAL_DAY_DISCOUNT_PCT, calcGlp3Bogo, calcAltPayDiscount } from '../../../lib/sale'
 import { verifyRecoveryToken } from '../../../lib/recovery'
 
 function generateOrderNumber() {
@@ -113,18 +112,18 @@ export default async function handler(req, res) {
       return res.status(503).json({ error: 'This payment method is temporarily at capacity. Please pay with crypto or Zelle — 10% off.' })
     }
 
-    // SERVER-SIDE CALCULATION: recalculate totals from cart items to prevent tampering
+    // SERVER-SIDE CALCULATION: validate the cart against the catalog (authoritative
+    // prices + isKit, never client-supplied), then compute every total via the
+    // single-source pricing module (lib/pricing.computeOrderTotals) — the SAME
+    // function the client checkout calls, so the customer-visible total and the
+    // charged total cannot drift (the class of bug behind the May sale mispricing).
     const products = require('../../../data/products').default
-    let subtotal = 0
     // Durable-rails-only: true if any cart item is an ancillary Rx SKU restricted
     // to Zelle/crypto (keeps the most-pharma items off the card rail).
     let cartDurableOnly = false
-    // Track isKit per line so the shipping calc can detect cold-pack carts
-    // server-side without trusting the client-supplied flag.
-    const validatedItems = []
-    // Server-validated line list for the GLP-3 B2G1 calc — uses PRODUCT price
-    // (not the client-supplied price) so the promo can't be tampered with.
-    const bogoItems = []
+    // Server-validated line items (catalog price + isKit) feed both the pricing
+    // module and the order record — never the client-supplied price.
+    const lineItems = []
     for (const item of items) {
       const product = products.find(p => p.sku === item.sku || p.id === item.id)
       if (!product) {
@@ -134,9 +133,7 @@ export default async function handler(req, res) {
       if (qty < 1 || qty > 100) {
         return res.status(400).json({ error: 'Invalid item quantity' })
       }
-      subtotal += product.price * qty
-      validatedItems.push({ isKit: product.isKit === true })
-      bogoItems.push({ id: product.id, price: product.price, quantity: qty })
+      lineItems.push({ id: product.id, sku: product.sku, price: product.price, quantity: qty, isKit: product.isKit === true })
       if (product.durableRailsOnly === true) cartDurableOnly = true
     }
 
@@ -151,10 +148,12 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'One or more items in this order can only be paid via Zelle or crypto. Please choose Zelle or crypto at checkout.' })
     }
 
-    // Validate affiliate code server-side (cannot trust client-supplied discount/commission)
-    let discount = 0
+    // Validate affiliate code server-side (cannot trust a client-supplied %).
+    // Capture only the validated discount %; the pricing module applies it in
+    // the correct stacking position below.
     let validatedAffiliateCode = null
     let validatedCommissionPct = 0
+    let validatedDiscountPct = 0
     if (affiliateCode && typeof affiliateCode === 'string') {
       const { data: aff } = await supabaseAdmin
         .from('affiliates')
@@ -165,50 +164,33 @@ export default async function handler(req, res) {
       if (aff) {
         validatedAffiliateCode = aff.code
         validatedCommissionPct = Number(aff.commission_pct)
-        discount = subtotal * (Number(aff.discount_pct) / 100)
+        validatedDiscountPct = Number(aff.discount_pct)
       }
     }
 
-    // Memorial Day sale (or any future site-wide sale): apply BEFORE affiliate
-    // discount so the affiliate stacks multiplicatively (their % comes off the
-    // sale-discounted price, not original retail). Affiliate commission is
-    // calculated on amount-actually-paid downstream, which is the standard
-    // commission model and stays consistent here.
-    const saleActive = isMemorialDaySaleActive()
-    const { discount: memorialDiscount, post: subtotalPostMemorial } = applyMemorialDiscount(subtotal)
-    // GLP-3 Buy 2 Get 1 Free — dollar discount off subtotal, before affiliate %.
-    // Mirrors the client calc in checkout.js exactly (same lib/sale helper).
-    const { discount: bogoDiscount } = calcGlp3Bogo(bogoItems)
-    const subtotalPostPromos = subtotalPostMemorial - bogoDiscount
-
-    // Recompute affiliate discount against the promo-discounted subtotal (was
-    // computed earlier against raw subtotal — overwrite for correctness when a
-    // promo is active).
-    if (validatedAffiliateCode && discount > 0) {
-      const affiliateDiscountPct = (discount / subtotal) * 100
-      discount = subtotalPostPromos * (affiliateDiscountPct / 100)
-    }
-
-    const subtotalPostAffiliate = subtotalPostPromos - discount
     // Payment-recovery incentive — extra % off authorized by a signed recovery
-    // token (?recover link in the abandoned-checkout email). Re-verified here
-    // (client total is advisory); pct is server-fixed in lib/recovery so a forged
-    // token can't escalate it. Stacks on top of the affiliate discount, applied
-    // pre-shipping (same tier as alt-pay). Mirrors the client calc in checkout.js.
+    // token (?recover link in the abandoned-checkout email). Re-verified here;
+    // pct is server-fixed in lib/recovery so a forged token can't escalate it.
     const recovery = recoveryToken ? verifyRecoveryToken(recoveryToken) : { valid: false, pct: 0 }
     const recoveryPct = recovery.valid ? recovery.pct : 0
-    const recoveryDiscount = Math.round(subtotalPostAffiliate * (recoveryPct / 100) * 100) / 100
-    const discountedTotal = subtotalPostAffiliate - recoveryDiscount
-    // Shipping math lives in lib/shipping.js — same helper drives the
-    // client-side checkout summary so the totals match exactly. saleActive
-    // flag triggers the free-shipping override during the sale window.
-    const shippingCalc = calcShipping({ items: validatedItems, discountedSubtotal: discountedTotal, saleActive })
-    const shipping = shippingCalc.total
-    // 10% off for crypto/Zelle — routes volume to un-freezable rails. Applied to
-    // the post-all-discount subtotal (stacks with promos + affiliate + recovery),
-    // pre-shipping. Server-authoritative; mirrors the client calc in checkout.js.
-    const altPayDiscount = calcAltPayDiscount(discountedTotal, paymentMethod)
-    const total = Math.round((discountedTotal - altPayDiscount + shipping) * 100) / 100
+
+    // Single source of truth for the discount-stacking sequence (sale → BOGO →
+    // affiliate → recovery → alt-pay), shipping, and the per-rail total. The
+    // client checkout calls this SAME function, so totals cannot drift; server
+    // authority comes from feeding catalog prices above.
+    const totals = computeOrderTotals({
+      lineItems,
+      affiliatePct: validatedDiscountPct,
+      recoveryPct,
+      paymentMethod,
+    })
+    const subtotal = totals.subtotal
+    const discount = totals.affiliateDiscount
+    const memorialDiscount = totals.memorialDiscount
+    const recoveryDiscount = totals.recoveryDiscount
+    const saleActive = totals.saleActive
+    const shipping = totals.shipping.total
+    const total = totals.total
 
     if (total <= 0 || total > 50000) {
       return res.status(400).json({ error: 'Invalid order total' })
