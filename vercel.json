@@ -15,6 +15,10 @@
     {
       "path": "/api/cron/payment-recovery",
       "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/cron/replenishment",
+      "schedule": "0 16 * * *"
     }
   ]
 }

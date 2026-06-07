@@ -1,0 +1,148 @@
+// Marketing-email transport — SERVER ONLY (node:crypto + supabaseAdmin).
+//
+// The layer every NON-transactional send goes through: replenishment nudges,
+// sale/new-stock/new-item broadcasts. Responsibilities:
+//   1. Suppression — never email an address on email_suppressions (unsubscribe
+//      / bounce / complaint). Protects the sending domain's reputation and
+//      keeps us CAN-SPAM compliant.
+//   2. Footer — append a one-click unsubscribe link + physical postal address
+//      (CAN-SPAM requires both) + the RUO line, on every marketing email.
+//   3. Separate sending identity — sends FROM `MARKETING_FROM_EMAIL` (a distinct
+//      subdomain, e.g. news@news.optimizedperformancepeptides.com) so a
+//      marketing reputation hit can't drag down transactional deliverability.
+//
+// Transactional mail (lib/alerts.js) intentionally does NOT use this — receipts
+// and shipping notices aren't marketing and customers can't unsubscribe from them.
+
+import crypto from 'crypto'
+import { supabaseAdmin } from './supabase'
+
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://optimizedperformancepeptides.com'
+
+// Distinct marketing sender — set this to the authenticated subdomain address.
+// Falls back to the main domain so nothing breaks if unset, but DO set it
+// before any broadcast so marketing reputation stays isolated from transactional.
+const MARKETING_FROM = process.env.MARKETING_FROM_EMAIL || 'news@optimizedperformancepeptides.com'
+const MARKETING_FROM_NAME = process.env.MARKETING_FROM_NAME || 'Optimized Performance'
+// CAN-SPAM requires a valid physical postal address in every marketing email.
+// Set to OPP's registered business / PO address (NOT a home address).
+const POSTAL_ADDRESS = process.env.MARKETING_POSTAL_ADDRESS || ''
+
+function signingKey() {
+  return process.env.MARKETING_TOKEN_SECRET || process.env.RECOVERY_TOKEN_SECRET || process.env.CRON_SECRET || ''
+}
+function b64url(buf) {
+  return Buffer.from(buf).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+}
+function hmac(payloadB64, key) {
+  return b64url(crypto.createHmac('sha256', key).update(payloadB64).digest())
+}
+
+// Unsubscribe token = HMAC over the (lowercased) email. No expiry — an
+// unsubscribe link must work forever. Stateless, so no per-contact storage.
+export function signUnsubscribeToken(email) {
+  const key = signingKey()
+  if (!key || !email) return null
+  const payloadB64 = b64url(JSON.stringify({ e: String(email).trim().toLowerCase() }))
+  return `${payloadB64}.${hmac(payloadB64, key)}`
+}
+
+// Returns the lowercased email if the token is authentic, else null.
+export function verifyUnsubscribeToken(token) {
+  try {
+    const key = signingKey()
+    if (!key || typeof token !== 'string' || token.length > 512) return null
+    const dot = token.indexOf('.')
+    if (dot <= 0) return null
+    const payloadB64 = token.slice(0, dot)
+    const sig = token.slice(dot + 1)
+    const a = Buffer.from(sig)
+    const b = Buffer.from(hmac(payloadB64, key))
+    if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null
+    const payload = JSON.parse(Buffer.from(payloadB64.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf8'))
+    return payload && typeof payload.e === 'string' ? payload.e : null
+  } catch {
+    return null
+  }
+}
+
+export function unsubscribeUrl(email) {
+  const token = signUnsubscribeToken(email)
+  return token ? `${SITE_URL}/api/email/unsubscribe?u=${encodeURIComponent(token)}` : ''
+}
+
+// Record an unsubscribe / bounce / complaint. Idempotent (unique on lower(email)).
+export async function suppressEmail(email, reason = 'unsubscribe') {
+  if (!supabaseAdmin || !email) return false
+  const { error } = await supabaseAdmin
+    .from('email_suppressions')
+    .insert({ email: String(email).trim(), reason })
+  if (error && error.code !== '23505') {
+    console.error('[marketing-email] suppress failed:', error.message)
+    return false
+  }
+  return true
+}
+
+export async function isSuppressed(email) {
+  if (!supabaseAdmin || !email) return false
+  const { data } = await supabaseAdmin
+    .from('email_suppressions')
+    .select('id')
+    .eq('email', String(email).trim().toLowerCase()) // index is on lower(email); stored values are sent lowercased? compare both
+    .maybeSingle()
+  if (data) return true
+  // Fallback: case-insensitive match (stored value may not be pre-lowercased).
+  const { data: ci } = await supabaseAdmin
+    .from('email_suppressions')
+    .select('id')
+    .ilike('email', String(email).trim())
+    .maybeSingle()
+  return !!ci
+}
+
+// Send one marketing email. `bodyLines` is an array of plain-text lines (the
+// campaign body); this appends the compliance footer. Returns a result object;
+// never throws on a per-recipient problem (so batch sends keep going).
+export async function sendMarketingEmail({ toEmail, subject, bodyLines }) {
+  const apiKey = process.env.SENDGRID_API_KEY
+  if (!apiKey) return { ok: false, reason: 'sendgrid_not_configured' }
+  if (!toEmail) return { ok: false, reason: 'no_recipient' }
+  // CAN-SPAM compliance gate: never send marketing mail without a physical
+  // postal address in the footer. Refuse rather than send a non-compliant email.
+  if (!POSTAL_ADDRESS) return { ok: false, reason: 'no_postal_address' }
+
+  if (await isSuppressed(toEmail)) return { ok: false, reason: 'suppressed' }
+
+  const footer = [
+    ``,
+    `—`,
+    `You're receiving this because you're an Optimized Performance customer.`,
+    `Unsubscribe: ${unsubscribeUrl(toEmail)}`,
+    POSTAL_ADDRESS ? POSTAL_ADDRESS : '',
+    `For research use only.`,
+  ].filter(Boolean)
+
+  const value = [...bodyLines, ...footer].join('\n')
+
+  try {
+    const res = await fetch('https://api.sendgrid.com/v3/mail/send', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        personalizations: [{ to: [{ email: toEmail }] }],
+        from: { email: MARKETING_FROM, name: MARKETING_FROM_NAME },
+        reply_to: { email: 'admin@optimizedperformancepeptides.com' },
+        subject,
+        content: [{ type: 'text/plain', value }],
+      }),
+    })
+    if (!res.ok) {
+      const t = await res.text().catch(() => '')
+      return { ok: false, reason: `sendgrid_${res.status}`, detail: t.slice(0, 200) }
+    }
+    return { ok: true }
+  } catch (err) {
+    return { ok: false, reason: 'send_error', detail: err.message }
+  }
+}

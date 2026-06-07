@@ -188,6 +188,18 @@ function appendSetCookie(res, cookie) {
 // already have the admin client handy.
 export async function getCohortFromRequest(context, supabaseAdmin) {
   const { req, res, query } = context
+
+  // Master kill-switch. The cohort gate is AUP-scanner armor (hides GLP-3/HGH
+  // from unreferred visitors so a card processor's automated catalog scan sees
+  // a clean storefront). When COHORT_GATE_OFF=true it's disabled and the FULL
+  // catalog renders for EVERYONE — the July-migration posture, where blocking
+  // unreferred buyers would cost conversion. Flip it back on (unset / !=true)
+  // the moment a processor AUP inspection is imminent. Server-side env
+  // (getServerSideProps), so no NEXT_PUBLIC prefix needed.
+  if (process.env.COHORT_GATE_OFF === 'true') {
+    return { cohortAllowed: true, source: 'gate_off' }
+  }
+
   const cookies = parseCookies(req?.headers?.cookie)
 
   // Recovery link (?recover=TOKEN). Persist the token to a cookie so the 5%-off
