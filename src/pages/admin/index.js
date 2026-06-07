@@ -10,6 +10,7 @@ import ChargebacksTab from './ChargebacksTab';
 import InboxTab from './InboxTab';
 import RailsTab from './RailsTab';
 import FunnelTab from './FunnelTab';
+import AnalyticsTab from './AnalyticsTab';
 import BroadcastTab from './BroadcastTab';
 import { Logo } from '../../components/Primitives';
 
@@ -90,6 +91,7 @@ export default function AdminPage() {
     { id: 'chargebacks', label: 'Chargebacks' },
     { id: 'rails', label: 'Rails' },
     { id: 'funnel', label: 'Funnel' },
+    { id: 'analytics', label: 'Analytics' },
     { id: 'broadcast', label: 'Broadcast' },
     { id: 'inbox', label: 'Inbox' },
   ];
@@ -151,6 +153,7 @@ export default function AdminPage() {
         {activeTab === 'chargebacks' && <ChargebacksTab showSaveMsg={showSaveMsg} token={token} />}
         {activeTab === 'rails' && <RailsTab showSaveMsg={showSaveMsg} token={token} />}
         {activeTab === 'funnel' && <FunnelTab token={token} />}
+        {activeTab === 'analytics' && <AnalyticsTab token={token} />}
         {activeTab === 'broadcast' && <BroadcastTab showSaveMsg={showSaveMsg} token={token} />}
         {activeTab === 'inbox' && <InboxTab showSaveMsg={showSaveMsg} token={token} />}
       </div>

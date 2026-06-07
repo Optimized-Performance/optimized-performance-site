@@ -44,7 +44,7 @@ export default async function handler(req, res) {
   if (!rateLimit(req, { maxRequests: 10, windowMs: 60000 })) return res.status(429).json({ error: 'Too many requests' })
 
   try {
-    const { name, email, address, city, state, zip, items, affiliateCode, recoveryToken, researchUseAck, researchField, paymentMethod } = req.body
+    const { name, email, address, city, state, zip, items, affiliateCode, recoveryToken, sessionId, researchUseAck, researchField, paymentMethod } = req.body
 
     if (!validateString(name) || !validateEmail(email) || !validateString(address) ||
         !validateString(city) || !validateString(state, { minLength: 1, maxLength: 50 }) || !validateZip(zip) ||
@@ -317,6 +317,18 @@ export default async function handler(req, res) {
     if (error) {
       console.error('Order creation failed:', error)
       return res.status(500).json({ error: error.message })
+    }
+
+    // Stamp the funnel session id (links the buyer's pre-order events to this
+    // order) as a SEPARATE best-effort update — NOT part of the insert above —
+    // so that if migration v26 (orders.session_id) hasn't run yet, a missing
+    // column can never break order creation. Fire-and-forget, fully non-fatal.
+    if (sessionId && typeof sessionId === 'string' && order?.id) {
+      supabaseAdmin
+        .from('orders')
+        .update({ session_id: sessionId.slice(0, 64) })
+        .eq('id', order.id)
+        .then(({ error: sErr }) => { if (sErr) console.warn('[orders/create] session_id stamp skipped:', sErr.message) })
     }
 
     // Hard-blocked orders are recorded for the audit trail but never reach the

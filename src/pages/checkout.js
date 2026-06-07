@@ -6,6 +6,7 @@ import { Vial, Icon } from '../components/Primitives';
 import { calcShipping, FREE_SHIPPING_THRESHOLD } from '../lib/shipping';
 import { isMemorialDaySaleActive, applyMemorialDiscount, MEMORIAL_DAY_DISCOUNT_PCT, calcGlp3Bogo, ALT_PAY_DISCOUNT_PCT } from '../lib/sale';
 import { RECOVERY_COOKIE, RECOVERY_QUERY_PARAM } from '../lib/recovery-config';
+import { track, getSessionId } from '../lib/track';
 import PaypalCheckoutButtons from '../components/PaypalCheckoutButtons';
 
 // Read the opp_ref cookie set by lib/cohort-session when a visitor arrives
@@ -130,6 +131,15 @@ export default function Checkout() {
   // cookie, validate it server-side, and arm the extra discount so the summary
   // total reflects it. Server re-verifies at order create, so a failed/forged
   // token just shows no discount here. Runs once on mount.
+  // Funnel: fire checkout_start once when the checkout mounts.
+  const checkoutStartRef = useRef(false);
+  useEffect(() => {
+    if (checkoutStartRef.current) return;
+    checkoutStartRef.current = true;
+    track('checkout_start', { value: Number(cartTotal) || null });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const recoverCheckedRef = useRef(false);
   useEffect(() => {
     if (recoverCheckedRef.current) return;
@@ -310,6 +320,7 @@ export default function Checkout() {
     })),
     affiliateCode: affiliateApplied?.code || null,
     recoveryToken: recoveryToken || null,
+    sessionId: getSessionId(),
     researchUseAck: researchAck,
     researchField,
     paymentMethod,
@@ -317,6 +328,7 @@ export default function Checkout() {
 
   const handleCheckout = async (paymentMethod) => {
     if (!validateCheckoutForm()) return;
+    track('payment_attempt', { value: Number(discountedTotal) || null, meta: { method: paymentMethod } });
     setSubmitting(true);
     setSubmittingMethod(paymentMethod);
     try {
@@ -349,6 +361,7 @@ export default function Checkout() {
   // + a PayPal order, returns { paypal_order_id, order_number }. The SDK then
   // hands paypal_order_id back to PayPal so the customer can approve.
   const createPaypalOrderOnServer = async () => {
+    track('payment_attempt', { value: Number(discountedTotal) || null, meta: { method: 'paypal' } });
     const res = await fetch('/api/orders/create', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

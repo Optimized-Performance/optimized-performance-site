@@ -1,7 +1,9 @@
 import dynamic from 'next/dynamic';
+import { useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { Inter_Tight, JetBrains_Mono } from 'next/font/google';
 import { Analytics } from '@vercel/analytics/next';
+import { track } from '../lib/track';
 import { CartProvider } from '../context/CartContext';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
@@ -31,6 +33,24 @@ export default function App({ Component, pageProps }) {
   const router = useRouter();
   const isAdmin = router.pathname.startsWith('/admin');
   const isCheckout = router.pathname.startsWith('/checkout');
+
+  // First-party funnel: fire a page_view on initial load + every route change,
+  // and a product_view on product pages. Skips /admin (internal noise).
+  useEffect(() => {
+    const fire = (url) => {
+      const path = String(url || '').split('?')[0] || '/';
+      if (path.startsWith('/admin')) return;
+      track('page_view', { path });
+      if (path.startsWith('/products/')) {
+        const product_id = path.split('/products/')[1]?.split('/')[0] || null;
+        if (product_id) track('product_view', { path, product_id });
+      }
+    };
+    fire(router.asPath);
+    router.events.on('routeChangeComplete', fire);
+    return () => router.events.off('routeChangeComplete', fire);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const showLaunchBanner = !isAdmin && !isCheckout;
   const showMemorialDayBanner = !isAdmin; // Show on checkout too — reinforces the sale at the moment of purchase
   const showBogoBanner = !isAdmin; // GLP-3 B2G1 — show on checkout too

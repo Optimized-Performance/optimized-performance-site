@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useCallback } from 'react';
+import { track } from '../lib/track';
 
 const CartContext = createContext();
 
@@ -8,6 +9,7 @@ export function CartProvider({ children }) {
 
   const addToCart = useCallback((product, options = {}) => {
     const { isPreorder = false, preorderShipDate = null } = options;
+    track('add_to_cart', { product_id: product?.id || null, value: Number(product?.price) || null });
     setCartItems((prev) => {
       const existing = prev.find((item) => item.id === product.id);
       if (existing) {

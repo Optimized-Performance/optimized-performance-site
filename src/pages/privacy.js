@@ -122,6 +122,7 @@ export default function PrivacyPolicy() {
               <li><strong className="text-ink">opp_cohort</strong> — signed cookie (90-day expiry) that records access to the full product catalog when you arrive via a referral or invitation link. Required for the Site to remember your access between visits.</li>
               <li><strong className="text-ink">opp_ref</strong> — readable cookie (90-day expiry) that records the affiliate code from a referral link so commission attribution and discounts apply correctly at checkout.</li>
               <li><strong className="text-ink">opp_age_ack</strong> — localStorage entry recording that you confirmed you are 21 or older. Required for compliance with our age policy.</li>
+              <li><strong className="text-ink">opp_sid</strong> — anonymous first-party identifier (1-year expiry) used only to measure our own site funnel (e.g. how many visitors reach checkout). Not linked to your identity while browsing, not shared with any third party, and never used for advertising.</li>
               <li><strong className="text-ink">Session cookies</strong> for the admin and affiliate dashboards (only set if you log into those).</li>
             </ul>
             <p className="text-sm text-ink-soft leading-relaxed">
