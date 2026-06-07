@@ -41,6 +41,28 @@ const paypalEnabled = process.env.NEXT_PUBLIC_PAYPAL_ENABLED === 'true';
 // (e.g. AllayPay) requires account-gated checkout. Enforced server-side too.
 const requireAccount = process.env.NEXT_PUBLIC_REQUIRE_ACCOUNT === 'true';
 
+// Inline alt-rail config — used by the Zelle/Venmo pay panels so the customer
+// completes payment ON the checkout instead of being bounced to a separate
+// instructions page (which read as a sketchy side-door and cost conversion).
+// Recipient + handle mirror the server (lib/alerts.js) and the legacy
+// instructions pages so a missing env var never breaks the flow.
+const ZELLE_RECIPIENT = process.env.NEXT_PUBLIC_ZELLE_RECIPIENT || 'admin@optimizedperformancepeptides.com';
+// Optional scannable Zelle QR exported from the bank's Zelle (BoA → Receive →
+// Share QR code). Drop it at /public/zelle-qr.png or set NEXT_PUBLIC_ZELLE_QR_URL.
+// A generic email QR is NOT scannable by bank Zelle apps, so we only render a
+// real one and hide the slot gracefully if the asset is missing/fails to load.
+const ZELLE_QR_SRC = process.env.NEXT_PUBLIC_ZELLE_QR_URL || '/zelle-qr.png';
+const VENMO_HANDLE = process.env.NEXT_PUBLIC_VENMO_BUSINESS_HANDLE || 'optimizedperformance';
+
+// Venmo universal link — opens the app on mobile with the amount + note
+// prefilled, venmo.com on desktop. Mirrors src/pages/checkout/venmo-instructions.js.
+function buildVenmoUrl({ amount, orderNumber }) {
+  const params = new URLSearchParams({ txn: 'pay', audience: 'private', recipients: VENMO_HANDLE });
+  if (amount) params.set('amount', String(amount));
+  if (orderNumber) params.set('note', orderNumber);
+  return `https://venmo.com/?${params.toString()}`;
+}
+
 // Research-field declaration required at checkout — high-risk card underwriting
 // (AllayPay et al.) requires the buyer to affirm a research purpose. Kept in
 // sync with the allowed list validated server-side in /api/orders/create.js.
@@ -76,6 +98,10 @@ export default function Checkout() {
   const [authChecked, setAuthChecked] = useState(!requireAccount);
   const [railAvail, setRailAvail] = useState(null);
   const [paypalFailed, setPaypalFailed] = useState(false);
+  // Which payment-method tile is selected. null = fall back to the first
+  // available rail (so the action area is never empty), like a card portal
+  // landing with a method pre-chosen.
+  const [selectedMethod, setSelectedMethod] = useState(null);
   const autoAppliedRef = useRef(false);
   const altPayRef = useRef(null);
   const paypalRef = useRef(null);
@@ -357,6 +383,36 @@ export default function Checkout() {
     setSubmittingMethod(null);
   };
 
+  // Inline Zelle/Venmo: create + reserve the order WITHOUT redirecting, so the
+  // pay panel can show the exact amount, recipient, memo/note (and the Venmo
+  // deep-link) right on the checkout. Returns the order number + the
+  // server-authoritative total (the 10%-off for zelle is applied server-side,
+  // so `total` is the exact amount to send). The server also emails the same
+  // details as a backup. Cart is NOT cleared here — it clears on /checkout/success
+  // (where "I've sent it" lands), so the empty-cart guard can't unmount the panel.
+  const createInlineOrder = async (paymentMethod) => {
+    if (!validateCheckoutForm()) return { ok: false };
+    track('payment_attempt', { value: Number(altPayTotal) || null, meta: { method: paymentMethod } });
+    try {
+      const res = await fetch('/api/orders/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(buildOrderPayload(paymentMethod)),
+      });
+      const data = await res.json();
+      // Duplicate-order guard tripped — bounce to the existing order's confirmation.
+      if (res.status === 409 && data.duplicate && data.existing_order_number) {
+        window.location.href = `/checkout/success?order=${encodeURIComponent(data.existing_order_number)}`;
+        return { ok: false };
+      }
+      if (!res.ok) throw new Error(data.error || 'Failed to create order');
+      return { ok: true, orderNumber: data.order_number, total: Number(data.total) };
+    } catch (err) {
+      console.error('[checkout] inline order create failed:', err);
+      return { ok: false, error: err.message || 'Something went wrong. Please try again.' };
+    }
+  };
+
   // Smart-Buttons createOrder hook: server validates + creates our local order
   // + a PayPal order, returns { paypal_order_id, order_number }. The SDK then
   // hands paypal_order_id back to PayPal so the customer can approve.
@@ -416,6 +472,22 @@ export default function Checkout() {
   const venmoUp = venmoEnabled && railUp('venmo') && !cartDurableOnly;
   const paypalUp = paypalEnabled && railUp('paypal') && !cartDurableOnly;
 
+  // Unified payment-method selector. Every available rail is presented as an
+  // equal, card-grade tile (no primary-card-button vs. demoted-outline-alt
+  // hierarchy, which signaled the alt rails as a sketchy side-door). Crypto and
+  // Zelle show the 10% as a cheaper price + a SAVE badge — a perk, not a caveat.
+  const paymentMethods = [
+    cardUp && { key: 'card', label: 'Card', price: discountedTotal },
+    paypalUp && { key: 'paypal', label: 'PayPal', price: discountedTotal, sub: 'Pay Later & card too' },
+    cryptoUp && { key: 'crypto', label: 'Crypto', price: altPayTotal, perk: 'SAVE 10%' },
+    zelleUp && { key: 'zelle', label: 'Zelle', price: altPayTotal, perk: 'SAVE 10%' },
+    venmoUp && { key: 'venmo', label: 'Venmo', price: discountedTotal },
+  ].filter(Boolean);
+  // Pre-select the first available rail so the action area is never empty.
+  const activeMethod = selectedMethod && paymentMethods.some((m) => m.key === selectedMethod)
+    ? selectedMethod
+    : (paymentMethods[0]?.key || null);
+
   return (
     <div className="max-w-container mx-auto px-8 pt-14 pb-20">
       <SEO title="Checkout" description="Complete your order — secure card or crypto payment." path="/checkout" />
@@ -474,7 +546,7 @@ export default function Checkout() {
             We use your email for order updates. Payments are processed securely off-site.
           </p>
 
-          <form onSubmit={(e) => { e.preventDefault(); if (cardUp) handleCheckout('card'); }}>
+          <form onSubmit={(e) => { e.preventDefault(); if (activeMethod === 'card' && cardUp) handleCheckout('card'); }}>
             <Field label="Email">
               <input
                 className="input-field" type="email" required
@@ -552,116 +624,119 @@ export default function Checkout() {
                 <div className="text-[13px] text-ink-soft mt-1">An item in your cart is fulfilled via direct payment (Zelle or crypto) — and you save 10%.</div>
               </div>
             )}
-            <div className="grid grid-cols-1 gap-3">
-              {cardUp && (
-                <button
-                  type="submit"
-                  className="btn-primary w-full py-4 text-base"
-                  disabled={submitting || !researchAck || !researchField}
-                >
-                  <Icon name="card" size={18} />
-                  {submitting && submittingMethod === 'card'
-                    ? 'Processing…'
-                    : `Pay $${discountedTotal.toFixed(2)} with card`}
-                </button>
-              )}
-              {paypalFailed && (
-                <div ref={altPayRef} className="rounded-opp border border-warning bg-warning/10 p-4 mb-3">
-                  <div className="opp-meta-mono uppercase text-warning font-semibold">Payment didn&apos;t go through</div>
-                  <div className="text-[13px] text-ink-soft mt-1">
-                    That&apos;s usually a momentary timeout, not your card. Give it another try.
-                  </div>
-                  {paypalUp && (
+            {activeMethod ? (
+              <>
+                <div className="flex items-baseline justify-between mb-2.5">
+                  <span className="font-mono text-[10px] font-medium tracking-[0.14em] uppercase text-ink-mute">Payment method</span>
+                  <span className="opp-meta-mono text-ink-mute flex items-center gap-1"><Icon name="lock" size={11} /> Secure</span>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 mb-5">
+                  {paymentMethods.map((m) => {
+                    const active = activeMethod === m.key;
+                    return (
+                      <button
+                        key={m.key}
+                        type="button"
+                        onClick={() => { setSelectedMethod(m.key); setPaypalFailed(false); }}
+                        className={`relative text-left rounded-opp-lg border-2 p-3.5 transition ${active ? 'border-accent-strong bg-accent-soft' : 'border-line bg-surface hover:border-ink-mute'}`}
+                        aria-pressed={active}
+                      >
+                        {m.perk && (
+                          <span className="absolute top-2 right-2.5 opp-meta-mono text-[9px] text-success font-semibold">{m.perk}</span>
+                        )}
+                        <div className="flex items-center gap-1.5 text-ink font-semibold text-sm">
+                          {active && <Icon name="check" size={14} className="text-accent-strong" />}
+                          {m.label}
+                        </div>
+                        <div className="opp-meta-mono mt-1 text-ink-soft">${m.price.toFixed(2)}</div>
+                        {m.sub && <div className="text-[10px] text-ink-mute mt-0.5 leading-tight">{m.sub}</div>}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div>
+                  {activeMethod === 'card' && cardUp && (
                     <button
-                      type="button"
-                      onClick={() => paypalRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
-                      className="btn-primary w-full py-3 mt-3"
+                      type="submit"
+                      className="btn-primary w-full py-4 text-base"
+                      disabled={submitting || !researchAck || !researchField}
                     >
-                      <Icon name="card" size={16} /> Try card again
+                      <Icon name="card" size={18} />
+                      {submitting && submittingMethod === 'card'
+                        ? 'Processing…'
+                        : `Pay $${discountedTotal.toFixed(2)} with card`}
                     </button>
                   )}
-                  {(cryptoUp || zelleUp) && (
-                    <div className="text-[13px] text-ink-soft mt-2.5">
-                      Or pay with <strong>{altPayLabel}</strong> below and <strong>save 10%</strong>.
+                  {activeMethod === 'crypto' && cryptoUp && (
+                    <button
+                      type="button"
+                      onClick={() => handleCheckout('crypto')}
+                      className="btn-primary w-full py-4 text-base"
+                      disabled={submitting || !researchAck || !researchField}
+                    >
+                      {submitting && submittingMethod === 'crypto'
+                        ? 'Processing…'
+                        : `Pay $${altPayTotal.toFixed(2)} with crypto`}
+                    </button>
+                  )}
+                  {activeMethod === 'zelle' && zelleUp && (
+                    <AltRailPanel
+                      method="zelle"
+                      previewAmount={altPayTotal}
+                      recipient={ZELLE_RECIPIENT}
+                      qrSrc={ZELLE_QR_SRC}
+                      disabled={!researchAck || !researchField}
+                      onCreateOrder={() => createInlineOrder('zelle')}
+                      onDone={(orderNumber) => { window.location.href = `/checkout/success?order=${encodeURIComponent(orderNumber)}`; }}
+                    />
+                  )}
+                  {activeMethod === 'venmo' && venmoUp && (
+                    <AltRailPanel
+                      method="venmo"
+                      previewAmount={discountedTotal}
+                      recipient={`@${VENMO_HANDLE}`}
+                      disabled={!researchAck || !researchField}
+                      onCreateOrder={() => createInlineOrder('venmo')}
+                      onDone={(orderNumber) => { window.location.href = `/checkout/success?order=${encodeURIComponent(orderNumber)}`; }}
+                    />
+                  )}
+                  {activeMethod === 'paypal' && paypalUp && (
+                    <div ref={paypalRef}>
+                      {paypalFailed && (
+                        <div ref={altPayRef} className="rounded-opp border border-warning bg-warning/10 p-4 mb-3">
+                          <div className="opp-meta-mono uppercase text-warning font-semibold">Payment didn&apos;t go through</div>
+                          <div className="text-[13px] text-ink-soft mt-1">
+                            That&apos;s usually a momentary timeout, not your card — give it another try below.
+                            {(cryptoUp || zelleUp) && <> Or switch to <strong>{altPayLabel}</strong> above and <strong>save 10%</strong>.</>}
+                          </div>
+                        </div>
+                      )}
+                      <PaypalCheckoutButtons
+                        disabled={!researchAck || !researchField || submitting}
+                        validateBeforeCheckout={validateCheckoutForm}
+                        createOrderOnServer={createPaypalOrderOnServer}
+                        onSuccess={handlePaypalSuccess}
+                        onError={handlePaypalError}
+                      />
                     </div>
                   )}
                 </div>
-              )}
-              {(cryptoUp || zelleUp || venmoUp) && (() => {
-                // Grid auto-sizes to the number of alt-payment buttons enabled.
-                // Class names are written literally (not interpolated) so Tailwind's
-                // content scanner picks them up.
-                const altCount = [cryptoUp, zelleUp, venmoUp].filter(Boolean).length;
-                const altGridClass =
-                  altCount === 3 ? 'sm:grid-cols-3'
-                  : altCount === 2 ? 'sm:grid-cols-2'
-                  : '';
-                return (
-                  <div className={`grid grid-cols-1 ${altGridClass} gap-3`}>
-                    {cryptoUp && (
-                      <button
-                        type="button"
-                        onClick={() => handleCheckout('crypto')}
-                        className="btn-outline w-full py-4 text-base"
-                        disabled={submitting || !researchAck || !researchField}
-                      >
-                        {submitting && submittingMethod === 'crypto'
-                          ? 'Processing…'
-                          : `Pay $${altPayTotal.toFixed(2)} with crypto`}
-                      </button>
-                    )}
-                    {zelleUp && (
-                      <button
-                        type="button"
-                        onClick={() => handleCheckout('zelle')}
-                        className="btn-outline w-full py-4 text-base"
-                        disabled={submitting || !researchAck || !researchField}
-                      >
-                        {submitting && submittingMethod === 'zelle'
-                          ? 'Processing…'
-                          : `Pay $${altPayTotal.toFixed(2)} with Zelle`}
-                      </button>
-                    )}
-                    {venmoUp && (
-                      <button
-                        type="button"
-                        onClick={() => handleCheckout('venmo')}
-                        className="btn-outline w-full py-4 text-base"
-                        disabled={submitting || !researchAck || !researchField}
-                      >
-                        {submitting && submittingMethod === 'venmo'
-                          ? 'Processing…'
-                          : `Pay $${discountedTotal.toFixed(2)} with Venmo`}
-                      </button>
-                    )}
-                  </div>
-                );
-              })()}
-              {paypalUp && (
-                <div className="mt-1" ref={paypalRef}>
-                  <div className="flex items-center gap-3 my-3">
-                    <div className="flex-1 h-px bg-line" />
-                    <span className="opp-meta-mono text-ink-mute">OR PAY WITH</span>
-                    <div className="flex-1 h-px bg-line" />
-                  </div>
-                  <PaypalCheckoutButtons
-                    disabled={!researchAck || !researchField || submitting}
-                    validateBeforeCheckout={validateCheckoutForm}
-                    createOrderOnServer={createPaypalOrderOnServer}
-                    onSuccess={handlePaypalSuccess}
-                    onError={handlePaypalError}
-                  />
-                </div>
-              )}
-            </div>
-            <p className="opp-meta-mono text-center mt-3 leading-relaxed m-0">
+              </>
+            ) : (
+              <div className="p-4 rounded-opp-lg border border-line bg-surfaceAlt text-center text-ink-soft text-sm">
+                No payment methods are currently available. Please email{' '}
+                <a href="mailto:admin@optimizedperformancepeptides.com" className="text-accent-strong hover:underline">admin@optimizedperformancepeptides.com</a> to complete your order.
+              </div>
+            )}
+            <p className="opp-meta-mono text-center mt-4 leading-relaxed m-0">
               {[
                 cardUp && 'Card processed securely off-site',
                 paypalUp && 'PayPal, Pay Later & card via PayPal',
-                cryptoUp && 'Crypto (BTC, ETH, USDC, USDT) by NOWPayments — 10% off',
-                zelleUp && 'Zelle direct to OPP (manual review) — 10% off',
-                venmoUp && 'Venmo to @optimizedperformance (manual review)',
-              ].filter(Boolean).join('. ') + '.'}
+                cryptoUp && 'Crypto (BTC, ETH, USDC, USDT) — 10% off',
+                zelleUp && 'Zelle direct — 10% off',
+                venmoUp && 'Venmo to @optimizedperformance',
+              ].filter(Boolean).join(' · ') + '.'}
             </p>
           </form>
         </div>
@@ -810,6 +885,132 @@ function AltPaySaveBanner({ pct, amount, label, className = '' }) {
       <div className="opp-meta-mono text-accent-strong mt-1.5">
         {amount > 0 ? `−$${amount.toFixed(2)} on this order` : `Extra ${pct}% off`} when you pay by {label.toLowerCase()}
       </div>
+    </div>
+  );
+}
+
+// Inline Zelle/Venmo pay panel — replaces the old redirect-to-instructions-page
+// flow (which read as a sketchy side-door and cost conversion). Two phases:
+//   intro → one-line explainer + a single "Continue" CTA
+//   pay   → the order is reserved server-side; show the EXACT amount, recipient,
+//           memo/note, a Venmo deep-link (mobile) and/or a scannable Zelle QR,
+//           one-tap copy on every field, and an "I've sent it" button that lands
+//           on the shared /checkout/success confirmation.
+// We do NOT ship on the customer's "I've sent it" — admin still reconciles against
+// the actual bank/Venmo deposit (unchanged source of truth). The cart isn't
+// cleared until /checkout/success, so this panel can't be unmounted by the
+// empty-cart guard mid-payment.
+function AltRailPanel({ method, previewAmount, recipient, qrSrc, disabled, onCreateOrder, onDone }) {
+  const [phase, setPhase] = useState('intro');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const [order, setOrder] = useState(null); // { orderNumber, total }
+  const [copied, setCopied] = useState(null);
+  const [qrOk, setQrOk] = useState(true);
+  const isZelle = method === 'zelle';
+  const label = isZelle ? 'Zelle' : 'Venmo';
+
+  async function start() {
+    setBusy(true);
+    setErr('');
+    const r = await onCreateOrder();
+    setBusy(false);
+    if (!r || !r.ok) {
+      if (r && r.error) setErr(r.error);
+      return;
+    }
+    setOrder({ orderNumber: r.orderNumber, total: r.total });
+    setPhase('pay');
+  }
+
+  function copyValue(key, value) {
+    if (typeof navigator === 'undefined' || !navigator.clipboard) return;
+    navigator.clipboard.writeText(value).then(() => {
+      setCopied(key);
+      setTimeout(() => setCopied(null), 1500);
+    });
+  }
+
+  if (phase === 'intro') {
+    return (
+      <div className="rounded-opp-lg border border-line bg-surfaceAlt p-5">
+        <p className="text-sm text-ink-soft m-0 mb-4 leading-relaxed">
+          {isZelle
+            ? `Pay $${previewAmount.toFixed(2)} by Zelle straight from your bank app — no card, no processor, and you save 10%. Tap continue and we'll show you exactly where to send it.`
+            : `Pay $${previewAmount.toFixed(2)} with Venmo in a couple taps. Tap continue and we'll open Venmo with the amount and note already filled in.`}
+        </p>
+        <button type="button" onClick={start} disabled={disabled || busy} className="btn-primary w-full py-4 text-base">
+          {busy ? 'Starting…' : `Continue with ${label}`}
+        </button>
+        {disabled && <p className="opp-meta-mono text-ink-mute text-center mt-2 m-0">Complete the fields above and the research acknowledgment to continue.</p>}
+        {err && <p className="opp-meta-mono text-danger text-center mt-2 m-0">{err}</p>}
+      </div>
+    );
+  }
+
+  // phase === 'pay' — order is reserved; total is server-authoritative.
+  const amt = order?.total != null ? Number(order.total).toFixed(2) : previewAmount.toFixed(2);
+  const memo = order?.orderNumber || '';
+  const venmoUrl = !isZelle ? buildVenmoUrl({ amount: amt, orderNumber: memo }) : null;
+
+  return (
+    <div className="rounded-opp-lg border-2 border-accent-strong bg-surface p-5">
+      <div className="text-center pb-4 mb-4 border-b border-line">
+        <div className="opp-meta-mono text-ink-mute">Send exactly</div>
+        <div className="font-display font-semibold tracking-display text-[34px] leading-none text-ink mt-1">${amt}</div>
+      </div>
+
+      {!isZelle && (
+        <a href={venmoUrl} target="_blank" rel="noopener noreferrer" className="btn-primary w-full py-4 text-base flex items-center justify-center gap-2 mb-4">
+          <Icon name="arrow" size={16} /> Open Venmo (amount + note prefilled)
+        </a>
+      )}
+      {isZelle && qrSrc && qrOk && (
+        <div className="flex flex-col items-center mb-4">
+          <img
+            src={qrSrc}
+            alt="Scan to pay by Zelle"
+            onError={() => setQrOk(false)}
+            className="w-40 h-40 rounded-opp border border-line bg-white p-2 object-contain"
+          />
+          <span className="opp-meta-mono text-ink-mute mt-2">Scan with your bank app to pay</span>
+        </div>
+      )}
+
+      <div className="grid gap-3">
+        <CopyRow label={isZelle ? 'Send to' : 'Venmo handle'} value={recipient} copied={copied === 'recipient'} onCopy={() => copyValue('recipient', recipient)} mono={!isZelle} />
+        <CopyRow label="Amount" value={`$${amt}`} copied={copied === 'amount'} onCopy={() => copyValue('amount', amt)} mono />
+        <CopyRow
+          label={isZelle ? 'Memo (required)' : 'Note (required)'}
+          value={memo || '—'}
+          copied={copied === 'memo'}
+          onCopy={() => copyValue('memo', memo)}
+          mono
+          hint={`Put ONLY this order number in the ${isZelle ? 'Zelle memo' : 'Venmo note'} so we can match your payment to your order.`}
+        />
+      </div>
+
+      <button type="button" onClick={() => onDone(memo)} className="btn-primary w-full py-4 text-base mt-5">
+        <Icon name="check" size={18} /> I&apos;ve sent the payment
+      </button>
+      <p className="opp-meta-mono text-ink-mute text-center mt-3 m-0">
+        Order reserved up to 72 hours. We confirm during business hours and ship within 1 business day of payment landing.
+      </p>
+    </div>
+  );
+}
+
+function CopyRow({ label, value, copied, onCopy, mono, hint }) {
+  return (
+    <div>
+      <div className="flex justify-between items-baseline mb-1">
+        <span className="font-mono text-[10px] font-medium tracking-[0.14em] uppercase text-ink-mute">{label}</span>
+        <button type="button" onClick={onCopy} className="opp-meta-mono text-accent-strong hover:underline" aria-label={`Copy ${label}`}>
+          {copied ? 'Copied' : 'Copy'}
+        </button>
+      </div>
+      <div className={`p-3 bg-surfaceAlt border border-line rounded-opp ${mono ? 'font-mono' : ''} text-ink break-all`}>{value}</div>
+      {hint && <p className="text-xs text-ink-mute mt-1.5 m-0">{hint}</p>}
     </div>
   );
 }
