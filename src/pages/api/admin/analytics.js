@@ -43,7 +43,12 @@ const isPaid = (o) => o.payment_status === 'completed'
 // + their period-over-period deltas.
 function windowKpis(evs, ords) {
   const visitSessions = new Set()
-  for (const e of evs) if (e.event_type === 'page_view' && e.session_id) visitSessions.add(e.session_id)
+  const payAttemptSessions = new Set()
+  for (const e of evs) {
+    if (!e.session_id) continue
+    if (e.event_type === 'page_view') visitSessions.add(e.session_id)
+    else if (e.event_type === 'payment_attempt') payAttemptSessions.add(e.session_id)
+  }
   const paid = ords.filter(isPaid)
   const revenue = round2(paid.reduce((s, o) => s + Number(o.total || 0), 0))
   const visits = visitSessions.size
@@ -53,7 +58,11 @@ function windowKpis(evs, ords) {
     orders: paid.length,
     aov: paid.length ? round2(revenue / paid.length) : 0,
     visits,
-    conversion: visits ? round2((paid.length / visits) * 100) : 0,
+    // On-site conversion = visitors who reached a payment attempt, EVENTS-ONLY.
+    // Deliberately not paid-orders/visits: the orders table covers far more
+    // history than the (new) events table, so mixing them yields nonsense ratios
+    // (e.g. 27 paid / 33 tracked visits = 81.8%). Both sides here are sessions.
+    conversion: visits ? round2((payAttemptSessions.size / visits) * 100) : 0,
     customers: customers.size,
   }
 }
@@ -156,13 +165,16 @@ export default async function handler(req, res) {
     const sizeOf = (t) => stageSessions.get(t)?.size || 0
     const paidOrders = curOrd.filter(isPaid)
 
+    // EVENTS-ONLY funnel (one consistent source). orders/paid are intentionally
+    // NOT funnel stages — they come from the orders table (more history than the
+    // events table) so mixing them breaks the funnel. Total orders/revenue live
+    // in the KPIs; this funnel is on-site session behavior.
     const funnel = {
       visits: sizeOf('page_view'),
       product_viewers: sizeOf('product_view'),
       carts: sizeOf('add_to_cart'),
       checkouts: sizeOf('checkout_start'),
-      orders: curOrd.length,
-      paid: paidOrders.length,
+      payment_attempts: sizeOf('payment_attempt'),
     }
 
     // by source — now with revenue + AOV

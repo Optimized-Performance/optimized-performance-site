@@ -1,8 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   ResponsiveContainer, ComposedChart, Area, Line, Bar, BarChart,
-  XAxis, YAxis, CartesianGrid, Tooltip, PieChart, Pie, Cell,
-  FunnelChart, Funnel, LabelList,
+  XAxis, YAxis, CartesianGrid, Tooltip, PieChart, Pie, Cell, LabelList,
 } from 'recharts';
 
 // Operator analytics dashboard. Money KPIs w/ prior-period deltas, revenue +
@@ -21,13 +20,15 @@ const PIE_COLORS = [C.accent, C.green, C.gold, C.red, C.inkSoft, C.accentDeep];
 
 const RANGES = [{ days: 7, label: '7d' }, { days: 14, label: '14d' }, { days: 30, label: '30d' }, { days: 90, label: '90d' }];
 
+// Events-only stages (one consistent source). Order/paid outcomes live in the
+// KPIs/trend — they come from the orders table, which has more history than the
+// events table, so they can't share this funnel's denominator.
 const FUNNEL_STEPS = [
   { key: 'visits', label: 'Visits' },
   { key: 'product_viewers', label: 'Viewed product' },
   { key: 'carts', label: 'Added to cart' },
   { key: 'checkouts', label: 'Started checkout' },
-  { key: 'orders', label: 'Order created' },
-  { key: 'paid', label: 'Paid' },
+  { key: 'payment_attempts', label: 'Payment attempt' },
 ];
 
 const fmtMoney = (n, dp = 0) => `$${(Number(n) || 0).toLocaleString('en-US', { minimumFractionDigits: dp, maximumFractionDigits: dp })}`;
@@ -116,20 +117,29 @@ export default function AnalyticsTab({ token }) {
           </Panel>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
-            {/* FUNNEL */}
+            {/* FUNNEL — horizontal bars (robust to noisy/non-monotonic data) */}
             <Panel title="Visitor funnel">
-              <ResponsiveContainer width="100%" height={230}>
-                <FunnelChart>
-                  <Tooltip contentStyle={tooltipStyle} />
-                  <Funnel dataKey="value" data={FUNNEL_STEPS.map((s, i) => ({ name: s.label, value: f[s.key] || 0, fill: PIE_COLORS[i % PIE_COLORS.length] }))} isAnimationActive>
-                    <LabelList position="right" fill={C.inkSoft} stroke="none" dataKey="name" fontSize={12} />
-                    <LabelList position="left" fill={C.ink} stroke="none" dataKey="value" fontSize={12} />
-                  </Funnel>
-                </FunnelChart>
-              </ResponsiveContainer>
-              <div className="text-[13px] text-ink-soft mt-2 pt-3 border-t border-line">
-                Visit → paid: <strong className="text-ink">{fmtPct(f.visits ? Math.round((f.paid / f.visits) * 1000) / 10 : null)}</strong>
+              <div className="flex flex-col gap-2">
+                {FUNNEL_STEPS.map((step, i) => {
+                  const val = f[step.key] || 0;
+                  const prev = i > 0 ? (f[FUNNEL_STEPS[i - 1].key] || 0) : val;
+                  const topVal = f[FUNNEL_STEPS[0].key] || 0;
+                  const widthPct = topVal ? Math.max(3, (val / topVal) * 100) : 3;
+                  return (
+                    <div key={step.key} className="flex items-center gap-3">
+                      <div className="w-32 shrink-0 text-[12px] text-ink-soft">{step.label}</div>
+                      <div className="flex-1 bg-surfaceAlt rounded-opp h-7 relative overflow-hidden">
+                        <div className="h-full rounded-opp" style={{ width: `${widthPct}%`, background: C.accent }} />
+                        <span className="absolute inset-y-0 left-3 flex items-center text-[12px] font-semibold text-ink">{fmtNum(val)}</span>
+                      </div>
+                      <div className="w-14 shrink-0 text-right opp-meta-mono text-ink-mute">{i === 0 ? '' : fmtPct(prev ? (val / prev) * 100 : null)}</div>
+                    </div>
+                  );
+                })}
               </div>
+              <p className="opp-meta-mono text-ink-mute mt-3 pt-3 border-t border-line leading-relaxed">
+                On-site sessions since tracking began (Jun 6). Off-site Venmo/Zelle orders + pre-tracking history aren&rsquo;t here — see the KPIs for total orders &amp; revenue.
+              </p>
             </Panel>
 
             {/* RAIL MIX */}
