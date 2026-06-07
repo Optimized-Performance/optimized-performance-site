@@ -68,7 +68,9 @@ export default function App({ Component, pageProps }) {
             <Header />
             <CartDrawer />
             <main className="flex-1">
-              <Component {...pageProps} />
+              <div key={router.asPath} className="opp-page-fade">
+                <Component {...pageProps} />
+              </div>
             </main>
             <Footer />
             <AgeGate />

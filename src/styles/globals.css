@@ -175,6 +175,11 @@
   @keyframes oppFade { from { opacity: 0; } to { opacity: 1; } }
   @keyframes oppSlide { from { transform: translateX(100%); } to { transform: translateX(0); } }
 
+  /* Buttery feel: subtle page-transition fade + cart-count bump */
+  .opp-page-fade { animation: oppFade 0.28s ease both; }
+  @keyframes oppBump { 0% { transform: scale(1); } 40% { transform: scale(1.35); } 100% { transform: scale(1); } }
+  .opp-bump { animation: oppBump 0.32s cubic-bezier(.2, .8, .2, 1); }
+
   /* RUO tag */
   .opp-ruo-tag {
     flex-shrink: 0;

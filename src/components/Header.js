@@ -59,7 +59,7 @@ export default function Header() {
             <Icon name="cart" size={18} />
             <span>Cart</span>
             {cartCount > 0 && (
-              <span className="bg-accent text-surface font-mono text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none">
+              <span key={cartCount} className="opp-bump bg-accent text-surface font-mono text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none">
                 {cartCount}
               </span>
             )}
@@ -75,7 +75,7 @@ export default function Header() {
           >
             <Icon name="cart" size={22} />
             {cartCount > 0 && (
-              <span className="absolute -top-1.5 -right-2 bg-accent text-surface font-mono text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center">
+              <span key={cartCount} className="opp-bump absolute -top-1.5 -right-2 bg-accent text-surface font-mono text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center">
                 {cartCount}
               </span>
             )}
