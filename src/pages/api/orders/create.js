@@ -219,7 +219,7 @@ export default async function handler(req, res) {
       ? await runVelocityChecks({ email, address, city, state, zip, ip: customerIp })
       : { status: 'unreviewed', reasons: [] }
 
-    const orderNumber = generateOrderNumber()
+    let orderNumber = generateOrderNumber()
 
     // payment_status taxonomy (v17):
     //   'awaiting_payment' — instant rail (paypal/card/crypto) not yet captured.
@@ -242,26 +242,49 @@ export default async function handler(req, res) {
     // the customer at the order they already paid for. Keyed on 'completed'
     // (the charged state) specifically so a legitimate retry of a genuinely
     // FAILED payment — which never reaches 'completed' — still goes through.
-    if (isInstantRail) {
-      const dupCutoff = new Date(Date.now() - DUPLICATE_GUARD_MINUTES * 60 * 1000).toISOString()
+    // Duplicate / resume guard — one recent-orders lookup, two outcomes:
+    //   (a) an identical cart from the same email is already 'completed' within
+    //       the window -> block the re-charge (the 6/06 double-charge guard).
+    //   (b) an identical cart on the SAME rail is still OPEN (awaiting_payment /
+    //       pending) within the window -> RESUME that order instead of minting a
+    //       duplicate. Collapses the pay-screen-timeout retry pile (Torin Kelly
+    //       3x PayPal, 2026-06-07): each PayPal createOrder used to mint a new
+    //       local order before capture, so abandoned popups left orphan Awaiting
+    //       rows. Now the retries reuse one order — whichever attempt finally
+    //       captures (custom_id = our order number) finalizes that single order.
+    //       (a) blocks a re-CHARGE; (b) collapses re-ATTEMPTS. Works for every
+    //       rail (PayPal/crypto popup-timeouts AND zelle/venmo back-button reloads).
+    let resumeOrder = null
+    {
+      const guardCutoff = new Date(Date.now() - DUPLICATE_GUARD_MINUTES * 60 * 1000).toISOString()
       const sig = orderSignature(items, total)
-      const { data: recentPaid } = await supabaseAdmin
+      const { data: recent } = await supabaseAdmin
         .from('orders')
-        .select('order_number, items, total, created_at')
+        .select('id, order_number, items, total, payment_status, payment_method')
         .eq('customer_email', email)
-        .eq('payment_status', 'completed')
-        .gte('created_at', dupCutoff)
+        .gte('created_at', guardCutoff)
         .order('created_at', { ascending: false })
-        .limit(20)
-      const dup = (recentPaid || []).find((o) => orderSignature(o.items, o.total) === sig)
-      if (dup) {
-        console.warn('[orders/create] duplicate-order guard blocked a re-charge:', { email, sig, existing: dup.order_number })
-        return res.status(409).json({
-          error: `It looks like you just completed this order (${dup.order_number}) — we did NOT charge you again. Check your email for the confirmation. If you truly meant to place a second order, reply to that email or call (831) 218-5147 and we'll set it up.`,
-          duplicate: true,
-          existing_order_number: dup.order_number,
-          existing_status: 'completed',
-        })
+        .limit(30)
+      const sameCart = (recent || []).filter((o) => orderSignature(o.items, o.total) === sig)
+      if (isInstantRail) {
+        const dup = sameCart.find((o) => o.payment_status === 'completed')
+        if (dup) {
+          console.warn('[orders/create] duplicate-order guard blocked a re-charge:', { email, sig, existing: dup.order_number })
+          return res.status(409).json({
+            error: `It looks like you just completed this order (${dup.order_number}) — we did NOT charge you again. Check your email for the confirmation. If you truly meant to place a second order, reply to that email or call (831) 218-5147 and we'll set it up.`,
+            duplicate: true,
+            existing_order_number: dup.order_number,
+            existing_status: 'completed',
+          })
+        }
+      }
+      // Resume an open identical-cart order on the same rail (newest first).
+      resumeOrder = sameCart.find(
+        (o) => o.payment_method === paymentMethod &&
+          (o.payment_status === 'awaiting_payment' || o.payment_status === 'pending')
+      ) || null
+      if (resumeOrder) {
+        console.warn('[orders/create] resuming existing open order instead of duplicating:', { email, sig, existing: resumeOrder.order_number, rail: paymentMethod })
       }
     }
 
@@ -308,15 +331,26 @@ export default async function handler(req, res) {
       insertData.recovery_discount = recoveryDiscount
     }
 
-    const { data: order, error } = await supabaseAdmin
-      .from('orders')
-      .insert(insertData)
-      .select()
-      .single()
+    // Resume path: reuse the existing open order (skip the insert) so a retry
+    // can't pile up duplicate rows. Override orderNumber with the existing one so
+    // the processor session (PayPal custom_id / NOWPayments order_id / Zelle memo)
+    // attaches to the order the customer is resuming. Otherwise insert the new one.
+    let order
+    if (resumeOrder) {
+      orderNumber = resumeOrder.order_number
+      order = { id: resumeOrder.id }
+    } else {
+      const { data: inserted, error } = await supabaseAdmin
+        .from('orders')
+        .insert(insertData)
+        .select()
+        .single()
 
-    if (error) {
-      console.error('Order creation failed:', error)
-      return res.status(500).json({ error: error.message })
+      if (error) {
+        console.error('Order creation failed:', error)
+        return res.status(500).json({ error: error.message })
+      }
+      order = inserted
     }
 
     // Stamp the funnel session id (links the buyer's pre-order events to this
@@ -439,11 +473,13 @@ export default async function handler(req, res) {
       // admin manually marks paid after seeing the Zelle deposit in BoA-1990.
       // Customer is redirected to an instructions page and emailed the same
       // details so they can complete from their bank app.
-      try {
-        await sendZelleInstructions(order)
-      } catch (mailErr) {
-        console.error('[orders/create] Zelle instructions email failed:', mailErr.message)
-        // non-fatal — instructions are also on the redirect page; customer can still pay
+      if (!resumeOrder) {
+        try {
+          await sendZelleInstructions(order)
+        } catch (mailErr) {
+          console.error('[orders/create] Zelle instructions email failed:', mailErr.message)
+          // non-fatal — instructions are also on the panel/page; customer can still pay
+        }
       }
       return res.status(200).json({
         order_number: orderNumber,
@@ -459,11 +495,13 @@ export default async function handler(req, res) {
     // until admin sees the Venmo Business deposit + marks paid in the admin
     // Orders tab. Instructions page provides a venmo:// deep-link for mobile
     // app handoff plus copyable fields for desktop / fallback.
-    try {
-      await sendVenmoInstructions(order)
-    } catch (mailErr) {
-      console.error('[orders/create] Venmo instructions email failed:', mailErr.message)
-      // non-fatal — instructions are also on the redirect page; customer can still pay
+    if (!resumeOrder) {
+      try {
+        await sendVenmoInstructions(order)
+      } catch (mailErr) {
+        console.error('[orders/create] Venmo instructions email failed:', mailErr.message)
+        // non-fatal — instructions are also on the panel/page; customer can still pay
+      }
     }
     return res.status(200).json({
       order_number: orderNumber,
