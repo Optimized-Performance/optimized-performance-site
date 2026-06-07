@@ -5,6 +5,7 @@ import { runVelocityChecks, extractClientIP } from '../../../lib/fraud-checks'
 import { getCustomerIdFromReq } from '../../../lib/customer-session'
 import { computeOrderTotals } from '../../../lib/pricing'
 import { PAYMENT_STATUS } from '../../../lib/order-status'
+import { logMetric, startTimer } from '../../../lib/metrics'
 import { isRailAvailable } from '../../../lib/rail-utilization'
 import { verifyRecoveryToken } from '../../../lib/recovery'
 
@@ -49,6 +50,11 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end()
   if (!validateOrigin(req)) return res.status(403).json({ error: 'Forbidden' })
   if (!rateLimit(req, { maxRequests: 10, windowMs: 60000 })) return res.status(429).json({ error: 'Too many requests' })
+
+  // Time the full createOrder handler — this is the exact path PayPal Smart
+  // Buttons' createOrder callback waits on, so its duration is the timeout
+  // signal we need to watch (and the before/after for the P4 slim-down).
+  const elapsed = startTimer()
 
   try {
     const { name, email, address, city, state, zip, items, affiliateCode, recoveryToken, sessionId, researchUseAck, researchField, paymentMethod } = req.body
@@ -378,6 +384,7 @@ export default async function handler(req, res) {
     if (!rail) {
       return res.status(400).json({ error: `Unsupported payment method: ${paymentMethod}` })
     }
+    const sessionTimer = startTimer()
     try {
       const sessionFields = await rail.createSession({
         order,
@@ -393,6 +400,10 @@ export default async function handler(req, res) {
         resumeOrder,
         siteUrl: SITE_URL,
       })
+      // ms_total = full handler; ms_session = the processor round-trip alone.
+      // A large ms_total with small ms_session points at cold-start / pre-session
+      // DB work (the P4 slim-down target); large ms_session is the processor.
+      logMetric('order_create', { method: paymentMethod, ms_total: elapsed(), ms_session: sessionTimer(), resumed: !!resumeOrder, ok: true })
       return res.status(200).json({
         order_number: orderNumber,
         order_id: order.id,
@@ -402,6 +413,7 @@ export default async function handler(req, res) {
         ...sessionFields,
       })
     } catch (sessionErr) {
+      logMetric('order_create', { method: paymentMethod, ms_total: elapsed(), ms_session: sessionTimer(), ok: false, err: 'session_failed' })
       console.error(`[orders/create] ${paymentMethod} session failed:`, sessionErr.message)
       return res.status(502).json({ error: rail.failureError || 'Payment processor unavailable. Please try again.' })
     }
