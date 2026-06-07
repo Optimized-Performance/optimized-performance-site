@@ -1,13 +1,10 @@
 import { supabaseAdmin } from '../../../lib/supabase'
 import { validateOrigin, rateLimit, validateEmail, validateString, validateZip } from '../../../lib/security'
-import { createCheckoutSession } from '../../../lib/payments/cardProcessor'
-import { createCryptoCheckoutSession } from '../../../lib/payments/cryptoProcessor'
-import { createPaypalCheckoutSession } from '../../../lib/payments/paypalProcessor'
+import { getRail, isInstantRail as railIsInstant } from '../../../lib/payments/rails'
 import { runVelocityChecks, extractClientIP } from '../../../lib/fraud-checks'
 import { getCustomerIdFromReq } from '../../../lib/customer-session'
 import { computeOrderTotals } from '../../../lib/pricing'
 import { PAYMENT_STATUS } from '../../../lib/order-status'
-import { sendZelleInstructions, sendVenmoInstructions } from '../../../lib/alerts'
 import { isRailAvailable } from '../../../lib/rail-utilization'
 import { verifyRecoveryToken } from '../../../lib/recovery'
 
@@ -223,7 +220,7 @@ export default async function handler(req, res) {
     //   'pending'          — needs human review: zelle/venmo awaiting bank
     //                        deposit confirmation, OR fraud-blocked at any
     //                        rail. This IS the admin Pending view.
-    const isInstantRail = paymentMethod === 'paypal' || paymentMethod === 'card' || paymentMethod === 'crypto'
+    const isInstantRail = railIsInstant(paymentMethod)
     const initialPaymentStatus = (velocity.status === 'block' || !isInstantRail) ? PAYMENT_STATUS.PENDING : PAYMENT_STATUS.AWAITING_PAYMENT
 
     // Duplicate-order guard. Prevents the double-charge seen 2026-06-06 (Chance
@@ -372,138 +369,42 @@ export default async function handler(req, res) {
       })
     }
 
-    if (paymentMethod === 'card') {
-      const [firstName, ...lastParts] = String(name).trim().split(/\s+/)
-      const lastName = lastParts.join(' ')
-      try {
-        const { redirectUrl } = await createCheckoutSession({
-          orderNumber,
-          amountCents: Math.round(total * 100),
-          currency: 'USD',
-          customer: {
-            email,
-            firstName,
-            lastName,
-            address,
-            city,
-            state,
-            zip,
-            country: 'US',
-          },
+    // Rail dispatch (lib/payments/rails). Each rail's createSession returns the
+    // fields to merge into the 200 response — redirect_url for card/crypto and
+    // the manual zelle/venmo instructions page, paypal_order_id for PayPal Smart
+    // Buttons. Adding AllayPay / the NMI multi-MID router is a registry entry,
+    // not another branch on this money path.
+    const rail = getRail(paymentMethod)
+    if (!rail) {
+      return res.status(400).json({ error: `Unsupported payment method: ${paymentMethod}` })
+    }
+    try {
+      const sessionFields = await rail.createSession({
+        order,
+        orderNumber,
+        total,
+        customer: { name, email, address, city, state, zip },
+        urls: {
           returnUrl: `${SITE_URL}/checkout/success?order=${encodeURIComponent(orderNumber)}`,
           cancelUrl: `${SITE_URL}/checkout/cancel?order=${encodeURIComponent(orderNumber)}`,
-          callbackUrl: `${SITE_URL}/api/webhooks/bankful`,
-        })
-        return res.status(200).json({
-          order_number: orderNumber,
-          order_id: order.id,
-          total,
-          shipping,
-          discount,
-          redirect_url: redirectUrl,
-        })
-      } catch (sessionErr) {
-        console.error('[orders/create] Card checkout session failed:', sessionErr.message)
-        return res.status(502).json({ error: 'Payment processor unavailable. Please try again or use crypto checkout.' })
-      }
-    }
-
-    if (paymentMethod === 'crypto') {
-      try {
-        const { redirectUrl } = await createCryptoCheckoutSession({
-          orderNumber,
-          amountCents: Math.round(total * 100),
-          currency: 'USD',
-          returnUrl: `${SITE_URL}/checkout/success?order=${encodeURIComponent(orderNumber)}`,
-          cancelUrl: `${SITE_URL}/checkout/cancel?order=${encodeURIComponent(orderNumber)}`,
-          callbackUrl: `${SITE_URL}/api/webhooks/nowpayments`,
-        })
-        return res.status(200).json({
-          order_number: orderNumber,
-          order_id: order.id,
-          total,
-          shipping,
-          discount,
-          redirect_url: redirectUrl,
-        })
-      } catch (sessionErr) {
-        console.error('[orders/create] Crypto checkout session failed:', sessionErr.message)
-        return res.status(502).json({ error: 'Crypto payment processor unavailable. Please try again.' })
-      }
-    }
-
-    if (paymentMethod === 'paypal') {
-      try {
-        // Smart-Buttons flow: client renders PayPal/Venmo/Apple Pay inline via
-        // the JS SDK and submits the returned paypal_order_id back through the
-        // SDK's createOrder hook. No redirect_url is used. return_url/cancel_url
-        // are still passed for the rare fallback where PayPal opens a popup
-        // approval flow that needs them.
-        const { paypalOrderId } = await createPaypalCheckoutSession({
-          orderNumber,
-          amountCents: Math.round(total * 100),
-          currency: 'USD',
-          customer: { email },
-          returnUrl: `${SITE_URL}/checkout/success?order=${encodeURIComponent(orderNumber)}`,
-          cancelUrl: `${SITE_URL}/checkout/cancel?order=${encodeURIComponent(orderNumber)}`,
-        })
-        return res.status(200).json({
-          order_number: orderNumber,
-          order_id: order.id,
-          total,
-          shipping,
-          discount,
-          paypal_order_id: paypalOrderId,
-        })
-      } catch (sessionErr) {
-        console.error('[orders/create] PayPal checkout session failed:', sessionErr.message)
-        return res.status(502).json({ error: 'PayPal payment processor unavailable. Please try again.' })
-      }
-    }
-
-    if (paymentMethod === 'zelle') {
-      // Order sits in payment_status='pending' / payment_method='zelle' until
-      // admin manually marks paid after seeing the Zelle deposit in BoA-1990.
-      // Customer is redirected to an instructions page and emailed the same
-      // details so they can complete from their bank app.
-      if (!resumeOrder) {
-        try {
-          await sendZelleInstructions(order)
-        } catch (mailErr) {
-          console.error('[orders/create] Zelle instructions email failed:', mailErr.message)
-          // non-fatal — instructions are also on the panel/page; customer can still pay
-        }
-      }
+          bankfulCallback: `${SITE_URL}/api/webhooks/bankful`,
+          nowpaymentsCallback: `${SITE_URL}/api/webhooks/nowpayments`,
+        },
+        resumeOrder,
+        siteUrl: SITE_URL,
+      })
       return res.status(200).json({
         order_number: orderNumber,
         order_id: order.id,
         total,
         shipping,
         discount,
-        redirect_url: `${SITE_URL}/checkout/zelle-instructions?order=${encodeURIComponent(orderNumber)}&amount=${total.toFixed(2)}`,
+        ...sessionFields,
       })
+    } catch (sessionErr) {
+      console.error(`[orders/create] ${paymentMethod} session failed:`, sessionErr.message)
+      return res.status(502).json({ error: rail.failureError || 'Payment processor unavailable. Please try again.' })
     }
-
-    // Venmo path. Same shape as Zelle — order pends in payment_method='venmo'
-    // until admin sees the Venmo Business deposit + marks paid in the admin
-    // Orders tab. Instructions page provides a venmo:// deep-link for mobile
-    // app handoff plus copyable fields for desktop / fallback.
-    if (!resumeOrder) {
-      try {
-        await sendVenmoInstructions(order)
-      } catch (mailErr) {
-        console.error('[orders/create] Venmo instructions email failed:', mailErr.message)
-        // non-fatal — instructions are also on the panel/page; customer can still pay
-      }
-    }
-    return res.status(200).json({
-      order_number: orderNumber,
-      order_id: order.id,
-      total,
-      shipping,
-      discount,
-      redirect_url: `${SITE_URL}/checkout/venmo-instructions?order=${encodeURIComponent(orderNumber)}&amount=${total.toFixed(2)}`,
-    })
   } catch (err) {
     console.error('Order creation failed:', err)
     return res.status(500).json({ error: err.message })
