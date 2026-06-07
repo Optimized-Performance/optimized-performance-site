@@ -45,6 +45,14 @@ const paypalEnabled = process.env.NEXT_PUBLIC_PAYPAL_ENABLED === 'true';
 // (e.g. AllayPay) requires account-gated checkout. Enforced server-side too.
 const requireAccount = process.env.NEXT_PUBLIC_REQUIRE_ACCOUNT === 'true';
 
+// Idempotency key generator (P3). UUID where available; a timestamp+random
+// fallback for older browsers. Makes server-side order creation exactly-once
+// across retries of the same checkout attempt.
+function genIdempotencyKey() {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return crypto.randomUUID();
+  return `k-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
 // Inline alt-rail config — used by the Zelle/Venmo pay panels so the customer
 // completes payment ON the checkout instead of being bounced to a separate
 // instructions page (which read as a sketchy side-door and cost conversion).
@@ -99,6 +107,7 @@ export default function Checkout() {
   // landing with a method pre-chosen.
   const [selectedMethod, setSelectedMethod] = useState(null);
   const autoAppliedRef = useRef(false);
+  const idempotencyRef = useRef({ sig: null, key: null });
   const altPayRef = useRef(null);
   const paypalRef = useRef(null);
   const router = useRouter();
@@ -324,6 +333,17 @@ export default function Checkout() {
     return true;
   };
 
+  // Stable idempotency key per checkout attempt — regenerates only when the
+  // cart changes, so retries of the same cart (pay-screen timeout, double-submit)
+  // carry the same key and resume the one order server-side instead of duplicating.
+  const currentIdempotencyKey = () => {
+    const sig = cartItems.map((i) => `${i.sku || i.id}:${i.quantity}`).sort().join('|');
+    if (idempotencyRef.current.sig !== sig || !idempotencyRef.current.key) {
+      idempotencyRef.current = { sig, key: genIdempotencyKey() };
+    }
+    return idempotencyRef.current.key;
+  };
+
   const buildOrderPayload = (paymentMethod) => ({
     name, email, address, city, state, zip,
     items: cartItems.map((item) => ({
@@ -335,6 +355,7 @@ export default function Checkout() {
     affiliateCode: affiliateApplied?.code || null,
     recoveryToken: recoveryToken || null,
     sessionId: getSessionId(),
+    idempotencyKey: currentIdempotencyKey(),
     researchUseAck: researchAck,
     researchField,
     paymentMethod,

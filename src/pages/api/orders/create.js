@@ -57,7 +57,7 @@ export default async function handler(req, res) {
   const elapsed = startTimer()
 
   try {
-    const { name, email, address, city, state, zip, items, affiliateCode, recoveryToken, sessionId, researchUseAck, researchField, paymentMethod } = req.body
+    const { name, email, address, city, state, zip, items, affiliateCode, recoveryToken, sessionId, researchUseAck, researchField, paymentMethod, idempotencyKey } = req.body
 
     if (!validateString(name) || !validateEmail(email) || !validateString(address) ||
         !validateString(city) || !validateString(state, { minLength: 1, maxLength: 50 }) || !validateZip(zip) ||
@@ -250,7 +250,35 @@ export default async function handler(req, res) {
     //       captures (custom_id = our order number) finalizes that single order.
     //       (a) blocks a re-CHARGE; (b) collapses re-ATTEMPTS. Works for every
     //       rail (PayPal/crypto popup-timeouts AND zelle/venmo back-button reloads).
+    // Dedup / resume — two layers:
+    //   PRIMARY (P3): idempotency key. The client sends a stable key per checkout
+    //     attempt; every retry of that attempt carries the same key, so we resume
+    //     the one order (or block a re-charge if it already completed). Precise +
+    //     race-safe via the unique index on orders.idempotency_key.
+    //   BACKSTOP: the cart-signature recent-orders scan, for keyless / older
+    //     cached clients that don't send a key.
     let resumeOrder = null
+    if (idempotencyKey && typeof idempotencyKey === 'string') {
+      const { data: keyed } = await supabaseAdmin
+        .from('orders')
+        .select('id, order_number, payment_status')
+        .eq('idempotency_key', idempotencyKey)
+        .maybeSingle()
+      if (keyed) {
+        if (keyed.payment_status === PAYMENT_STATUS.COMPLETED) {
+          return res.status(409).json({
+            error: `It looks like you just completed this order (${keyed.order_number}) — we did NOT charge you again. Check your email for the confirmation.`,
+            duplicate: true,
+            existing_order_number: keyed.order_number,
+            existing_status: 'completed',
+          })
+        }
+        if (keyed.payment_status === PAYMENT_STATUS.AWAITING_PAYMENT || keyed.payment_status === PAYMENT_STATUS.PENDING) {
+          resumeOrder = keyed
+          console.warn('[orders/create] resuming by idempotency key:', { key: idempotencyKey, existing: keyed.order_number })
+        }
+      }
+    }
     {
       const guardCutoff = new Date(Date.now() - DUPLICATE_GUARD_MINUTES * 60 * 1000).toISOString()
       const sig = orderSignature(items, total)
@@ -262,8 +290,8 @@ export default async function handler(req, res) {
         .order('created_at', { ascending: false })
         .limit(30)
       const sameCart = (recent || []).filter((o) => orderSignature(o.items, o.total) === sig)
-      if (isInstantRail) {
-        const dup = sameCart.find((o) => o.payment_status === 'completed')
+      if (isInstantRail && !resumeOrder) {
+        const dup = sameCart.find((o) => o.payment_status === PAYMENT_STATUS.COMPLETED)
         if (dup) {
           console.warn('[orders/create] duplicate-order guard blocked a re-charge:', { email, sig, existing: dup.order_number })
           return res.status(409).json({
@@ -274,13 +302,15 @@ export default async function handler(req, res) {
           })
         }
       }
-      // Resume an open identical-cart order on the same rail (newest first).
-      resumeOrder = sameCart.find(
-        (o) => o.payment_method === paymentMethod &&
-          (o.payment_status === 'awaiting_payment' || o.payment_status === 'pending')
-      ) || null
-      if (resumeOrder) {
-        console.warn('[orders/create] resuming existing open order instead of duplicating:', { email, sig, existing: resumeOrder.order_number, rail: paymentMethod })
+      // Keyless backstop: resume an open identical-cart order on the same rail.
+      if (!resumeOrder) {
+        resumeOrder = sameCart.find(
+          (o) => o.payment_method === paymentMethod &&
+            (o.payment_status === PAYMENT_STATUS.AWAITING_PAYMENT || o.payment_status === PAYMENT_STATUS.PENDING)
+        ) || null
+        if (resumeOrder) {
+          console.warn('[orders/create] resuming existing open order (cart-sig backstop):', { email, sig, existing: resumeOrder.order_number, rail: paymentMethod })
+        }
       }
     }
 
@@ -298,6 +328,7 @@ export default async function handler(req, res) {
       total,
       payment_status: initialPaymentStatus,
       payment_method: paymentMethod,
+      idempotency_key: idempotencyKey || null,
       research_field: researchField,
       customer_ip: customerIp,
       user_agent: userAgent,
@@ -343,10 +374,27 @@ export default async function handler(req, res) {
         .single()
 
       if (error) {
-        console.error('Order creation failed:', error)
-        return res.status(500).json({ error: error.message })
+        // Idempotency-key race: a concurrent request with the same key won the
+        // insert (unique-index violation, 23505). Re-query by key and resume that
+        // order instead of erroring — exactly-once even under a double-submit race.
+        if (error.code === '23505' && idempotencyKey) {
+          const { data: raced } = await supabaseAdmin
+            .from('orders')
+            .select('id, order_number')
+            .eq('idempotency_key', idempotencyKey)
+            .maybeSingle()
+          if (raced) {
+            orderNumber = raced.order_number
+            order = { id: raced.id }
+          }
+        }
+        if (!order) {
+          console.error('Order creation failed:', error)
+          return res.status(500).json({ error: error.message })
+        }
+      } else {
+        order = inserted
       }
-      order = inserted
     }
 
     // Stamp the funnel session id (links the buyer's pre-order events to this
