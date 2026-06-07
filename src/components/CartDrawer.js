@@ -90,7 +90,7 @@ export default function CartDrawer() {
               {cartItems.map((item) => (
                 <div key={item.id} className="flex gap-3.5 py-4 border-b border-line last:border-none">
                   <div className="w-[70px] h-[90px] rounded-opp bg-surfaceAlt border border-line flex items-center justify-center shrink-0">
-                    <Vial label={item.name} dosage={item.dosage} size={64} kit={item.isKit} />
+                    <Vial label={item.name} dosage={item.dosage} size={64} kit={item.isKit} sku={item.sku} />
                   </div>
                   <div className="flex-1 flex flex-col gap-2.5">
                     <div className="flex justify-between items-start gap-2">
@@ -170,7 +170,7 @@ export default function CartDrawer() {
                   {addOns.map((a) => (
                     <div key={a.id} className="flex items-center gap-3 p-2.5 rounded-opp border border-line bg-surfaceAlt/40">
                       <div className="w-9 h-11 rounded bg-surfaceAlt border border-line flex items-center justify-center shrink-0">
-                        <Vial label={a.name} dosage={a.dosage} size={32} />
+                        <Vial label={a.name} dosage={a.dosage} size={32} sku={a.sku} />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="text-[13px] font-semibold text-ink leading-snug truncate">{a.name}</div>
