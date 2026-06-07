@@ -562,4 +562,17 @@ export function formatPreorderShipDate(product) {
   }
 }
 
+// Cart cross-sell add-ons — surfaced in the cart drawer ("complete your order").
+// Bacteriostatic water is the natural attach for any reconstitutable peptide.
+// Only suggest when the cart holds a real peptide (not just add-ons) and the
+// add-on isn't already in the cart; the standard 10 mL is offered first.
+const CART_ADDON_IDS = ['bac-water-10ml', 'bac-water-30ml-hospira'];
+export function getCartAddOns(cartItems = []) {
+  const items = Array.isArray(cartItems) ? cartItems : [];
+  const inCart = new Set(items.map((i) => i.id));
+  const hasPeptide = items.some((i) => !CART_ADDON_IDS.includes(i.id));
+  if (!hasPeptide) return [];
+  return products.filter((p) => CART_ADDON_IDS.includes(p.id) && !inCart.has(p.id)).slice(0, 1);
+}
+
 export default products;

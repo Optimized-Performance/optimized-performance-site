@@ -1,7 +1,8 @@
 import { useRouter } from 'next/router';
 import { useCart } from '../context/CartContext';
 import { Vial, Icon } from './Primitives';
-import { calcShipping } from '../lib/shipping';
+import { calcShipping, FREE_SHIPPING_THRESHOLD } from '../lib/shipping';
+import { getCartAddOns } from '../data/products';
 
 function formatShipDate(iso) {
   if (!iso) return null;
@@ -26,6 +27,7 @@ export default function CartDrawer() {
     setIsCartOpen,
     removeFromCart,
     updateQuantity,
+    addToCart,
     cartTotal,
   } = useCart();
 
@@ -41,6 +43,12 @@ export default function CartDrawer() {
   // applied yet, so we pass cartTotal as discountedSubtotal. Final numbers
   // are recomputed at checkout once the affiliate code is applied.
   const shippingBreakdown = calcShipping({ items: cartItems, discountedSubtotal: cartTotal });
+  // Cross-sell add-ons (BAC water) + free-shipping progress — only meaningful for
+  // vial-only carts (kits always pay the cold-pack surcharge, no free-ship tier).
+  const addOns = getCartAddOns(cartItems);
+  const freeShipEligible = !shippingBreakdown.hasColdPack;
+  const remaining = Math.max(0, FREE_SHIPPING_THRESHOLD - cartTotal);
+  const freeShipPct = Math.min(100, (cartTotal / FREE_SHIPPING_THRESHOLD) * 100);
 
   return (
     <>
@@ -136,6 +144,46 @@ export default function CartDrawer() {
             </div>
 
             <footer className="border-t border-line px-6 py-5 flex flex-col gap-2.5">
+              {/* Free-shipping progress — nudges AOV toward the $250 vial-only tier */}
+              {freeShipEligible && (
+                remaining > 0 ? (
+                  <div className="mb-1">
+                    <div className="flex justify-between opp-meta-mono mb-1.5">
+                      <span className="text-ink-soft">Add <strong className="text-ink">${remaining.toFixed(2)}</strong> for FREE shipping</span>
+                      <span className="text-ink-mute">${FREE_SHIPPING_THRESHOLD}</span>
+                    </div>
+                    <div className="h-1.5 bg-surfaceAlt rounded-full overflow-hidden">
+                      <div className="h-full bg-accent-strong rounded-full transition-all duration-300" style={{ width: `${freeShipPct}%` }} />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="opp-meta-mono text-success flex items-center gap-1.5 mb-1">
+                    <Icon name="truck" size={13} /> You&rsquo;ve unlocked FREE shipping
+                  </div>
+                )
+              )}
+
+              {/* Cross-sell add-ons (BAC water) — highest-intent moment */}
+              {addOns.length > 0 && (
+                <div className="flex flex-col gap-2 pb-3 mb-1 border-b border-line">
+                  <span className="opp-meta-mono text-ink-mute">Complete your order</span>
+                  {addOns.map((a) => (
+                    <div key={a.id} className="flex items-center gap-3 p-2.5 rounded-opp border border-line bg-surfaceAlt/40">
+                      <div className="w-9 h-11 rounded bg-surfaceAlt border border-line flex items-center justify-center shrink-0">
+                        <Vial label={a.name} dosage={a.dosage} size={32} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-[13px] font-semibold text-ink leading-snug truncate">{a.name}</div>
+                        <div className="opp-meta-mono">{a.dosage} · ${a.price.toFixed(2)}</div>
+                      </div>
+                      <button className="btn-outline text-xs px-3 py-1.5 whitespace-nowrap" onClick={() => addToCart(a, {})} aria-label={`Add ${a.name}`}>
+                        <Icon name="plus" size={12} /> Add
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
               <div className="flex justify-between text-base font-semibold text-ink mb-1">
                 <span>Subtotal</span>
                 <span>${cartTotal.toFixed(2)}</span>
