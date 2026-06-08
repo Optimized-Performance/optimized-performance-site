@@ -61,7 +61,7 @@ export default async function handler(req, res) {
     const days = parseInt(req.query.days, 10)
     let query = supabaseAdmin
       .from('orders')
-      .select('payment_status, payment_method, affiliate_code')
+      .select('payment_status, payment_method, affiliate_code, customer_email')
       .order('created_at', { ascending: false })
       .limit(10000)
     if (Number.isFinite(days) && days > 0) {
@@ -78,7 +78,14 @@ export default async function handler(req, res) {
     const cardRails = emptyBucket()
     const affMap = {}
 
+    // Exclude test orders (e.g. the founder's own checkout testing) so they
+    // don't skew completion/fall-off — especially on small affiliate codes.
+    // Set FUNNEL_EXCLUDE_EMAILS in env (comma-separated emails).
+    const excludeEmails = new Set((process.env.FUNNEL_EXCLUDE_EMAILS || '').split(',').map((e) => e.trim().toLowerCase()).filter(Boolean))
+    let excludedCount = 0
+
     for (const o of orders) {
+      if (o.customer_email && excludeEmails.has(o.customer_email.toLowerCase())) { excludedCount += 1; continue }
       const status = o.payment_status
       const rail = RAILS.includes(o.payment_method) ? o.payment_method : 'other'
       if (!byRail[rail]) byRail[rail] = emptyBucket()
@@ -102,7 +109,8 @@ export default async function handler(req, res) {
 
     return res.status(200).json({
       window: Number.isFinite(days) && days > 0 ? `${days}d` : 'all',
-      total_orders: orders.length,
+      total_orders: orders.length - excludedCount,
+      excluded_count: excludedCount,
       sitewide: rates(sitewide),
       cardRails: rates(cardRails),
       byRail: railRates,

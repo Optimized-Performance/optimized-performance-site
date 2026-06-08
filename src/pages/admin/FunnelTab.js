@@ -170,7 +170,7 @@ export default function FunnelTab({ token }) {
             <table className="w-full border-collapse text-[13px]">
               <thead className="bg-surfaceAlt">
                 <tr>
-                  {['Code', 'Orders', 'Completion', 'Card attempts', 'Card fall-off'].map((h) => (
+                  {['Code', 'Orders', 'Card attempts', 'Card completion', 'Card fall-off'].map((h) => (
                     <th key={h} className="px-3 py-3 font-mono text-[10px] font-semibold tracking-[0.14em] uppercase text-ink-mute border-b border-line text-left">
                       {h}
                     </th>
@@ -187,8 +187,8 @@ export default function FunnelTab({ token }) {
                         {isTris && <span className="ml-1.5 text-[10px] text-accent-strong">★</span>}
                       </td>
                       <td className="px-3 py-2">{a.all.attempts}</td>
-                      <td className={`px-3 py-2 font-semibold ${completionTone(a.all.completionRate)}`}>{fmtPct(a.all.completionRate)}</td>
                       <td className="px-3 py-2 text-ink-soft">{a.card.attempts}</td>
+                      <td className={`px-3 py-2 font-semibold ${completionTone(a.card.completionRate)}`}>{fmtPct(a.card.completionRate)}</td>
                       <td className={`px-3 py-2 font-semibold ${fallOffTone(a.card.fallOffRate)}`}>{fmtPct(a.card.fallOffRate)}</td>
                     </tr>
                   )
@@ -204,6 +204,8 @@ export default function FunnelTab({ token }) {
               <li><strong>Completion</strong> = paid ÷ resolved attempts (resolved = paid + abandoned; excludes still-in-flight &quot;awaiting&quot; and manual-deposit/fraud-review &quot;pending&quot;).</li>
               <li><strong>Fall-off</strong> = abandoned ÷ resolved — the &quot;people who tried to pay and didn&apos;t finish.&quot; <strong>Card / PayPal fall-off is the &quot;credit card stuff&quot;</strong> to watch before showing Tris.</li>
               <li><strong>Manual rails (Zelle / Venmo) show &quot;—&quot;</strong> for completion/fall-off — they don&apos;t auto-abandon (an unpaid one sits &quot;pending&quot;), so their fall-off isn&apos;t comparable here.</li>
+              <li><strong>The affiliate table is card-only</strong> — &quot;Card completion&quot; + &quot;Card fall-off&quot; are both shares of that code&apos;s card/PayPal <em>resolved</em> attempts, so they reconcile to 100%. (&quot;Orders&quot; is the code&apos;s total across all rails, for volume.)</li>
+              <li><strong>Test orders excluded</strong> — set FUNNEL_EXCLUDE_EMAILS (comma-separated) in env so founder testing doesn&apos;t skew small codes.</li>
               <li><strong>Caveat:</strong> &quot;abandoned&quot; conflates true card declines with customers who just closed the tab — it&apos;s &quot;didn&apos;t complete,&quot; not strictly &quot;declined.&quot;</li>
             </ul>
           </div>
