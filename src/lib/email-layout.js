@@ -25,6 +25,28 @@ function esc(s) {
   return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
+// Exported for callers building rich content blocks (extraHtml) with customer
+// data — always escape customer-supplied values (names, addresses) with this.
+export function escapeHtml(s) { return esc(s); }
+export const EMAIL_FONT = FONT;
+
+// Reusable bordered detail table for transactional emails — order items,
+// payment recipient/amount/memo, refund details. rows = [{ label, value,
+// strong?, accent? }]; label/value are trusted inline HTML (escape customer
+// values first). Left-aligned regardless of the email's align.
+export function emailDetailTable(rows = []) {
+  const cell = (extra) => `padding:12px 18px;font-family:${FONT};font-size:14px;${extra}`;
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border:1px solid ${C.border};border-radius:12px;overflow:hidden;margin:6px 0 18px;text-align:left;">
+    ${rows.map((r, i) => {
+      const bb = i < rows.length - 1 ? `border-bottom:1px solid ${C.border};` : '';
+      const lc = r.strong ? C.ink : C.soft;
+      const vc = r.accent ? C.accent : (r.strong ? C.ink : C.soft);
+      const fw = r.strong ? 'font-weight:700;' : '';
+      return `<tr><td style="${cell(`${bb}color:${lc};${fw}`)}">${r.label}</td><td align="right" style="${cell(`${bb}color:${vc};${fw}`)}">${r.value}</td></tr>`;
+    }).join('')}
+  </table>`;
+}
+
 export function renderBrandedEmail({
   preheader = '', eyebrow = '', heading = '', align = 'left',
   paragraphs = [], highlight = null, extraHtml = '',

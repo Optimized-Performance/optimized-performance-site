@@ -2,9 +2,18 @@
 // Configure ALERT_EMAIL, TWILIO_*, and SENDGRID_API_KEY in environment variables to enable
 
 import { RECOVERY_DISCOUNT_PCT } from './recovery-config';
-import { renderBrandedEmail } from './email-layout';
+import { renderBrandedEmail, emailDetailTable, escapeHtml, EMAIL_FONT } from './email-layout';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://optimizedperformancepeptides.com';
+
+// Shared footer for branded customer emails.
+function emailFooterLines() {
+  return [
+    `Optimized Performance Inc.${process.env.MARKETING_POSTAL_ADDRESS ? ' &middot; ' + process.env.MARKETING_POSTAL_ADDRESS : ''}`,
+    `<a href="mailto:admin@optimizedperformancepeptides.com" style="color:#6E6D68;text-decoration:underline;">admin@optimizedperformancepeptides.com</a> &middot; (831) 218-5147`,
+    `For research use only. Not for human consumption.`,
+  ];
+}
 
 // Build the customer-facing order lookup URL with email pre-filled so the
 // link in their email is one click — no retyping the order number or email
@@ -136,6 +145,21 @@ export async function sendShipmentNotification(order) {
     `— Optimized Performance`,
   ].filter(Boolean).join('\n');
 
+  const html = renderBrandedEmail({
+    preheader: `Your order ${order.order_number} is on the way.`,
+    eyebrow: 'On its way',
+    heading: 'Your order has shipped',
+    paragraphs: [`Order <strong style="color:#F5F3EC;">${escapeHtml(order.order_number)}</strong> is on its way via ${escapeHtml(carrier)}.`],
+    extraHtml: emailDetailTable([
+      { label: 'Carrier', value: escapeHtml(carrier) },
+      { label: 'Tracking #', value: escapeHtml(order.tracking), strong: true },
+    ]),
+    cta: url ? { text: 'Track shipment', url } : (lookupUrl ? { text: 'View order', url: lookupUrl } : null),
+    note: `Anything off when it arrives — wrong item, damage, missing pieces? Email admin@optimizedperformancepeptides.com or call (831) 218-5147 the same day. Direct refunds are faster than disputes — please reach out first. Charge appears as OPTIMIZED PERFORMANCE INC.`,
+    trust: ['Tracked delivery', 'COA-verified', 'Same-day support'],
+    footerLines: emailFooterLines(),
+  });
+
   try {
     await fetch('https://api.sendgrid.com/v3/mail/send', {
       method: 'POST',
@@ -144,7 +168,10 @@ export async function sendShipmentNotification(order) {
         personalizations: [{ to: [{ email: order.customer_email }] }],
         from: { email: process.env.FROM_EMAIL || 'orders@optimizedperformancepeptides.com' },
         subject: `Shipped — ${order.order_number}`,
-        content: [{ type: 'text/plain', value: body }],
+        content: [
+          { type: 'text/plain', value: body },
+          { type: 'text/html', value: html },
+        ],
       }),
     });
   } catch (err) {
@@ -176,6 +203,17 @@ export async function sendDeliveryFollowup(order) {
     `— Optimized Performance`,
   ].filter(Boolean).join('\n');
 
+  const html = renderBrandedEmail({
+    preheader: `Did order ${order.order_number} arrive OK?`,
+    eyebrow: 'Checking in',
+    heading: 'Did everything arrive OK?',
+    paragraphs: [`Your order <strong style="color:#F5F3EC;">${escapeHtml(order.order_number)}</strong> shipped about a week ago — if it's already here, you can ignore this.`],
+    extraHtml: order.tracking ? emailDetailTable([{ label: 'Tracking #', value: escapeHtml(order.tracking), strong: true }]) : '',
+    cta: url ? { text: 'Track shipment', url } : null,
+    note: `Not here yet? Email admin@optimizedperformancepeptides.com or call (831) 218-5147 and we'll look into it — we'd much rather sort out a delivery issue together than have you file a dispute.`,
+    footerLines: emailFooterLines(),
+  });
+
   try {
     await fetch('https://api.sendgrid.com/v3/mail/send', {
       method: 'POST',
@@ -184,7 +222,10 @@ export async function sendDeliveryFollowup(order) {
         personalizations: [{ to: [{ email: order.customer_email }] }],
         from: { email: process.env.FROM_EMAIL || 'orders@optimizedperformancepeptides.com' },
         subject: `Checking in on order ${order.order_number}`,
-        content: [{ type: 'text/plain', value: body }],
+        content: [
+          { type: 'text/plain', value: body },
+          { type: 'text/html', value: html },
+        ],
       }),
     });
   } catch (err) {
@@ -328,6 +369,18 @@ export async function sendRefundNotification(order, { amount, reason }) {
     `— Optimized Performance`,
   ].filter(Boolean).join('\n');
 
+  const html = renderBrandedEmail({
+    preheader: `Refund of $${refundAmount} processed for order ${order.order_number}.`,
+    align: 'center',
+    eyebrow: 'Refund processed',
+    heading: 'Your refund is on the way',
+    paragraphs: [`We've refunded order <strong style="color:#F5F3EC;">${escapeHtml(order.order_number)}</strong> to your original payment method. It typically posts within 5–10 business days, depending on your bank.`],
+    highlight: { label: 'Refunded', value: `$${refundAmount}`, sub: reason ? escapeHtml(reason) : 'To your original payment method' },
+    cta: lookupUrl ? { text: 'View order', url: lookupUrl } : null,
+    note: `Don't see it within that window? Email admin@optimizedperformancepeptides.com with your order number and we'll look it up.`,
+    footerLines: emailFooterLines(),
+  });
+
   try {
     await fetch('https://api.sendgrid.com/v3/mail/send', {
       method: 'POST',
@@ -336,7 +389,10 @@ export async function sendRefundNotification(order, { amount, reason }) {
         personalizations: [{ to: [{ email: order.customer_email }] }],
         from: { email: process.env.FROM_EMAIL || 'orders@optimizedperformancepeptides.com' },
         subject: `Refund processed — ${order.order_number}`,
-        content: [{ type: 'text/plain', value: body }],
+        content: [
+          { type: 'text/plain', value: body },
+          { type: 'text/html', value: html },
+        ],
       }),
     });
   } catch (err) {
@@ -373,6 +429,24 @@ export async function sendOrderConfirmation(order) {
     `— Optimized Performance`,
   ].filter(Boolean).join('\n');
 
+  const detailsHtml = emailDetailTable([
+    ...order.items.map((i) => ({
+      label: `${escapeHtml(i.name || i.sku)} <span style="color:#6E6D68;">&times;${i.quantity}</span>`,
+      value: `$${(i.price * i.quantity).toFixed(2)}`,
+    })),
+    { label: 'Total', value: `$${order.total.toFixed(2)}`, strong: true, accent: true },
+  ]) + `<div style="font-family:${EMAIL_FONT};font-size:13px;color:#6E6D68;line-height:1.5;">Shipping to: ${escapeHtml(order.shipping_address)}, ${escapeHtml(order.city)}, ${escapeHtml(order.state)} ${escapeHtml(order.zip)}</div>`;
+  const html = renderBrandedEmail({
+    preheader: `Order ${order.order_number} confirmed — thank you!`,
+    eyebrow: 'Order confirmed',
+    heading: 'Thank you for your order',
+    paragraphs: [`We've got it — order <strong style="color:#F5F3EC;">${escapeHtml(order.order_number)}</strong> is confirmed, and we'll ship within 1 business day.`],
+    extraHtml: detailsHtml,
+    cta: lookupUrl ? { text: 'Track your order', url: lookupUrl } : null,
+    trust: ['Ships in 1 business day', 'COA-verified', 'Encrypted checkout'],
+    footerLines: emailFooterLines(),
+  });
+
   try {
     await fetch('https://api.sendgrid.com/v3/mail/send', {
       method: 'POST',
@@ -381,7 +455,10 @@ export async function sendOrderConfirmation(order) {
         personalizations: [{ to: [{ email: order.customer_email }] }],
         from: { email: process.env.FROM_EMAIL || 'orders@optimizedperformancepeptides.com' },
         subject: `Order Confirmed — ${order.order_number}`,
-        content: [{ type: 'text/plain', value: body }],
+        content: [
+          { type: 'text/plain', value: body },
+          { type: 'text/html', value: html },
+        ],
       }),
     });
   } catch (err) {
@@ -427,6 +504,21 @@ export async function sendZelleInstructions(order) {
     `— Optimized Performance`,
   ].join('\n');
 
+  const html = renderBrandedEmail({
+    preheader: `Send your Zelle to complete order ${order.order_number}.`,
+    align: 'center',
+    eyebrow: 'Almost done',
+    heading: 'Complete your Zelle payment',
+    paragraphs: [`Your order is reserved. Send the Zelle below from your bank app — we'll ship within 1 business day of the deposit landing.`],
+    extraHtml: emailDetailTable([
+      { label: 'Send to', value: escapeHtml(ZELLE_RECIPIENT), strong: true },
+      { label: 'Amount', value: `$${Number(order.total).toFixed(2)}`, strong: true, accent: true },
+      { label: 'Memo (required)', value: escapeHtml(order.order_number), strong: true },
+    ]),
+    note: `Put your order number in the Zelle memo so we can match the payment. Order is reserved up to 72 hours, then released. Questions? Reply or call (831) 218-5147.`,
+    footerLines: emailFooterLines(),
+  });
+
   try {
     await fetch('https://api.sendgrid.com/v3/mail/send', {
       method: 'POST',
@@ -435,7 +527,10 @@ export async function sendZelleInstructions(order) {
         personalizations: [{ to: [{ email: order.customer_email }] }],
         from: { email: process.env.FROM_EMAIL || 'orders@optimizedperformancepeptides.com' },
         subject: `Complete your Zelle payment — ${order.order_number}`,
-        content: [{ type: 'text/plain', value: body }],
+        content: [
+          { type: 'text/plain', value: body },
+          { type: 'text/html', value: html },
+        ],
       }),
     });
   } catch (err) {
@@ -485,6 +580,24 @@ export async function sendVenmoInstructions(order) {
     `— Optimized Performance`,
   ].join('\n');
 
+  const venmoUrl = `https://venmo.com/?txn=pay&audience=private&recipients=${VENMO_BUSINESS_HANDLE}&amount=${Number(order.total).toFixed(2)}&note=${encodeURIComponent(order.order_number)}`;
+  const html = renderBrandedEmail({
+    preheader: `Send your Venmo to complete order ${order.order_number}.`,
+    align: 'center',
+    eyebrow: 'Almost done',
+    heading: 'Complete your Venmo payment',
+    paragraphs: [`Your order is reserved. Tap below to open Venmo with the amount and note prefilled — we'll ship within 1 business day of payment landing.`],
+    extraHtml: emailDetailTable([
+      { label: 'Send to', value: `@${escapeHtml(VENMO_BUSINESS_HANDLE)}`, strong: true },
+      { label: 'Amount', value: `$${Number(order.total).toFixed(2)}`, strong: true, accent: true },
+      { label: 'Note (required)', value: escapeHtml(order.order_number), strong: true },
+    ]),
+    cta: { text: 'Open Venmo', url: venmoUrl },
+    ctaSub: 'Opens the app with the amount + note prefilled.',
+    note: `Put ONLY your order number in the note. Pay from balance, bank, or debit (free); credit-card funding adds Venmo's 3% fee. Reserved up to 72 hours. Questions? Reply or call (831) 218-5147.`,
+    footerLines: emailFooterLines(),
+  });
+
   try {
     await fetch('https://api.sendgrid.com/v3/mail/send', {
       method: 'POST',
@@ -493,7 +606,10 @@ export async function sendVenmoInstructions(order) {
         personalizations: [{ to: [{ email: order.customer_email }] }],
         from: { email: process.env.FROM_EMAIL || 'orders@optimizedperformancepeptides.com' },
         subject: `Complete your Venmo payment — ${order.order_number}`,
-        content: [{ type: 'text/plain', value: body }],
+        content: [
+          { type: 'text/plain', value: body },
+          { type: 'text/html', value: html },
+        ],
       }),
     });
   } catch (err) {
