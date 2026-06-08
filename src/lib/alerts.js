@@ -510,7 +510,7 @@ export async function sendZelleInstructions(order) {
     eyebrow: 'Almost done',
     heading: 'Complete your Zelle payment',
     paragraphs: [`Your order is reserved. Send the Zelle below from your bank app — we'll ship within 1 business day of the deposit landing.`],
-    extraHtml: emailDetailTable([
+    extraHtml: `<div style="text-align:center;margin:2px 0 18px;"><img src="${SITE_URL}/zelle-qr.png" alt="Scan with your bank app to pay Optimized Performance Inc by Zelle" width="220" style="width:220px;max-width:72%;height:auto;border-radius:12px;border:1px solid #24272D;background:#ffffff;padding:6px;"><div style="font-family:${EMAIL_FONT};font-size:12px;color:#6E6D68;margin-top:9px;">Scan with your bank app, or send manually below</div></div>` + emailDetailTable([
       { label: 'Send to', value: escapeHtml(ZELLE_RECIPIENT), strong: true },
       { label: 'Amount', value: `$${Number(order.total).toFixed(2)}`, strong: true, accent: true },
       { label: 'Memo (required)', value: escapeHtml(order.order_number), strong: true },
