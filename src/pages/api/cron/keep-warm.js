@@ -17,19 +17,15 @@
 // Auth shape matches the other crons: CRON_SECRET header for manual triggers,
 // Vercel cron signature bypass for the scheduled run.
 
+import { isAuthorizedCron } from '../../../lib/cron-auth'
+
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://optimizedperformancepeptides.com'
 
 // Timeout-sensitive routes to keep hot. Each must support a no-op `?warm=1` GET.
 const WARM_TARGETS = ['/api/orders/create?warm=1']
 
 export default async function handler(req, res) {
-  const cronSecret = process.env.CRON_SECRET
-  const provided = req.headers['x-cron-secret']
-  if (cronSecret && provided !== cronSecret) {
-    if (!req.headers['x-vercel-cron-signature']) {
-      return res.status(401).json({ error: 'Unauthorized' })
-    }
-  }
+  if (!isAuthorizedCron(req)) return res.status(401).json({ error: 'Unauthorized' })
 
   const warmed = await Promise.all(
     WARM_TARGETS.map(async (path) => {

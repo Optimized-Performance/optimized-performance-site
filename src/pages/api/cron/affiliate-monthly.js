@@ -1,6 +1,7 @@
 import { supabaseAdmin } from '../../../lib/supabase'
 import { commissionableTotal } from '../../../lib/commission'
 import { ROYALTY_PCT } from '../../../lib/affiliate-config'
+import { isAuthorizedCron } from '../../../lib/cron-auth'
 
 // Monthly affiliate processing job.
 // Runs on the 1st of each month at 09:00 UTC via Vercel Cron (vercel.json).
@@ -70,16 +71,7 @@ async function sumGrossRevenue(pk) {
 }
 
 export default async function handler(req, res) {
-  // Auth: Vercel cron sends a header `x-vercel-cron-signature`, but for local + manual
-  // testing we accept the same shared secret pattern as other cron endpoints.
-  const cronSecret = process.env.CRON_SECRET
-  const provided = req.headers['x-cron-secret']
-  if (cronSecret && provided !== cronSecret) {
-    // Allow Vercel's built-in cron header to bypass — Vercel signs with its own mechanism.
-    if (!req.headers['x-vercel-cron-signature']) {
-      return res.status(401).json({ error: 'Unauthorized' })
-    }
-  }
+  if (!isAuthorizedCron(req)) return res.status(401).json({ error: 'Unauthorized' })
 
   if (!supabaseAdmin) return res.status(500).json({ error: 'Database not configured' })
 

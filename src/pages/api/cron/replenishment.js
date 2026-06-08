@@ -1,4 +1,5 @@
 import { runReplenishmentNudges } from '../../../lib/replenishment'
+import { isAuthorizedCron } from '../../../lib/cron-auth'
 
 // Daily "running low?" replenishment nudge. Emails customers who are about due
 // to reorder a product a time-limited 5%-off reorder link. Idempotent
@@ -7,13 +8,7 @@ import { runReplenishmentNudges } from '../../../lib/replenishment'
 // Auth: matches the other crons — CRON_SECRET via x-cron-secret for manual
 // triggers, Vercel's cron signature header for the scheduled run.
 export default async function handler(req, res) {
-  const cronSecret = process.env.CRON_SECRET
-  const provided = req.headers['x-cron-secret']
-  if (cronSecret && provided !== cronSecret) {
-    if (!req.headers['x-vercel-cron-signature']) {
-      return res.status(401).json({ error: 'Unauthorized' })
-    }
-  }
+  if (!isAuthorizedCron(req)) return res.status(401).json({ error: 'Unauthorized' })
 
   // ?preview=1 (manual trigger only) returns the would-send list without sending
   // or stamping — bypasses the enable gate so you can inspect before going live.

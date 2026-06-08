@@ -1,5 +1,6 @@
 import { supabaseAdmin } from '../../../lib/supabase'
 import { PAYMENT_STATUS } from '../../../lib/order-status'
+import { isAuthorizedCron } from '../../../lib/cron-auth'
 
 // Expire stale awaiting_payment orders.
 //
@@ -19,13 +20,7 @@ import { PAYMENT_STATUS } from '../../../lib/order-status'
 const DEFAULT_HOURS = 48
 
 export default async function handler(req, res) {
-  const cronSecret = process.env.CRON_SECRET
-  const provided = req.headers['x-cron-secret']
-  if (cronSecret && provided !== cronSecret) {
-    if (!req.headers['x-vercel-cron-signature']) {
-      return res.status(401).json({ error: 'Unauthorized' })
-    }
-  }
+  if (!isAuthorizedCron(req)) return res.status(401).json({ error: 'Unauthorized' })
 
   if (!supabaseAdmin) return res.status(500).json({ error: 'Database not configured' })
 
