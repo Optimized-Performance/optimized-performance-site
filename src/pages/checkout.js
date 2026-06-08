@@ -231,7 +231,7 @@ export default function Checkout() {
   // (/api/orders/create) calls this SAME computeOrderTotals(), so the customer-
   // visible total and the charged total cannot drift — the class of bug behind
   // the May 2026 timezone sale-mispricing. The tiles render BOTH the standard
-  // and the alt-pay (crypto/Zelle 10% off) price from this one breakdown.
+  // and the alt-pay (crypto/Zelle) discounted price from this one breakdown.
   // cartItems carry isKit (spread in CartContext.addToCart) for the cold-pack
   // shipping calc. Promo windows are pinned to UTC in lib/sale so client and
   // server evaluate the same instant.
@@ -395,7 +395,7 @@ export default function Checkout() {
   // Inline Zelle/Venmo: create + reserve the order WITHOUT redirecting, so the
   // pay panel can show the exact amount, recipient, memo/note (and the Venmo
   // deep-link) right on the checkout. Returns the order number + the
-  // server-authoritative total (the 10%-off for zelle is applied server-side,
+  // server-authoritative total (the alt-pay discount for zelle is applied server-side,
   // so `total` is the exact amount to send). The server also emails the same
   // details as a backup. Cart is NOT cleared here — it clears on /checkout/success
   // (where "I've sent it" lands), so the empty-cart guard can't unmount the panel.
@@ -484,12 +484,12 @@ export default function Checkout() {
   // Unified payment-method selector. Every available rail is presented as an
   // equal, card-grade tile (no primary-card-button vs. demoted-outline-alt
   // hierarchy, which signaled the alt rails as a sketchy side-door). Crypto and
-  // Zelle show the 10% as a cheaper price + a SAVE badge — a perk, not a caveat.
+  // Zelle show the alt-pay discount as a cheaper price + a SAVE badge — a perk, not a caveat.
   const paymentMethods = [
     cardUp && { key: 'card', label: 'Card', price: discountedTotal },
     paypalUp && { key: 'paypal', label: 'PayPal', price: discountedTotal, sub: 'Pay Later & card too' },
-    cryptoUp && { key: 'crypto', label: 'Crypto', price: altPayTotal, perk: 'SAVE 10%' },
-    zelleUp && { key: 'zelle', label: 'Zelle', price: altPayTotal, perk: 'SAVE 10%' },
+    cryptoUp && { key: 'crypto', label: 'Crypto', price: altPayTotal, perk: `SAVE ${ALT_PAY_DISCOUNT_PCT}%` },
+    zelleUp && { key: 'zelle', label: 'Zelle', price: altPayTotal, perk: `SAVE ${ALT_PAY_DISCOUNT_PCT}%` },
     venmoUp && { key: 'venmo', label: 'Venmo', price: discountedTotal },
   ].filter(Boolean);
   // Pre-select the first available rail so the action area is never empty.
@@ -630,7 +630,7 @@ export default function Checkout() {
             {cartDurableOnly && (
               <div className="mb-4 p-4 rounded-opp-lg border border-accent-strong bg-accent-soft text-center">
                 <div className="opp-meta-mono text-accent-strong font-semibold">Zelle or crypto only for this order</div>
-                <div className="text-[13px] text-ink-soft mt-1">An item in your cart is fulfilled via direct payment (Zelle or crypto) — and you save 10%.</div>
+                <div className="text-[13px] text-ink-soft mt-1">An item in your cart is fulfilled via direct payment (Zelle or crypto) — and you save {ALT_PAY_DISCOUNT_PCT}%.</div>
               </div>
             )}
             {activeMethod ? (
@@ -698,7 +698,7 @@ export default function Checkout() {
                           <div className="opp-meta-mono uppercase text-warning font-semibold">Payment didn&apos;t go through</div>
                           <div className="text-[13px] text-ink-soft mt-1">
                             That&apos;s usually a momentary timeout, not your card — give it another try below.
-                            {(cryptoUp || zelleUp) && <> Or switch to <strong>{altPayLabel}</strong> above and <strong>save 10%</strong>.</>}
+                            {(cryptoUp || zelleUp) && <> Or switch to <strong>{altPayLabel}</strong> above and <strong>save {ALT_PAY_DISCOUNT_PCT}%</strong>.</>}
                           </div>
                         </div>
                       )}
@@ -723,8 +723,8 @@ export default function Checkout() {
               {[
                 cardUp && 'Card processed securely off-site',
                 paypalUp && 'PayPal, Pay Later & card via PayPal',
-                cryptoUp && 'Crypto (BTC, ETH, USDC, USDT) — 10% off',
-                zelleUp && 'Zelle direct — 10% off',
+                cryptoUp && `Crypto (BTC, ETH, USDC, USDT) — ${ALT_PAY_DISCOUNT_PCT}% off`,
+                zelleUp && `Zelle direct — ${ALT_PAY_DISCOUNT_PCT}% off`,
                 venmoUp && 'Venmo to @optimizedperformance',
               ].filter(Boolean).join(' · ') + '.'}
             </p>

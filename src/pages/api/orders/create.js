@@ -113,7 +113,7 @@ export default async function handler(req, res) {
     // and never trip this. Authoritative throttle (the checkout UI gating via
     // /api/rails/availability is convenience). See docs/rail-orchestration-spec.md.
     if (!(await isRailAvailable(supabaseAdmin, paymentMethod))) {
-      return res.status(503).json({ error: 'This payment method is temporarily at capacity. Please pay with crypto or Zelle — 10% off.' })
+      return res.status(503).json({ error: 'This payment method is temporarily at capacity. Please pay with crypto or Zelle — 5% off.' })
     }
 
     // SERVER-SIDE CALCULATION: validate the cart against the catalog (authoritative

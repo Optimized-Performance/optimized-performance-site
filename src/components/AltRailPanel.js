@@ -71,7 +71,7 @@ export default function AltRailPanel({ method, previewAmount, recipient, qrSrc, 
       <div className="rounded-opp-lg border border-line bg-surfaceAlt p-5">
         <p className="text-sm text-ink-soft m-0 mb-4 leading-relaxed">
           {isZelle
-            ? `Pay $${previewAmount.toFixed(2)} by Zelle straight from your bank app — no card, no processor, and you save 10%. Tap continue and we'll show you exactly where to send it.`
+            ? `Pay $${previewAmount.toFixed(2)} by Zelle straight from your bank app — no card, no processor, and you save 5%. Tap continue and we'll show you exactly where to send it.`
             : `Pay $${previewAmount.toFixed(2)} with Venmo in a couple taps. Tap continue and we'll open Venmo with the amount and note already filled in.`}
         </p>
         <button type="button" onClick={start} disabled={disabled || busy} className="btn-primary w-full py-4 text-base">

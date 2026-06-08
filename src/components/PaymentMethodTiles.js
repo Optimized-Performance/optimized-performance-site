@@ -3,7 +3,7 @@ import { Icon } from './Primitives';
 // Unified payment-method selector. Every available rail is presented as an
 // equal, card-grade tile (no primary-card-button vs. demoted-outline-alt
 // hierarchy, which signaled the alt rails as a sketchy side-door). Crypto and
-// Zelle show the 10% as a cheaper price + a SAVE badge — a perk, not a caveat.
+// Zelle show the alt-pay discount as a cheaper price + a SAVE badge — a perk, not a caveat.
 //
 // Props:
 //   methods      [{ key, label, price, perk?, sub? }]

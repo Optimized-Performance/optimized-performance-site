@@ -253,9 +253,9 @@ export async function sendPaymentRecoveryNudge(order, recoverUrl) {
   const body = [
     `Hey — looks like you started an order with us but didn't finish.`,
     ``,
-    `No worries, your spot's still here. To make it easy, here's an extra`,
-    `${RECOVERY_DISCOUNT_PCT}% off — and it stacks right on top of any affiliate code`,
-    `you want to use.`,
+    `No worries, your spot's still here. To make it easy, we'll apply your best`,
+    `discount automatically — an extra ${RECOVERY_DISCOUNT_PCT}% off, or your affiliate`,
+    `code if it saves you more.`,
     ``,
     `Finish your order (discount applied automatically):`,
     `${recoverUrl}`,
@@ -272,7 +272,7 @@ export async function sendPaymentRecoveryNudge(order, recoverUrl) {
   // Branded HTML version (matches the storefront). Plain-text above stays as the
   // multipart fallback for clients that don't render HTML.
   const html = renderBrandedEmail({
-    preheader: `Your order's still saved — here's ${RECOVERY_DISCOUNT_PCT}% off to finish up.`,
+    preheader: `Your order's still saved — your best discount's applied to finish up.`,
     align: 'center',
     eyebrow: 'Your cart is waiting',
     heading: 'Pick up where you left off',
@@ -282,7 +282,7 @@ export async function sendPaymentRecoveryNudge(order, recoverUrl) {
     highlight: {
       label: 'Extra',
       value: `${RECOVERY_DISCOUNT_PCT}% OFF`,
-      sub: 'Applied automatically · stacks with any affiliate code',
+      sub: 'Applied automatically · or your code, whichever saves more',
     },
     cta: { text: 'Complete your order', url: recoverUrl },
     ctaSub: 'Discount applied automatically at checkout.',

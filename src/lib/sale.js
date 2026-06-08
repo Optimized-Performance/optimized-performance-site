@@ -156,13 +156,14 @@ export function isBogoProduct(product, now = new Date()) {
 // ============================================================
 // Crypto / Zelle payment-method discount — 2026.
 // ============================================================
-// 10% off when the customer pays via an un-freezable rail (crypto or Zelle), to
+// 5% off when the customer pays via an un-freezable rail (crypto or Zelle), to
 // route volume away from fragile card/P2P rails. Applied to the post-all-discount
 // subtotal (stacks multiplicatively with site promos + affiliate codes), before
 // shipping. No time window — on for as long as these rails are the durability
 // strategy. Server-authoritative in api/orders/create.js; mirrored in checkout.js
-// for the customer-visible total.
-export const ALT_PAY_DISCOUNT_PCT = 10
+// for the customer-visible total. (Was 10% — halved 2026-06-08 to recover margin
+// while keeping the rail incentive.)
+export const ALT_PAY_DISCOUNT_PCT = 5
 export const ALT_PAY_DISCOUNT_METHODS = ['crypto', 'zelle']
 
 // `discountedSubtotal` = subtotal after promos + affiliate %, BEFORE shipping.
