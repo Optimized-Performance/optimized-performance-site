@@ -232,13 +232,21 @@ export async function sendPaymentRecoveryNudge(order, recoverUrl) {
   // multipart fallback for clients that don't render HTML.
   const html = renderBrandedEmail({
     preheader: `Your order's still saved — here's ${RECOVERY_DISCOUNT_PCT}% off to finish up.`,
-    heading: `Still want these? Here's ${RECOVERY_DISCOUNT_PCT}% off.`,
+    align: 'center',
+    eyebrow: 'Your cart is waiting',
+    heading: 'Pick up where you left off',
     paragraphs: [
-      `Looks like you started an order with us but didn't finish — no worries, <strong style="color:#F5F3EC;">your spot is still saved.</strong>`,
-      `Here's an extra <strong style="color:#22B8CF;">${RECOVERY_DISCOUNT_PCT}% off</strong> to wrap it up, and it stacks right on top of any affiliate code you're using. The discount applies automatically when you tap below.`,
+      `You started an order but didn't finish — no rush, your spot is still saved. Here's a little extra to make wrapping up easy.`,
     ],
+    highlight: {
+      label: 'Extra',
+      value: `${RECOVERY_DISCOUNT_PCT}% OFF`,
+      sub: 'Applied automatically · stacks with any affiliate code',
+    },
     cta: { text: 'Complete your order', url: recoverUrl },
-    note: `Prefer not to use a card? You can also pay with Zelle or crypto for an additional discount at checkout. Questions or want a hand? Just reply to this email or call (831) 218-5147.`,
+    ctaSub: 'Discount applied automatically at checkout.',
+    trust: ['Encrypted checkout', 'Ships in 1 business day', 'COA-verified'],
+    note: `Prefer not to use a card? Pay with Zelle or crypto for an additional discount. Questions? Just reply to this email or call (831) 218-5147.`,
     footerLines: [
       `Optimized Performance Inc.${process.env.MARKETING_POSTAL_ADDRESS ? ' &middot; ' + process.env.MARKETING_POSTAL_ADDRESS : ''}`,
       `<a href="mailto:admin@optimizedperformancepeptides.com" style="color:#6E6D68;text-decoration:underline;">admin@optimizedperformancepeptides.com</a> &middot; (831) 218-5147`,
