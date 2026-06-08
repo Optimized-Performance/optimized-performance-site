@@ -53,11 +53,19 @@ function windowKpis(evs, ords) {
   const revenue = round2(paid.reduce((s, o) => s + Number(o.total || 0), 0))
   const visits = visitSessions.size
   const customers = new Set(paid.map((o) => (o.customer_email || '').toLowerCase()).filter(Boolean))
+  // House orders = recaptured via our own email link (recovery/replenishment):
+  // recovery_discount > 0 marks them, and they carry NO affiliate commission.
+  // House share of revenue is the lever the margin model rides on.
+  const houseOrders = paid.filter((o) => Number(o.recovery_discount) > 0)
+  const houseRevenue = round2(houseOrders.reduce((s, o) => s + Number(o.total || 0), 0))
   return {
     revenue,
     orders: paid.length,
     aov: paid.length ? round2(revenue / paid.length) : 0,
     visits,
+    houseOrders: houseOrders.length,
+    houseRevenue,
+    houseShare: revenue ? round2((houseRevenue / revenue) * 100) : 0,
     // On-site conversion = visitors who reached a payment attempt, EVENTS-ONLY.
     // Deliberately not paid-orders/visits: the orders table covers far more
     // history than the (new) events table, so mixing them yields nonsense ratios
@@ -91,7 +99,7 @@ export default async function handler(req, res) {
         .limit(EVENT_CAP),
       supabaseAdmin
         .from('orders')
-        .select('session_id, customer_email, affiliate_code, payment_status, payment_method, total, items, created_at')
+        .select('session_id, customer_email, affiliate_code, payment_status, payment_method, total, items, recovery_discount, created_at')
         .gte('created_at', priorStartIso)
         .limit(ORDER_CAP),
     ])
@@ -127,12 +135,22 @@ export default async function handler(req, res) {
     // earlier completed order anywhere in the fetched span).
     let newOrders = 0
     let returningOrders = 0
+    let houseReturning = 0 // returning-customer orders we recaptured via our email
     for (const o of curOrd.filter(isPaid)) {
       const em = (o.customer_email || '').toLowerCase()
       const earlier = em && (paidByEmail.get(em) || []).some((x) => x.created_at < o.created_at)
-      if (earlier) returningOrders += 1
-      else newOrders += 1
+      if (earlier) {
+        returningOrders += 1
+        if (Number(o.recovery_discount) > 0) houseReturning += 1
+      } else {
+        newOrders += 1
+      }
     }
+    // Reorder capture rate = of repeat (returning) orders, how many we won via our
+    // own email link (vs the customer reordering organically on an affiliate code).
+    // This is the single number the margin curve rides on — every captured reorder
+    // is a ~70%-margin house sale instead of a ~37% commissioned one.
+    const reorder_capture = returningOrders ? round2((houseReturning / returningOrders) * 100) : 0
 
     // refunds (current window)
     const refundedCount = curOrd.filter((o) => o.payment_status === 'refunded').length
@@ -279,6 +297,14 @@ export default async function handler(req, res) {
       daily,
       rail_mix,
       customers,
+      house: {
+        orders: cur.houseOrders,
+        revenue: cur.houseRevenue,
+        share: cur.houseShare, // % of current-window revenue from house orders
+        prev_share: prev.houseShare,
+        reorder_capture, // % of returning-customer orders won via our email link
+        returning_orders: returningOrders,
+      },
       refunds: { count: refundedCount, rate: refund_rate },
       truncated,
     })

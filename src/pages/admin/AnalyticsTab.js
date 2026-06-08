@@ -95,6 +95,21 @@ export default function AnalyticsTab({ token }) {
             <Kpi label="Repeat rate" value={fmtPct(k.repeat_rate.value)} d={null} sub={`${data.refunds.count} refunds · ${fmtPct(data.refunds.rate)}`} />
           </div>
 
+          {/* HOUSE ORDERS — the margin lever */}
+          {data.house && (
+            <Panel title="House orders — commission-free reorders we recaptured">
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                <Kpi label="House % of revenue" value={fmtPct(data.house.share)} d={delta(data.house.share, data.house.prev_share)} />
+                <Kpi label="Reorder capture" value={fmtPct(data.house.reorder_capture)} d={null} sub={`of ${fmtNum(data.house.returning_orders)} returning orders`} />
+                <Kpi label="House orders" value={fmtNum(data.house.orders)} d={null} sub="recovery / replenishment" />
+                <Kpi label="House revenue" value={fmtMoney(data.house.revenue)} d={null} sub="≈70% margin vs ~37%" />
+              </div>
+              <p className="opp-meta-mono text-ink-mute mt-4 pt-3 border-t border-line leading-relaxed">
+                House orders are reorders we won via our own recovery/replenishment email (15% off, <strong className="text-ink-soft">no affiliate commission</strong>) — ≈70% margin vs ~37% on a commissioned order. <strong className="text-ink-soft">Reorder capture</strong> (house ÷ returning orders) is the single lever that lifts blended margin; affiliate-driven new orders are untouched.
+              </p>
+            </Panel>
+          )}
+
           {/* REVENUE + ORDERS TREND */}
           <Panel title="Revenue & orders">
             <ResponsiveContainer width="100%" height={260}>
