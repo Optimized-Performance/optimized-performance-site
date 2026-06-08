@@ -20,8 +20,8 @@ describe('computeOrderTotals', () => {
     expect(r.subtotal).toEqual(money(100))
     expect(r.shipping.total).toEqual(money(16.95))
     expect(r.standardTotal).toEqual(money(116.95))
-    expect(r.altPayDiscount).toEqual(money(10))
-    expect(r.altPayTotal).toEqual(money(106.95))
+    expect(r.altPayDiscount).toEqual(money(5)) // 5% of 100
+    expect(r.altPayTotal).toEqual(money(111.95)) // 116.95 - 5
     expect(r.total).toEqual(money(116.95)) // non-alt rail pays standard
   })
 
@@ -31,7 +31,7 @@ describe('computeOrderTotals', () => {
       paymentMethod: 'crypto',
       now: NO_PROMO,
     })
-    expect(r.total).toEqual(money(106.95))
+    expect(r.total).toEqual(money(111.95)) // 116.95 - 5% alt-pay
   })
 
   it('free shipping kicks in for vial-only carts >= $250', () => {
@@ -56,7 +56,7 @@ describe('computeOrderTotals', () => {
     expect(r.standardTotal).toEqual(money(333.95))
   })
 
-  it('affiliate % then recovery % stack multiplicatively, pre-shipping', () => {
+  it('affiliate % and recovery % do NOT stack — larger wins (no double discounting)', () => {
     const r = computeOrderTotals({
       lineItems: [{ id: 'x', price: 200, quantity: 1 }],
       affiliatePct: 10,
@@ -64,11 +64,41 @@ describe('computeOrderTotals', () => {
       paymentMethod: 'paypal',
       now: NO_PROMO,
     })
+    // Affiliate 10% beats recovery 5% → affiliate applies, recovery is zeroed.
     expect(r.affiliateDiscount).toEqual(money(20)) // 10% of 200
-    expect(r.recoveryDiscount).toEqual(money(9)) // 5% of 180
-    expect(r.discountedSubtotal).toEqual(money(171))
-    expect(r.standardTotal).toEqual(money(187.95)) // 171 + 16.95
-    expect(r.altPayTotal).toEqual(money(170.85)) // 187.95 - 17.10
+    expect(r.recoveryDiscount).toEqual(money(0)) // recovery suppressed (best-wins)
+    expect(r.recoveryPct).toEqual(0)
+    expect(r.discountedSubtotal).toEqual(money(180))
+    expect(r.standardTotal).toEqual(money(196.95)) // 180 + 16.95
+  })
+
+  it('recovery % still applies fully when there is no affiliate code', () => {
+    const r = computeOrderTotals({
+      lineItems: [{ id: 'x', price: 200, quantity: 1 }],
+      affiliatePct: 0,
+      recoveryPct: 5,
+      paymentMethod: 'paypal',
+      now: NO_PROMO,
+    })
+    expect(r.affiliateDiscount).toEqual(money(0))
+    expect(r.recoveryDiscount).toEqual(money(10)) // 5% of 200
+    expect(r.recoveryPct).toEqual(5)
+    expect(r.discountedSubtotal).toEqual(money(190))
+  })
+
+  it('recovery % wins when it is larger than the affiliate %', () => {
+    const r = computeOrderTotals({
+      lineItems: [{ id: 'x', price: 200, quantity: 1 }],
+      affiliatePct: 3,
+      recoveryPct: 5,
+      paymentMethod: 'paypal',
+      now: NO_PROMO,
+    })
+    expect(r.affiliateDiscount).toEqual(money(0)) // suppressed (best-wins)
+    expect(r.affiliatePct).toEqual(0)
+    expect(r.recoveryDiscount).toEqual(money(10)) // 5% of 200
+    expect(r.recoveryPct).toEqual(5)
+    expect(r.discountedSubtotal).toEqual(money(190))
   })
 
   it('Memorial Day sale applies first, then affiliate, with free shipping', () => {
@@ -84,7 +114,7 @@ describe('computeOrderTotals', () => {
     expect(r.discountedSubtotal).toEqual(money(153))
     expect(r.shipping.total).toEqual(money(0)) // sale = free ship
     expect(r.standardTotal).toEqual(money(153))
-    expect(r.altPayTotal).toEqual(money(137.7)) // 153 - 15.30
+    expect(r.altPayTotal).toEqual(money(145.35)) // 153 - 7.65 (5%)
   })
 
   it('GLP-3 Buy-2-Get-1-Free discounts one vial per three, before affiliate', () => {

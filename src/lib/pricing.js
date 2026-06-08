@@ -73,20 +73,31 @@ export function computeOrderTotals({
   )
   const subtotalPostPromos = round2(subtotalPostMemorial - bogoDiscount)
 
-  // 4) Affiliate % — comes off the post-promo subtotal so it stacks
-  //    multiplicatively (mirrors create.js: discount = subtotalPostPromos * pct).
-  const affiliateDiscount = round2(subtotalPostPromos * ((Number(affiliatePct) || 0) / 100))
+  // 4+5) Affiliate % and payment-recovery/replenishment % do NOT stack — the
+  //    customer gets the LARGER of the two, never both (best-wins). Previously
+  //    recovery stacked on top of affiliate, so a coded network customer cost us
+  //    an affiliate commission AND an extra retention discount on the same order
+  //    (double discounting). Now whichever single % is bigger applies; the other
+  //    is zeroed. Recovery still works fully for customers with no affiliate code.
+  const affiliatePctNum = Number(affiliatePct) || 0
+  const recoveryPctNum = Number(recoveryPct) || 0
+  const effectiveAffiliatePct = affiliatePctNum >= recoveryPctNum ? affiliatePctNum : 0
+  const effectiveRecoveryPct = recoveryPctNum > affiliatePctNum ? recoveryPctNum : 0
+
+  // Affiliate % comes off the post-promo subtotal (mirrors create.js).
+  const affiliateDiscount = round2(subtotalPostPromos * (effectiveAffiliatePct / 100))
   const subtotalPostAffiliate = round2(subtotalPostPromos - affiliateDiscount)
 
-  // 5) Payment-recovery incentive % — stacks on top of affiliate, pre-shipping.
-  const recoveryDiscount = round2(subtotalPostAffiliate * ((Number(recoveryPct) || 0) / 100))
+  // Recovery/replenishment % off the post-affiliate subtotal (only ever non-zero
+  // when there is no affiliate code, given best-wins above).
+  const recoveryDiscount = round2(subtotalPostAffiliate * (effectiveRecoveryPct / 100))
   const discountedSubtotal = round2(subtotalPostAffiliate - recoveryDiscount)
 
   // 6) Shipping — computed on the post-all-discount subtotal (free-ship
   //    threshold + cold-pack surcharge live in lib/shipping). Sale = free ship.
   const shipping = calcShipping({ items, discountedSubtotal, saleActive })
 
-  // 7) Alt-pay (crypto/Zelle) 10% off — applied to the pre-shipping discounted
+  // 7) Alt-pay (crypto/Zelle) discount — applied to the pre-shipping discounted
   //    subtotal. Computed unconditionally for DISPLAY (so the UI can show the
   //    savings on every rail), then only folded into `total` for alt-pay rails.
   const altPayDiscount = round2(discountedSubtotal * (ALT_PAY_DISCOUNT_PCT / 100))
@@ -101,9 +112,9 @@ export function computeOrderTotals({
     memorialDiscount: round2(memorialDiscount),
     bogoDiscount: round2(bogoDiscount),
     bogoFreeVials,
-    affiliatePct: Number(affiliatePct) || 0,
+    affiliatePct: effectiveAffiliatePct,
     affiliateDiscount,
-    recoveryPct: Number(recoveryPct) || 0,
+    recoveryPct: effectiveRecoveryPct,
     recoveryDiscount,
     discountedSubtotal,
     shipping, // { base, coldPack, total, hasColdPack, freeShipApplied, saleApplied }
