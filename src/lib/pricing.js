@@ -73,23 +73,27 @@ export function computeOrderTotals({
   )
   const subtotalPostPromos = round2(subtotalPostMemorial - bogoDiscount)
 
-  // 4+5) Affiliate % and payment-recovery/replenishment % do NOT stack — the
-  //    customer gets the LARGER of the two, never both (best-wins). Previously
-  //    recovery stacked on top of affiliate, so a coded network customer cost us
-  //    an affiliate commission AND an extra retention discount on the same order
-  //    (double discounting). Now whichever single % is bigger applies; the other
-  //    is zeroed. Recovery still works fully for customers with no affiliate code.
+  // 4+5) Affiliate % vs house retention % (recovery/replenishment email link).
+  //    A recovery token marks a HOUSE ORDER — a reorder / abandoned-cart sale we
+  //    recaptured via our OWN email. On a house order the customer gets the
+  //    BETTER of their affiliate % or the house %, but the order carries NO
+  //    affiliate commission (create.js strips the affiliate_code), so a retention
+  //    conversion we drive costs a slightly bigger customer discount instead of a
+  //    full commission. With NO recovery token the affiliate % applies normally
+  //    and commission is paid as usual — affiliate links / new traffic untouched.
   const affiliatePctNum = Number(affiliatePct) || 0
   const recoveryPctNum = Number(recoveryPct) || 0
-  const effectiveAffiliatePct = affiliatePctNum >= recoveryPctNum ? affiliatePctNum : 0
-  const effectiveRecoveryPct = recoveryPctNum > affiliatePctNum ? recoveryPctNum : 0
+  const houseOrder = recoveryPctNum > 0
+  const effectiveAffiliatePct = houseOrder ? 0 : affiliatePctNum
+  const effectiveRecoveryPct = houseOrder ? Math.max(affiliatePctNum, recoveryPctNum) : 0
 
   // Affiliate % comes off the post-promo subtotal (mirrors create.js).
   const affiliateDiscount = round2(subtotalPostPromos * (effectiveAffiliatePct / 100))
   const subtotalPostAffiliate = round2(subtotalPostPromos - affiliateDiscount)
 
-  // Recovery/replenishment % off the post-affiliate subtotal (only ever non-zero
-  // when there is no affiliate code, given best-wins above).
+  // House retention % off the post-affiliate subtotal (non-zero only on a house
+  // order; carries the larger of the affiliate/house % so the customer never
+  // gets less than their code would have given).
   const recoveryDiscount = round2(subtotalPostAffiliate * (effectiveRecoveryPct / 100))
   const discountedSubtotal = round2(subtotalPostAffiliate - recoveryDiscount)
 

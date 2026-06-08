@@ -178,6 +178,17 @@ export default async function handler(req, res) {
     const recovery = recoveryToken ? verifyRecoveryToken(recoveryToken) : { valid: false, pct: 0 }
     const recoveryPct = recovery.valid ? recovery.pct : 0
 
+    // HOUSE ORDER: a valid recovery token means this sale was recaptured via our
+    // OWN retention email (abandoned-cart nudge / replenishment reorder). Strip
+    // the affiliate attribution so NO commission is paid — the customer still
+    // gets the better house discount (lib/pricing takes max(affiliate, house %)).
+    // Affiliate links / new traffic are untouched; this only zeroes commission on
+    // conversions our email drove. (Matt's call 2026-06-08.)
+    if (recovery.valid) {
+      validatedAffiliateCode = null
+      validatedCommissionPct = 0
+    }
+
     // Single source of truth for the discount-stacking sequence (sale → BOGO →
     // affiliate → recovery → alt-pay), shipping, and the per-rail total. The
     // client checkout calls this SAME function, so totals cannot drift; server

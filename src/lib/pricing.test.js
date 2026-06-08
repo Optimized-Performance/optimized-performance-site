@@ -56,49 +56,66 @@ describe('computeOrderTotals', () => {
     expect(r.standardTotal).toEqual(money(333.95))
   })
 
-  it('affiliate % and recovery % do NOT stack — larger wins (no double discounting)', () => {
+  it('house order (recovery token) overrides affiliate: better % applies, affiliate zeroed (no commission)', () => {
     const r = computeOrderTotals({
       lineItems: [{ id: 'x', price: 200, quantity: 1 }],
       affiliatePct: 10,
-      recoveryPct: 5,
+      recoveryPct: 15, // house 15% beats the 10% code
       paymentMethod: 'paypal',
       now: NO_PROMO,
     })
-    // Affiliate 10% beats recovery 5% → affiliate applies, recovery is zeroed.
-    expect(r.affiliateDiscount).toEqual(money(20)) // 10% of 200
-    expect(r.recoveryDiscount).toEqual(money(0)) // recovery suppressed (best-wins)
-    expect(r.recoveryPct).toEqual(0)
-    expect(r.discountedSubtotal).toEqual(money(180))
-    expect(r.standardTotal).toEqual(money(196.95)) // 180 + 16.95
+    // House order: affiliate discount zeroed (and create.js strips the code → no
+    // commission); the 15% shows as the recovery/house discount.
+    expect(r.affiliateDiscount).toEqual(money(0))
+    expect(r.affiliatePct).toEqual(0)
+    expect(r.recoveryDiscount).toEqual(money(30)) // 15% of 200
+    expect(r.recoveryPct).toEqual(15)
+    expect(r.discountedSubtotal).toEqual(money(170))
+    expect(r.standardTotal).toEqual(money(186.95)) // 170 + 16.95
   })
 
-  it('recovery % still applies fully when there is no affiliate code', () => {
+  it('house order never gives the customer less than their affiliate code (max of the two)', () => {
+    const r = computeOrderTotals({
+      lineItems: [{ id: 'x', price: 200, quantity: 1 }],
+      affiliatePct: 20, // unusually generous code, bigger than the 15% house %
+      recoveryPct: 15,
+      paymentMethod: 'paypal',
+      now: NO_PROMO,
+    })
+    // Customer keeps the better 20% (still no commission — affiliate stripped server-side).
+    expect(r.affiliateDiscount).toEqual(money(0))
+    expect(r.recoveryDiscount).toEqual(money(40)) // max(20,15)=20% of 200
+    expect(r.recoveryPct).toEqual(20)
+    expect(r.discountedSubtotal).toEqual(money(160))
+  })
+
+  it('house order applies fully when there is no affiliate code', () => {
     const r = computeOrderTotals({
       lineItems: [{ id: 'x', price: 200, quantity: 1 }],
       affiliatePct: 0,
-      recoveryPct: 5,
+      recoveryPct: 15,
       paymentMethod: 'paypal',
       now: NO_PROMO,
     })
     expect(r.affiliateDiscount).toEqual(money(0))
-    expect(r.recoveryDiscount).toEqual(money(10)) // 5% of 200
-    expect(r.recoveryPct).toEqual(5)
-    expect(r.discountedSubtotal).toEqual(money(190))
+    expect(r.recoveryDiscount).toEqual(money(30)) // 15% of 200
+    expect(r.recoveryPct).toEqual(15)
+    expect(r.discountedSubtotal).toEqual(money(170))
   })
 
-  it('recovery % wins when it is larger than the affiliate %', () => {
+  it('no recovery token: affiliate % applies normally and commission path is intact', () => {
     const r = computeOrderTotals({
       lineItems: [{ id: 'x', price: 200, quantity: 1 }],
-      affiliatePct: 3,
-      recoveryPct: 5,
+      affiliatePct: 10,
+      recoveryPct: 0,
       paymentMethod: 'paypal',
       now: NO_PROMO,
     })
-    expect(r.affiliateDiscount).toEqual(money(0)) // suppressed (best-wins)
-    expect(r.affiliatePct).toEqual(0)
-    expect(r.recoveryDiscount).toEqual(money(10)) // 5% of 200
-    expect(r.recoveryPct).toEqual(5)
-    expect(r.discountedSubtotal).toEqual(money(190))
+    expect(r.affiliateDiscount).toEqual(money(20)) // 10% of 200 — affiliate keeps attribution
+    expect(r.affiliatePct).toEqual(10)
+    expect(r.recoveryDiscount).toEqual(money(0))
+    expect(r.recoveryPct).toEqual(0)
+    expect(r.discountedSubtotal).toEqual(money(180))
   })
 
   it('Memorial Day sale applies first, then affiliate, with free shipping', () => {
