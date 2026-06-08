@@ -82,6 +82,13 @@ export default async function handler(req, res) {
       const patch = {}
       if (updates.name !== undefined) patch.name = updates.name
       if (updates.email !== undefined) patch.email = updates.email
+      if (updates.code !== undefined) {
+        const normalizedCode = String(updates.code || '').toUpperCase().replace(/[^A-Z0-9]/g, '')
+        if (!normalizedCode || normalizedCode.length > 50) {
+          return res.status(400).json({ error: 'Invalid code' })
+        }
+        patch.code = normalizedCode
+      }
       if (updates.discountPct !== undefined) {
         const v = clampPercent(updates.discountPct)
         if (v === null) return res.status(400).json({ error: 'Invalid discountPct' })
@@ -111,7 +118,12 @@ export default async function handler(req, res) {
         .eq('id', id)
         .select()
         .single()
-      if (error) throw error
+      if (error) {
+        if (error.code === '23505') {
+          return res.status(409).json({ error: 'Code already exists' })
+        }
+        throw error
+      }
       return res.status(200).json(data)
     }
 
