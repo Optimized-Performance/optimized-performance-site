@@ -2,6 +2,7 @@
 // Configure ALERT_EMAIL, TWILIO_*, and SENDGRID_API_KEY in environment variables to enable
 
 import { RECOVERY_DISCOUNT_PCT } from './recovery-config';
+import { renderBrandedEmail } from './email-layout';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://optimizedperformancepeptides.com';
 
@@ -227,6 +228,24 @@ export async function sendPaymentRecoveryNudge(order, recoverUrl) {
     `— Optimized Performance`,
   ].join('\n');
 
+  // Branded HTML version (matches the storefront). Plain-text above stays as the
+  // multipart fallback for clients that don't render HTML.
+  const html = renderBrandedEmail({
+    preheader: `Your order's still saved — here's ${RECOVERY_DISCOUNT_PCT}% off to finish up.`,
+    heading: `Still want these? Here's ${RECOVERY_DISCOUNT_PCT}% off.`,
+    paragraphs: [
+      `Looks like you started an order with us but didn't finish — no worries, <strong style="color:#F5F3EC;">your spot is still saved.</strong>`,
+      `Here's an extra <strong style="color:#22B8CF;">${RECOVERY_DISCOUNT_PCT}% off</strong> to wrap it up, and it stacks right on top of any affiliate code you're using. The discount applies automatically when you tap below.`,
+    ],
+    cta: { text: 'Complete your order', url: recoverUrl },
+    note: `Prefer not to use a card? You can also pay with Zelle or crypto for an additional discount at checkout. Questions or want a hand? Just reply to this email or call (831) 218-5147.`,
+    footerLines: [
+      `Optimized Performance Inc.${process.env.MARKETING_POSTAL_ADDRESS ? ' &middot; ' + process.env.MARKETING_POSTAL_ADDRESS : ''}`,
+      `<a href="mailto:admin@optimizedperformancepeptides.com" style="color:#6E6D68;text-decoration:underline;">admin@optimizedperformancepeptides.com</a> &middot; (831) 218-5147`,
+      `For research use only. Not for human consumption.`,
+    ],
+  });
+
   try {
     await fetch('https://api.sendgrid.com/v3/mail/send', {
       method: 'POST',
@@ -236,7 +255,10 @@ export async function sendPaymentRecoveryNudge(order, recoverUrl) {
         from: { email: process.env.FROM_EMAIL || 'orders@optimizedperformancepeptides.com', name: 'Optimized Performance' },
         reply_to: { email: 'admin@optimizedperformancepeptides.com' },
         subject: `Still want these? Here's ${RECOVERY_DISCOUNT_PCT}% off to finish up`,
-        content: [{ type: 'text/plain', value: body }],
+        content: [
+          { type: 'text/plain', value: body },
+          { type: 'text/html', value: html },
+        ],
       }),
     });
   } catch (err) {
