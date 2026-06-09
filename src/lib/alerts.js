@@ -324,11 +324,22 @@ export async function sendCustomerReply({ to_email, subject, body, reply_to }) {
   const fromEmail = process.env.FROM_EMAIL || 'orders@optimizedperformancepeptides.com';
   const replyTo = reply_to || 'admin@optimizedperformancepeptides.com';
 
+  // BCC the admin mailbox on every customer reply (manual + bot auto-replies) so
+  // there's a record of what went out in our OWN inbox. SendGrid sends never hit
+  // the Gmail "Sent" folder, which made replies look like they'd failed; this
+  // gives one auditable copy. SendGrid rejects a personalization where the same
+  // address is in both `to` and `bcc`, so skip the BCC if they collide.
+  const bccEmail = process.env.REPLY_BCC_EMAIL || replyTo;
+  const personalization = { to: [{ email: to_email }] };
+  if (bccEmail && bccEmail.toLowerCase() !== String(to_email).toLowerCase()) {
+    personalization.bcc = [{ email: bccEmail }];
+  }
+
   const res = await fetch('https://api.sendgrid.com/v3/mail/send', {
     method: 'POST',
     headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      personalizations: [{ to: [{ email: to_email }] }],
+      personalizations: [personalization],
       from: { email: fromEmail, name: 'Optimized Performance' },
       reply_to: { email: replyTo },
       subject,
