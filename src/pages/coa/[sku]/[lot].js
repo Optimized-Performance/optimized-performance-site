@@ -26,7 +26,7 @@ export async function getServerSideProps(context) {
 
   // SKU + lot both case-normalize because QR codes may render in either case
   // depending on the printer driver. lot_number is YYMMDD or YYMMDD-A.
-  const { data: batch, error } = await supabaseAdmin
+  let { data: batch, error } = await supabaseAdmin
     .from('batches')
     .select('sku, lot_number, production_date, expiry_date, coa_pdf_path, coa_uploaded_at')
     .ilike('sku', String(sku))
@@ -38,9 +38,28 @@ export async function getServerSideProps(context) {
     return { props: { error: 'database_error', sku, lot } }
   }
 
+  // Safety net: exact (sku, lot) miss — usually a label printed with a lot that
+  // doesn't match the DB row (e.g. the lot column was stamped with the wrong
+  // date). Rather than dead-end a customer scanning a real vial — the worst
+  // trust signal for a peptide brand — fall back to the latest PUBLISHED COA for
+  // the same SKU so a valid COA still loads. (Fix the underlying lot data for
+  // exactness; this just prevents a 404 in the meantime.)
+  let lotFallback = false
   if (!batch) {
-    res.statusCode = 404
-    return { props: { error: 'not_found', sku, lot } }
+    const { data: alt } = await supabaseAdmin
+      .from('batches')
+      .select('sku, lot_number, production_date, expiry_date, coa_pdf_path, coa_uploaded_at')
+      .ilike('sku', String(sku))
+      .not('coa_pdf_path', 'is', null)
+      .order('production_date', { ascending: false })
+      .limit(1)
+    if (alt && alt.length) {
+      batch = alt[0]
+      lotFallback = true
+    } else {
+      res.statusCode = 404
+      return { props: { error: 'not_found', sku, lot } }
+    }
   }
 
   // Batch exists but COA PDF hasn't been uploaded yet — render the friendly
@@ -71,6 +90,9 @@ export async function getServerSideProps(context) {
       `inline; filename="OPP-COA-${batch.sku}-${batch.lot_number}.pdf"`
     )
     res.setHeader('Cache-Control', 'public, max-age=3600, s-maxage=86400')
+    // Flag served-by-fallback responses so a scanned lot with no exact match is
+    // visible in logs (signals lot data that still needs reconciling).
+    if (lotFallback) res.setHeader('X-Coa-Lot-Fallback', `${sku}/${lot}->${batch.lot_number}`)
     res.end(buf)
     return { props: {} }
   } catch (err) {
