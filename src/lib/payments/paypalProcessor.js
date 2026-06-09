@@ -210,12 +210,18 @@ export async function parsePaypalWebhookEvent({ rawBody, headers }) {
     const txId = resource.id || ''
     const orderNumber = resource.custom_id || ''
     const eventId = webhookEvent.id
+    // Surface the actually-captured amount so the finalizer can reconcile it
+    // against order.total (defense-in-depth on the money path).
+    const amount = resource.amount?.value != null ? Number(resource.amount.value) : null
+    const currency = resource.amount?.currency_code || null
     return {
       verified: true,
       eventId,
       txId,
       orderNumber,
       status: 'completed',
+      amount,
+      currency,
     }
   }
 

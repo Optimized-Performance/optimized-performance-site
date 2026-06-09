@@ -74,7 +74,7 @@ export default async function handler(req, res) {
       return res.status(200).json({ received: true, action: 'noop', status: event.status })
     }
 
-    const { eventId, txId, orderNumber } = event
+    const { eventId, txId, orderNumber, amount, currency } = event
     if (!eventId || !orderNumber) {
       console.error('[paypal-webhook] Missing eventId or orderNumber on parsed event')
       return res.status(200).json({ received: true, action: 'no_order_ref' })
@@ -86,7 +86,7 @@ export default async function handler(req, res) {
       return res.status(200).json({ received: true, action: 'replay_ignored' })
     }
 
-    const result = await finalizePaidOrder({ orderNumber })
+    const result = await finalizePaidOrder({ orderNumber, paidAmount: amount, paidCurrency: currency })
     if (!result.ok) {
       if (result.reason === 'order_not_found') {
         console.error('[paypal-webhook] Order not found for:', orderNumber)

@@ -92,14 +92,18 @@ function parseAddress(raw) {
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end()
 
-  // Token check
+  // Token check. Fail CLOSED in production if the token is unset (a misconfig
+  // must never leave this webhook world-writable into the inbound_emails table).
   const expected = process.env.INBOUND_EMAIL_TOKEN
   if (expected) {
     if (req.query.token !== expected) {
       return res.status(401).json({ error: 'Unauthorized' })
     }
+  } else if (process.env.NODE_ENV === 'production') {
+    console.error('[inbound-email] INBOUND_EMAIL_TOKEN not set — refusing in production')
+    return res.status(503).json({ error: 'Webhook not configured' })
   } else {
-    console.warn('[inbound-email] INBOUND_EMAIL_TOKEN not set — webhook is open')
+    console.warn('[inbound-email] INBOUND_EMAIL_TOKEN not set — open in non-production')
   }
 
   if (!supabaseAdmin) return res.status(500).json({ error: 'Database not configured' })

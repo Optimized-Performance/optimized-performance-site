@@ -21,7 +21,10 @@ export default async function handler(req, res) {
     if (req.method === 'GET') {
       const { stats, status, classification, limit = '200', id } = req.query
 
-      // Single email detail
+      // Single email detail. Strip raw attacker-controlled body_html before it
+      // ever reaches the browser — the UI renders body_text only, and shipping
+      // the unsanitized HTML is a latent stored-XSS sink if anything later
+      // renders it. (Re-add a sanitized field if a rich view is ever needed.)
       if (id) {
         const { data, error } = await supabaseAdmin
           .from('inbound_emails')
@@ -29,6 +32,7 @@ export default async function handler(req, res) {
           .eq('id', id)
           .single()
         if (error) throw error
+        if (data) delete data.body_html
         return res.status(200).json(data)
       }
 

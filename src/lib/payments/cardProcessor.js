@@ -100,8 +100,9 @@ async function bankfulParseWebhook({ rawBody, headers }) {
   const receivedSignature = data.SIGNATURE || data.signature
   if (!receivedSignature) return { verified: false, reason: 'Missing signature in callback' }
 
-  const expected = signBankfulPayload(data, apiPassword)
-  if (expected.toLowerCase() !== String(receivedSignature).toLowerCase()) {
+  const expected = Buffer.from(signBankfulPayload(data, apiPassword).toLowerCase())
+  const received = Buffer.from(String(receivedSignature).toLowerCase())
+  if (expected.length !== received.length || !crypto.timingSafeEqual(expected, received)) {
     return { verified: false, reason: 'Signature mismatch' }
   }
 

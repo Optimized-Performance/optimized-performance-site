@@ -11,7 +11,7 @@ import { OPEN_PAYMENT_STATES, PAYMENT_STATUS, assertPaymentTransition } from '..
 // Replay protection is the caller's responsibility — webhook handlers insert
 // into webhook_events first and short-circuit on the 23505 unique violation
 // before calling this.
-export async function finalizePaidOrder({ orderNumber, sendConfirmation = true }) {
+export async function finalizePaidOrder({ orderNumber, sendConfirmation = true, paidAmount = null, paidCurrency = null }) {
   // Accept both 'pending' (zelle/venmo manual rails + fraud-flagged) and
   // 'awaiting_payment' (instant rails before webhook capture) as valid
   // pre-finalize states. v17 split these for admin-view clarity, but every
@@ -25,6 +25,27 @@ export async function finalizePaidOrder({ orderNumber, sendConfirmation = true }
 
   if (fetchError || !order) {
     return { ok: false, reason: 'order_not_found' }
+  }
+
+  // Defense-in-depth on the money path: reconcile the processor's actually-
+  // captured amount against what we billed. Pricing is server-authoritative at
+  // create time so this should never diverge today, but a future rail (or a
+  // resumed/edited order) could — and silently fulfilling an underpaid order is
+  // the failure we want to catch. DETECTION-ONLY (we still complete, to never
+  // false-block a real payment over a units/currency quirk): a shortfall fires a
+  // loud structured log + flags the result so an alert/clawback can follow.
+  // USD only (PayPal reports USD); crypto is skipped (NOWPayments guarantees a
+  // full 'finished' invoice). 1¢ epsilon for float noise.
+  let amountMismatch = false
+  if (
+    paidAmount != null && Number.isFinite(Number(paidAmount)) && Number(paidAmount) > 0 &&
+    (!paidCurrency || String(paidCurrency).toUpperCase() === 'USD') &&
+    Number(paidAmount) + 0.01 < Number(order.total || 0)
+  ) {
+    amountMismatch = true
+    console.error('[finalize] AMOUNT MISMATCH — captured < billed', JSON.stringify({
+      orderNumber, paid: Number(paidAmount), billed: Number(order.total || 0), currency: paidCurrency || 'USD',
+    }))
   }
 
   // Order is in an OPEN state (per the filter above) → completed is always legal
@@ -111,5 +132,5 @@ export async function finalizePaidOrder({ orderNumber, sendConfirmation = true }
     ])
   }
 
-  return { ok: true, order }
+  return { ok: true, order, amountMismatch }
 }

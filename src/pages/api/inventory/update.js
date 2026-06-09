@@ -1,5 +1,4 @@
 import { supabaseAdmin } from '../../../lib/supabase'
-import { sendEmailAlert, sendSmsAlert } from '../../../lib/alerts'
 import { validateSessionToken } from '../../../lib/session'
 import { validateOrigin, rateLimit } from '../../../lib/security'
 
@@ -44,55 +43,13 @@ export default async function handler(req, res) {
       return res.status(200).json(result)
     }
 
-    // Single SKU update from order: { sku, quantity }
-    const { sku, quantity } = body
-
-    if (!sku || !quantity || quantity < 1) {
-      return res.status(400).json({ error: 'Invalid request' })
-    }
-
-    const { data: item, error: fetchError } = await supabaseAdmin
-      .from('inventory')
-      .select('*')
-      .eq('sku', sku)
-      .single()
-
-    if (fetchError || !item) {
-      return res.status(404).json({ error: 'SKU not found' })
-    }
-
-    const newStock = Math.max(0, item.stock - quantity)
-
-    const { error: updateError } = await supabaseAdmin
-      .from('inventory')
-      .update({ stock: newStock })
-      .eq('sku', sku)
-
-    if (updateError) throw updateError
-
-    let alertLevel = null
-    if (newStock <= item.threshold) {
-      alertLevel = 'critical'
-    } else if (newStock <= item.reorder_threshold) {
-      alertLevel = 'reorder'
-    }
-
-    if (alertLevel) {
-      const alertItem = { ...item, stock: newStock }
-      await Promise.all([
-        sendEmailAlert([alertItem], alertLevel),
-        sendSmsAlert([alertItem], alertLevel),
-      ])
-    }
-
-    return res.status(200).json({
-      sku,
-      previous_stock: item.stock,
-      new_stock: newStock,
-      reorder_threshold: item.reorder_threshold,
-      threshold: item.threshold,
-      alert_level: alertLevel,
-    })
+    // The legacy unauthenticated single-SKU `{ sku, quantity }` branch was
+    // REMOVED 2026-06-08 (security pass): it decremented stock + fired alerts
+    // with NO identity auth (origin+rate-limit only), so anyone could drain
+    // inventory. It was also dead code — admin bulk updates use the token branch
+    // above, and real fulfillment decrements stock via finalizePaidOrder, not
+    // this route. Any caller without `token` is now rejected.
+    return res.status(400).json({ error: 'Missing token (admin bulk update only)' })
   } catch (err) {
     console.error('Inventory update failed:', err)
     return res.status(500).json({ error: err.message })

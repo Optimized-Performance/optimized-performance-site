@@ -16,6 +16,7 @@
 
 import crypto from 'crypto'
 import { supabaseAdmin } from './supabase'
+import { escapeLike } from './security'
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://optimizedperformancepeptides.com'
 
@@ -96,7 +97,7 @@ export async function isSuppressed(email) {
   const { data: ci } = await supabaseAdmin
     .from('email_suppressions')
     .select('id')
-    .ilike('email', String(email).trim())
+    .ilike('email', escapeLike(String(email).trim()))
     .maybeSingle()
   return !!ci
 }

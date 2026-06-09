@@ -12,7 +12,9 @@
 // If CRON_SECRET is unset, allow (dev / intentionally unprotected).
 export function isAuthorizedCron(req) {
   const secret = process.env.CRON_SECRET;
-  if (!secret) return true;
+  // Fail CLOSED in production if the secret is missing (a misconfig must never
+  // make crons world-callable). Allow in dev/test so local runs aren't blocked.
+  if (!secret) return process.env.NODE_ENV !== 'production';
   const auth = req.headers['authorization'] || req.headers['Authorization'];
   if (auth === `Bearer ${secret}`) return true;
   if (req.headers['x-cron-secret'] === secret) return true;

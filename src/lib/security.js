@@ -60,7 +60,21 @@ export function rateLimit(req, { maxRequests = 60, windowMs = 60 * 1000 } = {}) 
 
 // Input validation helpers
 export function validateEmail(email) {
-  return typeof email === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && email.length <= 254
+  // Reject SQL LIKE wildcards (% _) explicitly — they pass the loose regex and
+  // flow into Supabase `.ilike()` on email lookups (login/register/suppression),
+  // enabling account enumeration + row-targeting. Email-auth lookups should use
+  // exact `.eq()`, but rejecting wildcards here is the belt-and-suspenders gate.
+  return typeof email === 'string'
+    && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+    && !/[%_]/.test(email)
+    && email.length <= 254
+}
+
+// Escape SQL LIKE wildcards in any user-supplied value used with `.ilike()`/
+// `.like()` so `%`/`_` are matched literally instead of as wildcards. Supabase
+// uses backslash as the LIKE escape character.
+export function escapeLike(str) {
+  return String(str == null ? '' : str).replace(/([\\%_])/g, '\\$1')
 }
 
 export function validateString(str, { minLength = 1, maxLength = 500 } = {}) {
