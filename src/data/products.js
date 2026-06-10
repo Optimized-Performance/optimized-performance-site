@@ -452,9 +452,9 @@ const products = [
     category: 'Supplies',
     format: 'Bacteriostatic Solution',
     vialSize: '30 mL Vial',
-    inStock: false,
+    inStock: true,
     badge: 'NEW',
-    stock: 0,
+    stock: 100,
   },
 ];
 
@@ -566,13 +566,20 @@ export function formatPreorderShipDate(product) {
 // Bacteriostatic water is the natural attach for any reconstitutable peptide.
 // Only suggest when the cart holds a real peptide (not just add-ons) and the
 // add-on isn't already in the cart; the standard 10 mL is offered first.
-const CART_ADDON_IDS = ['bac-water-10ml', 'bac-water-30ml-hospira'];
+// Order = cross-sell feature priority (first in-stock, not-in-cart one is shown).
+const CART_ADDON_IDS = ['bac-water-30ml-hospira', 'bac-water-10ml'];
 export function getCartAddOns(cartItems = []) {
   const items = Array.isArray(cartItems) ? cartItems : [];
   const inCart = new Set(items.map((i) => i.id));
   const hasPeptide = items.some((i) => !CART_ADDON_IDS.includes(i.id));
   if (!hasPeptide) return [];
-  return products.filter((p) => CART_ADDON_IDS.includes(p.id) && !inCart.has(p.id)).slice(0, 1);
+  // In-stock add-ons not already in the cart, ranked by CART_ADDON_IDS priority
+  // (not products-array order). The inStock guard means an out-of-stock add-on
+  // never surfaces as an unbuyable "complete your order" suggestion.
+  return products
+    .filter((p) => CART_ADDON_IDS.includes(p.id) && p.inStock && !inCart.has(p.id))
+    .sort((a, b) => CART_ADDON_IDS.indexOf(a.id) - CART_ADDON_IDS.indexOf(b.id))
+    .slice(0, 1);
 }
 
 export default products;
