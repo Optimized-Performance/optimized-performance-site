@@ -1,6 +1,9 @@
 import { supabaseAdmin } from '../../../lib/supabase'
 import { validateSessionToken } from '../../../lib/session'
 import { validateOrigin, rateLimit } from '../../../lib/security'
+import productsData from '../../../data/products'
+
+const PRODUCT_BY_ID = new Map(productsData.map((p) => [p.id, p]))
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end()
@@ -23,10 +26,22 @@ export default async function handler(req, res) {
           if (typeof productId !== 'string' || productId.length > 100) continue
           const n = Number(qty)
           if (!Number.isFinite(n) || n < 0 || n > MAX_STOCK) continue
+          // UPSERT (not update) so a product that has no inventory row yet — e.g.
+          // any SKU added after the original seed (BAC waters, tadalafil, MOTS-C…)
+          // — gets created instead of silently no-op'ing back to 0. Catalog is the
+          // source of truth for the metadata columns; threshold/reorder_threshold
+          // are intentionally NOT set here so admin-tuned alert levels survive.
+          const p = PRODUCT_BY_ID.get(productId)
           await supabaseAdmin
             .from('inventory')
-            .update({ stock: Math.floor(n) })
-            .eq('product_id', productId)
+            .upsert(
+              {
+                product_id: productId,
+                stock: Math.floor(n),
+                ...(p ? { sku: p.sku, product: p.name, price: p.price, size: p.dosage } : {}),
+              },
+              { onConflict: 'product_id' }
+            )
         }
       }
 
