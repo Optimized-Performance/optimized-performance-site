@@ -3,8 +3,8 @@ import { PayPalScriptProvider, PayPalButtons } from '@paypal/react-paypal-js'
 
 // PayPal Smart Buttons. Replaces the redirect-style "Pay with PayPal" button.
 // Renders the JS SDK inline so customers stay on the site and PayPal can
-// surface PayPal account, Venmo, Pay Later, and Debit/Credit Card as
-// separate funding sources.
+// surface PayPal account, Pay Later, and Debit/Credit Card as separate
+// funding sources. Venmo is explicitly disabled (see disable-funding below).
 //
 // Apple Pay was deliberately removed because this account doesn't have
 // Advanced Credit and Debit Card Payments (ACDC) enabled — Apple Pay is
@@ -35,12 +35,15 @@ export default function PaypalCheckoutButtons({
         currency: 'USD',
         intent: 'capture',
         // `card` shows the standalone "Debit or Credit Card" guest button —
-        // does NOT require ACDC underwriting. `venmo` and `paylater` are
-        // surfaced based on per-buyer eligibility; the SDK auto-hides them
-        // when ineligible. `credit` (PayPal Credit financing) is disabled
-        // because we don't want a third financing option alongside paylater.
-        'enable-funding': 'venmo,paylater,card',
-        'disable-funding': 'credit',
+        // does NOT require ACDC underwriting. `paylater` is surfaced based on
+        // per-buyer eligibility; the SDK auto-hides it when ineligible.
+        // `credit` (PayPal Credit financing) is disabled because we don't want
+        // a third financing option alongside paylater. `venmo` is explicitly
+        // disabled (not just un-enabled — the SDK can auto-surface it for
+        // eligible buyers otherwise): Venmo-via-PayPal settles through the
+        // same PayPal rail but adds P2P-style surface we don't want here.
+        'enable-funding': 'paylater,card',
+        'disable-funding': 'credit,venmo',
       }}
     >
       <PayPalStack
