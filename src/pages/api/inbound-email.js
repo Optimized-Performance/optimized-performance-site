@@ -8,7 +8,7 @@ import {
   ESCALATE_CLASSIFICATIONS,
   statusForClassification,
 } from '../../lib/email-bot'
-import { sendCustomerReply } from '../../lib/alerts'
+import { sendCustomerReply, detectCarrierAndUrl } from '../../lib/alerts'
 
 // Webhook handler for SendGrid Inbound Parse on bot@inbound.optimizedperformancepeptides.com.
 // Flow: parse → store raw → classify (Claude) → look up related order → auto-reply OR draft.
@@ -250,9 +250,13 @@ export default async function handler(req, res) {
   // Generate the reply (auto or draft)
   let draft
   try {
+    // Detect carrier + tracking URL server-side so the bot states facts
+    // instead of guessing the carrier from the number (or from a stale
+    // carrier mention in the quoted thread).
+    const trackingInfo = order?.tracking ? detectCarrierAndUrl(order.tracking) : null
     draft = await generateReply(
       { from_email: fromEmail, from_name: fromName, subject, body_text: bodyText },
-      { classification, order }
+      { classification, order, carrier: trackingInfo?.carrier, tracking_url: trackingInfo?.url }
     )
   } catch (err) {
     console.error('[inbound-email] reply generation failed:', err)

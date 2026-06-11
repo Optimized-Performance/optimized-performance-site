@@ -11,8 +11,9 @@ function detectCarrierAndUrl(tracking) {
   const t = String(tracking || '').replace(/\s/g, '').toUpperCase();
   if (!t) return { carrier: 'Carrier', url: '' };
   if (/^1Z[A-Z0-9]{16}$/.test(t)) return { carrier: 'UPS', url: `https://www.ups.com/track?tracknum=${encodeURIComponent(t)}` };
+  // USPS before FedEx — USPS IMpb (20-34 digits starting 92-95) also matches the bare FedEx length patterns
+  if (/^9[2-5]\d{18,32}$/.test(t) || /^[A-Z]{2}\d{9}US$/.test(t)) return { carrier: 'USPS', url: `https://tools.usps.com/go/TrackConfirmAction?tLabels=${encodeURIComponent(t)}` };
   if (/^\d{12}$|^\d{15}$|^\d{20}$|^\d{22}$/.test(t)) return { carrier: 'FedEx', url: `https://www.fedex.com/fedextrack/?tracknumbers=${encodeURIComponent(t)}` };
-  if (/^9[2-5]\d{20}$/.test(t) || /^[A-Z]{2}\d{9}US$/.test(t)) return { carrier: 'USPS', url: `https://tools.usps.com/go/TrackConfirmAction?tLabels=${encodeURIComponent(t)}` };
   if (/^\d{10}$|^\d{11}$/.test(t)) return { carrier: 'DHL', url: `https://www.dhl.com/us-en/home/tracking.html?tracking-id=${encodeURIComponent(t)}` };
   return { carrier: 'Carrier', url: `https://parcelsapp.com/en/tracking/${encodeURIComponent(t)}` };
 }

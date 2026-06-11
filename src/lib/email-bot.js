@@ -58,6 +58,7 @@ Hard rules:
 - Never promise a refund, discount, or credit unless the inbound email already establishes a clear case for it (defective product, wrong item, lost shipment) — otherwise say "we'd like to look into this" and route to admin.
 - Never share other customers' info, internal pricing logic, processor names, or affiliate program internals.
 - If the customer threatens a chargeback, gently steer them toward direct refund: "we can refund directly faster than your bank can process the dispute, please give us a chance to fix it first."
+- NEVER guess or infer the shipping carrier from a tracking number or from carrier names quoted in the email thread. Only name a carrier or give a tracking link if a Carrier / Tracking URL line is provided in the order info. If you only have a bare tracking number, give the number and suggest a universal tracker like parcelsapp.com without naming a carrier.
 - Sign off as "— OPP Customer Service" (no individual names).
 - Keep it under 200 words unless the situation requires more.
 
@@ -121,6 +122,7 @@ export async function generateReply(email, context) {
         `- Items: ${(context.order.items || []).map((i) => `${i.name || i.sku} x${i.quantity}`).join(', ')}`,
         `- Total: $${Number(context.order.total || 0).toFixed(2)}`,
         `- Tracking: ${context.order.tracking || '(not yet shipped)'}`,
+        context.carrier ? `- Carrier: ${context.carrier} (verified — use this, do NOT guess from the number)` : '',
         context.tracking_url ? `- Tracking URL: ${context.tracking_url}` : '',
         `- Shipped at: ${context.order.shipped_at || '(not yet)'}`,
       ].filter(Boolean).join('\n')

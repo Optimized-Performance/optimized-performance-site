@@ -88,7 +88,9 @@ export async function sendSmsAlert(items, level) {
 // Best-effort carrier detection from tracking number formats.
 // Returns a carrier name + a tracking URL the customer can click.
 // Falls back to a universal tracker if format is unrecognized.
-function detectCarrierAndUrl(tracking) {
+// USPS must be checked BEFORE FedEx: USPS IMpb numbers are 20-34 digits
+// starting 92-95, which the bare FedEx length patterns also match.
+export function detectCarrierAndUrl(tracking) {
   const t = String(tracking || '').replace(/\s/g, '').toUpperCase();
   if (!t) return { carrier: 'Carrier', url: '' };
 
@@ -96,13 +98,13 @@ function detectCarrierAndUrl(tracking) {
   if (/^1Z[A-Z0-9]{16}$/.test(t)) {
     return { carrier: 'UPS', url: `https://www.ups.com/track?tracknum=${encodeURIComponent(t)}` };
   }
+  // USPS (IMpb: 20-34 digits starting 92-95, or 13-char international w/ letters)
+  if (/^9[2-5]\d{18,32}$/.test(t) || /^[A-Z]{2}\d{9}US$/.test(t)) {
+    return { carrier: 'USPS', url: `https://tools.usps.com/go/TrackConfirmAction?tLabels=${encodeURIComponent(t)}` };
+  }
   // FedEx (12, 15, 20, or 22 digits)
   if (/^\d{12}$|^\d{15}$|^\d{20}$|^\d{22}$/.test(t)) {
     return { carrier: 'FedEx', url: `https://www.fedex.com/fedextrack/?tracknumbers=${encodeURIComponent(t)}` };
-  }
-  // USPS (most: 20-22 digits, or 13-char w/ letters)
-  if (/^9[2-5]\d{20}$/.test(t) || /^[A-Z]{2}\d{9}US$/.test(t)) {
-    return { carrier: 'USPS', url: `https://tools.usps.com/go/TrackConfirmAction?tLabels=${encodeURIComponent(t)}` };
   }
   // DHL Express
   if (/^\d{10}$|^\d{11}$/.test(t)) {
