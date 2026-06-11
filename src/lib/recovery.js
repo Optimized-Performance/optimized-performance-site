@@ -9,7 +9,11 @@
 // discount % is fixed server-side, so a holder can't escalate it.
 //
 // Format:  base64url(payloadJSON) + "." + base64url(hmacSHA256)
-//   payload = { exp: <ms epoch> }
+//   payload = { exp: <ms epoch>, ord?: <order_number> }
+//
+// `ord` (optional) ties the token to the abandoned order so the site can
+// rebuild the exact cart on arrival (see /api/recovery/cart). Replenishment
+// links mint without it — those land on a PDP, no cart rebuild wanted.
 //
 // Signing key: RECOVERY_TOKEN_SECRET, falling back to CRON_SECRET (already set
 // in the Vercel env for the other crons) so the rail works without a new env
@@ -36,19 +40,21 @@ function hmac(payloadB64, key) {
 // Mint a recovery token valid for `ttlDays`. Returns null when no signing key is
 // configured so callers can skip sending a worthless link instead of emailing a
 // broken one.
-export function signRecoveryToken({ ttlDays = DEFAULT_TTL_DAYS } = {}) {
+export function signRecoveryToken({ ttlDays = DEFAULT_TTL_DAYS, orderNumber = null } = {}) {
   const key = signingKey()
   if (!key) return null
   const exp = Date.now() + ttlDays * 24 * 60 * 60 * 1000
-  const payloadB64 = b64url(JSON.stringify({ exp }))
+  const payload = orderNumber ? { exp, ord: String(orderNumber) } : { exp }
+  const payloadB64 = b64url(JSON.stringify(payload))
   return `${payloadB64}.${hmac(payloadB64, key)}`
 }
 
-// Verify a token's signature + expiry. Returns { valid, pct } — pct is the
-// server-authoritative RECOVERY_DISCOUNT_PCT (never read from the token), 0 when
-// invalid. Constant-time signature compare; never throws.
+// Verify a token's signature + expiry. Returns { valid, pct, orderNumber } —
+// pct is the server-authoritative RECOVERY_DISCOUNT_PCT (never read from the
+// token), 0 when invalid; orderNumber is the bound order or null for tokens
+// minted without one (replenishment). Constant-time compare; never throws.
 export function verifyRecoveryToken(token) {
-  const fail = { valid: false, pct: 0 }
+  const fail = { valid: false, pct: 0, orderNumber: null }
   try {
     const key = signingKey()
     if (!key || typeof token !== 'string' || token.length > 512) return fail
@@ -62,7 +68,11 @@ export function verifyRecoveryToken(token) {
     if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return fail
     const payload = JSON.parse(Buffer.from(payloadB64.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf8'))
     if (!payload || typeof payload.exp !== 'number' || Date.now() > payload.exp) return fail
-    return { valid: true, pct: RECOVERY_DISCOUNT_PCT }
+    return {
+      valid: true,
+      pct: RECOVERY_DISCOUNT_PCT,
+      orderNumber: typeof payload.ord === 'string' ? payload.ord : null,
+    }
   } catch {
     return fail
   }

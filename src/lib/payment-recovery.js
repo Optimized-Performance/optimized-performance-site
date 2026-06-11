@@ -63,7 +63,9 @@ export async function runPaymentRecoveryNudges() {
     for (const order of orders || []) {
       try {
         // Fresh token per order so each link expires on its own 7-day clock.
-        const token = signRecoveryToken()
+        // Bound to the order so arrival rebuilds the exact abandoned cart
+        // (items + quantities) via /api/recovery/cart.
+        const token = signRecoveryToken({ orderNumber: order.order_number })
         const recoverUrl = `${SITE_URL}/?${RECOVERY_QUERY_PARAM}=${encodeURIComponent(token)}`
         await sendPaymentRecoveryNudge(order, recoverUrl)
         const { error: upErr } = await supabaseAdmin

@@ -51,6 +51,16 @@ export default function Header() {
         </nav>
 
         <div className="hidden md:flex items-center gap-2 justify-self-end">
+          <Link
+            href="/account"
+            className={`text-sm py-1.5 px-2 border-b ${
+              path.startsWith('/account')
+                ? 'text-ink border-ink'
+                : 'text-ink-soft border-transparent hover:text-ink hover:border-ink'
+            } transition-colors`}
+          >
+            Account
+          </Link>
           <button
             className="relative inline-flex items-center gap-2 px-3.5 py-2 border border-line rounded-opp text-sm font-medium text-ink hover:border-ink transition-colors"
             onClick={() => setIsCartOpen(true)}
@@ -98,6 +108,13 @@ export default function Header() {
               {n.label}
             </Link>
           ))}
+          <Link
+            href="/account"
+            onClick={() => setMobileOpen(false)}
+            className={`text-sm py-2 ${path.startsWith('/account') ? 'text-ink font-semibold' : 'text-ink-soft'}`}
+          >
+            Account
+          </Link>
         </div>
       )}
 

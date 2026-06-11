@@ -1,4 +1,6 @@
 import { createCustomerToken, hashPassword, customerCookieHeader } from '../../../lib/customer-session'
+import { signVerifyToken } from '../../../lib/customer-tokens'
+import { sendVerificationEmail } from '../../../lib/customer-emails'
 import { supabaseAdmin } from '../../../lib/supabase'
 import { validateOrigin, rateLimit, validateEmail, validateString } from '../../../lib/security'
 
@@ -61,6 +63,15 @@ export default async function handler(req, res) {
   } catch (e) {
     console.error('createCustomerToken failed:', e)
     return res.status(500).json({ error: 'Server error — session unavailable.' })
+  }
+
+  // Fire-and-forget the verification email — registration (and checkout
+  // behind the account gate) must never block or fail on SendGrid.
+  const verifyToken = signVerifyToken(customer.id)
+  if (verifyToken) {
+    sendVerificationEmail(customer, verifyToken).catch((err) =>
+      console.error('[customers/register] verification email failed:', err)
+    )
   }
 
   res.setHeader('Set-Cookie', customerCookieHeader(token))

@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { track } from '../lib/track';
+import { RECOVERY_QUERY_PARAM } from '../lib/recovery-config';
 import products from '../data/products';
 
 const CartContext = createContext();
@@ -71,10 +72,52 @@ export function CartProvider({ children }) {
   // Hydrate once on mount (client-only, post-hydration, so SSR markup always
   // matches the first client render). No track() call and no drawer open:
   // this is a restore, not an add.
+  //
+  // Arriving on a payment-recovery link (?recover=TOKEN in the URL — the
+  // email click moment, deliberately not the persisted cookie) with an empty
+  // cart additionally rebuilds the exact abandoned order: the token is bound
+  // server-side to the order, /api/recovery/cart returns its line ids +
+  // quantities, and we re-join against the live catalog exactly like stored
+  // carts. A non-empty cart always wins — never stomp what they've built.
   useEffect(() => {
     const stored = readStoredCart();
     if (stored.length) setCartItems(stored);
     setHydrated(true);
+
+    if (stored.length) return;
+    let token = '';
+    try {
+      token = new URLSearchParams(window.location.search).get(RECOVERY_QUERY_PARAM) || '';
+    } catch { /* no-op */ }
+    if (!token) return;
+    let cancelled = false;
+    fetch('/api/recovery/cart', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token }),
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (cancelled || !data || !Array.isArray(data.items) || !data.items.length) return;
+        const rebuilt = data.items
+          .map((line) => {
+            const product = products.find((p) => p.id === line.id);
+            if (!product) return null;
+            return {
+              ...product,
+              quantity: Math.max(1, Math.min(99, Number(line.quantity) || 1)),
+              isPreorder: Boolean(line.isPreorder),
+              preorderShipDate: line.isPreorder ? line.preorderShipDate || null : null,
+            };
+          })
+          .filter(Boolean);
+        if (!rebuilt.length) return;
+        // Rebuild only if the cart is still empty (they may have added items
+        // while the fetch was in flight).
+        setCartItems((prev) => (prev.length ? prev : rebuilt));
+      })
+      .catch(() => { /* recovery rebuild is best-effort */ });
+    return () => { cancelled = true; };
   }, []);
 
   // Mirror every cart change back to storage after hydration.

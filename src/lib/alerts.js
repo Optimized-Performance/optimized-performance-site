@@ -6,8 +6,10 @@ import { renderBrandedEmail, emailDetailTable, escapeHtml, EMAIL_FONT } from './
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://optimizedperformancepeptides.com';
 
-// Shared footer for branded customer emails.
-function emailFooterLines() {
+// Shared footer for branded customer emails. Exported for the customer
+// account emails (lib/customer-emails.js) so every customer-facing send
+// carries the identical footer.
+export function emailFooterLines() {
   return [
     `Optimized Performance Inc.${process.env.MARKETING_POSTAL_ADDRESS ? ' &middot; ' + process.env.MARKETING_POSTAL_ADDRESS : ''}`,
     `<a href="mailto:admin@optimizedperformancepeptides.com" style="color:#6E6D68;text-decoration:underline;">admin@optimizedperformancepeptides.com</a> &middot; (831) 218-5147`,

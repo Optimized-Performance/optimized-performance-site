@@ -99,6 +99,12 @@ export default function AccountAuth() {
         <button type="submit" className="btn-primary w-full py-3.5" disabled={submitting}>
           {submitting ? 'Please wait…' : mode === 'login' ? 'Sign in' : 'Create account'}
         </button>
+
+        {mode === 'login' && (
+          <a href="/account/forgot" className="text-ink-soft text-[13px] text-center hover:text-ink">
+            Forgot password?
+          </a>
+        )}
       </form>
 
       <p className="text-sm text-ink-soft text-center mt-6">
