@@ -26,7 +26,7 @@
 | **durable** | `crypto`, `zelle` | Very high / uncapped — the overflow release valve. Always available. |
 | **fragile-p2p** | `venmo` | Minimal cap; AUP-fragile, kept off the July bolus. |
 
-> Note: `payment_method='paypal'` aggregates PayPal account + Pay-Later + Venmo-via-PayPal + card-via-PayPal — all settle through the PayPal rail, so they all count to the `paypal` bucket. Correct as-is.
+> Note: `payment_method='paypal'` aggregates PayPal account + Pay-Later + card-via-PayPal — all settle through the PayPal rail, so they all count to the `paypal` bucket. Correct as-is. (Venmo-via-PayPal was disabled 2026-06-11 via `disable-funding` in the Smart Buttons — historical orders may still carry it; the direct manual `venmo` rail is the only Venmo path going forward.)
 
 ### Per-rail config (new `rail_config` table — tunable without redeploy)
 Ceilings are **empirical** — they must be editable from the admin UI as you learn what each rail survives, *not* hardcoded in env.
