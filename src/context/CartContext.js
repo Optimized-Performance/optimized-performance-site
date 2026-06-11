@@ -1,11 +1,87 @@
-import { createContext, useContext, useState, useCallback } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { track } from '../lib/track';
+import products from '../data/products';
 
 const CartContext = createContext();
+
+// Versioned localStorage persistence so the cart survives refreshes, new
+// tabs, and round-trips to external payment providers (crypto redirect,
+// PayPal popups) — the /checkout/cancel page promises "your cart is still
+// saved", and this is what makes that true. Only ids + quantities + preorder
+// flags are stored; on hydrate each line is re-joined against the current
+// catalog so prices/names/stock flags can never go stale in storage.
+const CART_STORAGE_KEY = 'opp_cart_v1';
+const CART_MAX_AGE_MS = 14 * 24 * 60 * 60 * 1000; // 14 days
+
+function readStoredCart() {
+  try {
+    const raw = localStorage.getItem(CART_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!parsed || parsed.v !== 1 || !Array.isArray(parsed.items)) return [];
+    if (!parsed.ts || Date.now() - parsed.ts > CART_MAX_AGE_MS) return [];
+    return parsed.items
+      .map((line) => {
+        const product = products.find((p) => p.id === line.id);
+        const quantity = Math.floor(Number(line.quantity));
+        if (!product || !Number.isFinite(quantity) || quantity < 1) return null;
+        return {
+          ...product,
+          quantity: Math.min(quantity, 99),
+          isPreorder: Boolean(line.isPreorder),
+          preorderShipDate: line.isPreorder ? line.preorderShipDate || null : null,
+        };
+      })
+      .filter(Boolean);
+  } catch {
+    // localStorage blocked or corrupt payload — start empty, never crash
+    return [];
+  }
+}
+
+function writeStoredCart(cartItems) {
+  try {
+    if (!cartItems.length) {
+      localStorage.removeItem(CART_STORAGE_KEY);
+      return;
+    }
+    const items = cartItems.map((item) => ({
+      id: item.id,
+      quantity: item.quantity,
+      isPreorder: Boolean(item.isPreorder),
+      preorderShipDate: item.preorderShipDate || null,
+    }));
+    localStorage.setItem(CART_STORAGE_KEY, JSON.stringify({ v: 1, ts: Date.now(), items }));
+  } catch {
+    // localStorage blocked — cart stays session-only, same as before
+  }
+}
 
 export function CartProvider({ children }) {
   const [cartItems, setCartItems] = useState([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
+  // `hydrated` must be STATE, not a ref: the mirror effect below runs in the
+  // same commit as the hydrate effect, and a ref flipped there would let the
+  // mirror's initial run write the still-empty cart over the stored one
+  // before the restore lands (then StrictMode's dev remount re-reads the
+  // now-clobbered key and the cart "forgets"). As state, the mirror effect
+  // can't see hydrated=true until the restored items are committed with it.
+  const [hydrated, setHydrated] = useState(false);
+
+  // Hydrate once on mount (client-only, post-hydration, so SSR markup always
+  // matches the first client render). No track() call and no drawer open:
+  // this is a restore, not an add.
+  useEffect(() => {
+    const stored = readStoredCart();
+    if (stored.length) setCartItems(stored);
+    setHydrated(true);
+  }, []);
+
+  // Mirror every cart change back to storage after hydration.
+  useEffect(() => {
+    if (!hydrated) return;
+    writeStoredCart(cartItems);
+  }, [cartItems, hydrated]);
 
   const addToCart = useCallback((product, options = {}) => {
     const { isPreorder = false, preorderShipDate = null } = options;
@@ -57,7 +133,10 @@ export function CartProvider({ children }) {
 
   const cartCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
 
-  const clearCart = useCallback(() => setCartItems([]), []);
+  const clearCart = useCallback(() => {
+    setCartItems([]);
+    try { localStorage.removeItem(CART_STORAGE_KEY); } catch { /* blocked */ }
+  }, []);
 
   return (
     <CartContext.Provider
