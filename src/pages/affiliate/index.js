@@ -118,6 +118,8 @@ export default function AffiliateDashboard() {
   const aff = me.affiliate
   const stats = me.stats
   const shareLink = `${siteUrl}/?ref=${aff.code}`
+  const codes = Array.isArray(me.codes) ? me.codes : []
+  const multiCode = codes.length > 1
 
   return (
     <Shell>
@@ -146,6 +148,53 @@ export default function AffiliateDashboard() {
         <Stat label="MTD commission" value={fmtUsd(stats.mtd_commission)} tone="success" />
         <Stat label="Last month volume" value={fmtUsd(stats.last_month_volume)} sub={`${stats.last_month_orders} orders`} />
       </div>
+
+      {/* Per-code breakdown — shown when this affiliate runs more than one
+          code (e.g. a main code + a Skool-community code with its own split).
+          The stat rows above are the combined total across all of them. */}
+      {multiCode && (
+        <div className="card-premium p-6 mb-6">
+          <h2 className="font-display font-semibold text-lg mb-1 text-ink">Your codes</h2>
+          <p className="opp-meta-mono mb-4 text-ink-mute">
+            Each of your codes and how it&apos;s performing. The totals above combine them all.
+          </p>
+          <div className="overflow-x-auto">
+            <table className="w-full text-[13px]">
+              <thead className="bg-surfaceAlt">
+                <tr>
+                  <th className="px-3 py-2 text-left font-mono text-[10px] uppercase text-ink-mute">Code</th>
+                  <th className="px-3 py-2 text-center font-mono text-[10px] uppercase text-ink-mute">Customer discount</th>
+                  <th className="px-3 py-2 text-center font-mono text-[10px] uppercase text-ink-mute">Your rate</th>
+                  <th className="px-3 py-2 text-right font-mono text-[10px] uppercase text-ink-mute">MTD volume</th>
+                  <th className="px-3 py-2 text-right font-mono text-[10px] uppercase text-ink-mute">MTD commission</th>
+                  <th className="px-3 py-2 text-right font-mono text-[10px] uppercase text-ink-mute">Lifetime volume</th>
+                  <th className="px-3 py-2 text-right font-mono text-[10px] uppercase text-ink-mute">Lifetime commission</th>
+                </tr>
+              </thead>
+              <tbody>
+                {codes.map((c) => (
+                  <tr key={c.code} className="border-t border-line">
+                    <td className="px-3 py-2">
+                      <span className="font-mono font-bold text-accent-strong">{c.code}</span>
+                      <span className="opp-meta-mono ml-2 text-ink-mute">{c.label}</span>
+                      {!c.active && <span className="ml-2 text-[10px] text-danger">inactive</span>}
+                    </td>
+                    <td className="px-3 py-2 text-center">{c.discount_pct}%</td>
+                    <td className="px-3 py-2 text-center">{c.commission_pct}%</td>
+                    <td className="px-3 py-2 text-right">{fmtUsd(c.mtd_volume)}<span className="opp-meta-mono ml-1 text-ink-mute">/{c.mtd_orders}</span></td>
+                    <td className="px-3 py-2 text-right text-success font-semibold">{fmtUsd(c.mtd_commission)}</td>
+                    <td className="px-3 py-2 text-right">{fmtUsd(c.lifetime_volume)}<span className="opp-meta-mono ml-1 text-ink-mute">/{c.lifetime_orders}</span></td>
+                    <td className="px-3 py-2 text-right text-success font-semibold">{fmtUsd(c.lifetime_commission)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="opp-meta-mono mt-2 text-ink-mute text-xs">
+            Volume columns show $ / order count. Commission per order locks in at the rate in effect when the order was placed.
+          </p>
+        </div>
+      )}
 
       {/* Royalty (flat-rate primaries only — e.g. Tris) */}
       {me.royalty?.eligible && (
@@ -223,22 +272,53 @@ export default function AffiliateDashboard() {
 
       {/* Code + share */}
       <div className="card-premium p-6 mb-6">
-        <h2 className="font-display font-semibold text-lg mb-3 text-ink">Your affiliate code</h2>
-        <div className="flex flex-col md:flex-row gap-4 items-start md:items-center">
-          <div className="font-mono text-2xl font-bold text-accent-strong tracking-wide">{aff.code}</div>
-          <div className="flex-1 min-w-0">
-            <p className="opp-meta-mono uppercase mb-1">Share link</p>
-            <div className="flex gap-2 items-center">
-              <input className="input-field font-mono text-sm flex-1" readOnly value={shareLink} onFocus={(e) => e.target.select()} />
-              <button className="btn-outline text-xs px-3 py-2" onClick={() => copy(shareLink, 'link')}>
-                {copied === 'link' ? 'Copied' : 'Copy'}
-              </button>
-            </div>
+        <h2 className="font-display font-semibold text-lg mb-3 text-ink">
+          {multiCode ? 'Your affiliate codes' : 'Your affiliate code'}
+        </h2>
+        {multiCode ? (
+          <div className="flex flex-col gap-5">
+            {codes.map((c) => {
+              const link = `${siteUrl}/?ref=${c.code}`
+              return (
+                <div key={c.code} className="flex flex-col md:flex-row gap-4 items-start md:items-center">
+                  <div className="md:w-48">
+                    <div className="font-mono text-xl font-bold text-accent-strong tracking-wide">{c.code}</div>
+                    <div className="opp-meta-mono text-ink-mute mt-0.5">{c.label} · {c.discount_pct}% off</div>
+                  </div>
+                  <div className="flex-1 min-w-0 w-full">
+                    <div className="flex gap-2 items-center">
+                      <input className="input-field font-mono text-sm flex-1" readOnly value={link} onFocus={(e) => e.target.select()} />
+                      <button className="btn-outline text-xs px-3 py-2" onClick={() => copy(link, c.code)}>
+                        {copied === c.code ? 'Copied' : 'Copy'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+            <p className="opp-meta-mono text-ink-mute">
+              Each code applies its own discount at checkout and tracks to its own row above.
+            </p>
           </div>
-        </div>
-        <p className="opp-meta-mono mt-3 text-ink-mute">
-          Customers using your code get {aff.discount_pct}% off at checkout.
-        </p>
+        ) : (
+          <>
+            <div className="flex flex-col md:flex-row gap-4 items-start md:items-center">
+              <div className="font-mono text-2xl font-bold text-accent-strong tracking-wide">{aff.code}</div>
+              <div className="flex-1 min-w-0">
+                <p className="opp-meta-mono uppercase mb-1">Share link</p>
+                <div className="flex gap-2 items-center">
+                  <input className="input-field font-mono text-sm flex-1" readOnly value={shareLink} onFocus={(e) => e.target.select()} />
+                  <button className="btn-outline text-xs px-3 py-2" onClick={() => copy(shareLink, 'link')}>
+                    {copied === 'link' ? 'Copied' : 'Copy'}
+                  </button>
+                </div>
+              </div>
+            </div>
+            <p className="opp-meta-mono mt-3 text-ink-mute">
+              Customers using your code get {aff.discount_pct}% off at checkout.
+            </p>
+          </>
+        )}
       </div>
 
       {/* Network section */}

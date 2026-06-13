@@ -29,7 +29,7 @@ export default function AffiliatesTab({ showSaveMsg, token }) {
   }
 
   function emptyForm() {
-    return { name: '', email: '', code: '', discountPct: 10, commissionPct: 5, active: true, notes: '', parentAffiliateId: '', isFlatRate: false, recruiterOverridePct: 0 };
+    return { name: '', email: '', code: '', discountPct: 10, commissionPct: 5, active: true, notes: '', parentAffiliateId: '', isFlatRate: false, recruiterOverridePct: 0, ownerAffiliateId: '', codeLabel: '' };
   }
 
   function resetForm() {
@@ -73,6 +73,8 @@ export default function AffiliatesTab({ showSaveMsg, token }) {
       parentAffiliateId: aff.parent_affiliate_id || '',
       isFlatRate: aff.is_flat_rate || false,
       recruiterOverridePct: aff.recruiter_override_pct || 0,
+      ownerAffiliateId: aff.owner_affiliate_id || '',
+      codeLabel: aff.code_label || '',
     });
     setEditingId(aff.id);
     setShowForm(true);
@@ -268,6 +270,31 @@ export default function AffiliatesTab({ showSaveMsg, token }) {
               </p>
             )}
 
+            {/* Secondary code — same PERSON, another code with its own split.
+                Distinct from recruiter (different people). Shows on the owner's
+                dashboard; the tier ratchet leaves its rate alone. */}
+            <div className="border-t border-line pt-4 mb-2">
+              <p className="opp-meta-mono uppercase text-ink-mute mb-3">Secondary code (same person, different split)</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+                <Field label="Belongs to (owner login)">
+                  <select className="input-field" value={form.ownerAffiliateId} onChange={(e) => setForm({ ...form, ownerAffiliateId: e.target.value })}>
+                    <option value="">None (its own primary code)</option>
+                    {affiliates.filter((a) => a.id !== editingId && !a.owner_affiliate_id).map((a) => (
+                      <option key={a.id} value={a.id}>{a.name} ({a.code})</option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label="Code label (dashboard)">
+                  <input className="input-field" value={form.codeLabel} onChange={(e) => setForm({ ...form, codeLabel: e.target.value })} placeholder="e.g. Skool community" />
+                </Field>
+              </div>
+              {form.ownerAffiliateId && (
+                <p className="opp-meta-mono text-ink-mute mt-2 text-[13px]">
+                  This code will appear on the owner&apos;s dashboard with its own split and stats. It is <strong>not</strong> a recruit — no override is paid, and the monthly tier ratchet won&apos;t touch its rate.
+                </p>
+              )}
+            </div>
+
             <button type="submit" className="btn-primary">{editingId ? 'Update Affiliate' : 'Create Affiliate'}</button>
           </form>
         </div>
@@ -307,6 +334,12 @@ export default function AffiliatesTab({ showSaveMsg, token }) {
                       <div className="opp-meta-mono text-accent-strong mt-0.5">
                         ↳ recruit of {affiliates.find((x) => x.id === aff.parent_affiliate_id)?.code || '?'}
                         {aff.is_flat_rate ? ' · flat' : ' · ⚠ not flat'}
+                      </div>
+                    )}
+                    {aff.owner_affiliate_id && (
+                      <div className="opp-meta-mono text-ink-mute mt-0.5">
+                        ↳ secondary code of {affiliates.find((x) => x.id === aff.owner_affiliate_id)?.code || '?'}
+                        {aff.code_label ? ` · ${aff.code_label}` : ''}
                       </div>
                     )}
                     {Number(aff.recruiter_override_pct || 0) > 0 && (

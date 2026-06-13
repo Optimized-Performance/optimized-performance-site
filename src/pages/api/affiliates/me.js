@@ -35,12 +35,13 @@ function periodRange(periodKey) {
 // Aggregates volume + actual commission from per-order snapshots
 // (orders.affiliate_commission_pct, written at order-create time). Falls back
 // to 0 commission for any order missing a snapshot (after migration v6 backfill,
-// shouldn't happen, but defensive).
-async function sumOrdersWithCommission(code, start, end) {
+// shouldn't happen, but defensive). `codes` is an array so one affiliate's
+// multiple codes (primary + linked secondary codes) aggregate in one query.
+async function sumOrdersWithCommission(codes, start, end) {
   const { data, error } = await supabaseAdmin
     .from('orders')
     .select('total, shipping, affiliate_commission_pct')
-    .eq('affiliate_code', code)
+    .in('affiliate_code', codes)
     .eq('payment_status', 'completed')
     .gte('created_at', start)
     .lt('created_at', end)
@@ -56,16 +57,16 @@ async function sumOrdersWithCommission(code, start, end) {
   return { total, commission, count: (data || []).length }
 }
 
-async function sumPeriod(code, periodKey) {
+async function sumPeriod(codes, periodKey) {
   const { start, end } = periodRange(periodKey)
-  return sumOrdersWithCommission(code, start, end)
+  return sumOrdersWithCommission(codes, start, end)
 }
 
-async function sumYtd(code) {
+async function sumYtd(codes) {
   const now = new Date()
   const start = new Date(Date.UTC(now.getUTCFullYear(), 0, 1)).toISOString()
   const end = new Date(Date.UTC(now.getUTCFullYear() + 1, 0, 1)).toISOString()
-  return sumOrdersWithCommission(code, start, end)
+  return sumOrdersWithCommission(codes, start, end)
 }
 
 // Company-wide gross (commissionable = shipping-excluded) for a period — the
@@ -88,11 +89,11 @@ async function sumOppGross(pk) {
 // are computed on RESOLVED attempts only (completed + abandoned), so stranded
 // 'awaiting' rows (e.g. started checkout, paid another way) don't distort them.
 const CARD_RAILS = ['card', 'paypal']
-async function affiliateFunnel(code) {
+async function affiliateFunnel(codes) {
   const { data, error } = await supabaseAdmin
     .from('orders')
     .select('payment_status, payment_method')
-    .eq('affiliate_code', code)
+    .in('affiliate_code', codes)
   if (error) throw error
   let completed = 0
   let abandoned = 0
@@ -128,11 +129,11 @@ async function affiliateFunnel(code) {
 // (retail line value) to match how volume is reported elsewhere; only the
 // allocated earnings exclude shipping/discount (they inherit it from the
 // order-level commission). Returns the top 3 by units sold.
-async function topItemsSold(code) {
+async function topItemsSold(codes) {
   const { data, error } = await supabaseAdmin
     .from('orders')
     .select('items, total, shipping, affiliate_commission_pct')
-    .eq('affiliate_code', code)
+    .in('affiliate_code', codes)
     .eq('payment_status', 'completed')
   if (error) throw error
   const byKey = new Map()
@@ -183,30 +184,86 @@ export default async function handler(req, res) {
   if (!supabaseAdmin) return res.status(500).json({ error: 'Database not configured' })
 
   try {
-    // Affiliate row
-    const { data: aff, error: affErr } = await supabaseAdmin
-      .from('affiliates')
-      .select('id, code, name, email, commission_pct, discount_pct, active, parent_affiliate_id, is_flat_rate, recruiter_override_pct, total_sales, total_revenue, total_commission, created_at')
-      .eq('id', session.affiliateId)
-      .single()
+    // The columns we want, including the v28 linking column. Select with a
+    // fallback so a deploy that lands BEFORE migration v28 still works (the
+    // feature is simply inert — no linked codes — until the column exists).
+    const FULL_COLS = 'id, code, name, email, commission_pct, discount_pct, active, parent_affiliate_id, is_flat_rate, recruiter_override_pct, owner_affiliate_id, code_label, total_sales, total_revenue, total_commission, created_at'
+    const BASE_COLS = 'id, code, name, email, commission_pct, discount_pct, active, parent_affiliate_id, is_flat_rate, recruiter_override_pct, total_sales, total_revenue, total_commission, created_at'
 
-    if (affErr || !aff) return res.status(404).json({ error: 'Affiliate not found' })
+    async function loadAffiliate(id) {
+      let { data, error } = await supabaseAdmin.from('affiliates').select(FULL_COLS).eq('id', id).single()
+      if (error && /owner_affiliate_id|code_label/.test(error.message || '')) {
+        ;({ data, error } = await supabaseAdmin.from('affiliates').select(BASE_COLS).eq('id', id).single())
+      }
+      return { data, error }
+    }
+
+    // The row the token belongs to. If they somehow logged into a secondary
+    // code, resolve up to its owner so the dashboard always centers on the
+    // primary (the row that aggregates the person's codes).
+    let { data: loginRow, error: affErr } = await loadAffiliate(session.affiliateId)
+    if (affErr || !loginRow) return res.status(404).json({ error: 'Affiliate not found' })
+    let aff = loginRow
+    if (loginRow.owner_affiliate_id) {
+      const owner = await loadAffiliate(loginRow.owner_affiliate_id)
+      if (owner.data) aff = owner.data
+    }
     if (!aff.active) return res.status(403).json({ error: 'Affiliate account is inactive' })
+
+    // Secondary codes linked to this primary (same person, different split).
+    // Empty when the v28 column is absent or the person has only one code.
+    let linkedCodes = []
+    {
+      const { data: linked } = await supabaseAdmin
+        .from('affiliates')
+        .select('id, code, code_label, discount_pct, commission_pct, active, total_sales, total_revenue, total_commission, created_at')
+        .eq('owner_affiliate_id', aff.id)
+        .order('created_at', { ascending: true })
+      linkedCodes = linked || []
+    }
+
+    // All of this person's codes (primary first), and all their affiliate ids
+    // for payout aggregation. Headline stats, funnel and top-items all span
+    // every code; the per-code breakdown is the only place they're separated.
+    const allRows = [aff, ...linkedCodes]
+    const allCodes = allRows.map((r) => r.code)
+    const allIds = allRows.map((r) => r.id)
 
     // MTD + last-month + YTD volume + actual commission (from per-order snapshots)
     const thisPeriod = periodKey()
     const lastPeriod = previousPeriodKey()
     const [mtd, lastMonth, ytd] = await Promise.all([
-      sumPeriod(aff.code, thisPeriod),
-      sumPeriod(aff.code, lastPeriod),
-      sumYtd(aff.code),
+      sumPeriod(allCodes, thisPeriod),
+      sumPeriod(allCodes, lastPeriod),
+      sumYtd(allCodes),
     ])
 
-    // Pending payouts (paid_at IS NULL)
+    // Per-code breakdown (only meaningful when >1 code, but always computed so
+    // the client can render it uniformly). Lifetime per code from the row's
+    // maintained totals; MTD per code from a fresh sum.
+    const codes = await Promise.all(allRows.map(async (r) => {
+      const codeMtd = await sumPeriod([r.code], thisPeriod)
+      return {
+        code: r.code,
+        label: r.code_label || (r.id === aff.id ? 'Main' : r.code),
+        is_primary: r.id === aff.id,
+        active: r.active !== false,
+        discount_pct: Number(r.discount_pct || 0),
+        commission_pct: Number(r.commission_pct || 0),
+        mtd_volume: codeMtd.total,
+        mtd_orders: codeMtd.count,
+        mtd_commission: codeMtd.commission,
+        lifetime_volume: Number(r.total_revenue || 0),
+        lifetime_orders: Number(r.total_sales || 0),
+        lifetime_commission: Number(r.total_commission || 0),
+      }
+    }))
+
+    // Pending payouts (paid_at IS NULL) — across all of this person's codes.
     const { data: pendingPayouts, error: payErr } = await supabaseAdmin
       .from('affiliate_payouts')
       .select('id, payout_type, period, amount, notes, created_at')
-      .eq('affiliate_id', aff.id)
+      .in('affiliate_id', allIds)
       .is('paid_at', null)
       .order('created_at', { ascending: false })
     if (payErr) throw payErr
@@ -218,18 +275,23 @@ export default async function handler(req, res) {
     const { data: ytdPayouts } = await supabaseAdmin
       .from('affiliate_payouts')
       .select('amount, payout_type')
-      .eq('affiliate_id', aff.id)
+      .in('affiliate_id', allIds)
       .gte('created_at', yearStart)
     const ytdPayoutsTotal = (ytdPayouts || []).reduce((s, p) => s + Number(p.amount || 0), 0)
 
     // Whether they have a network they can recruit into
     const hasNetwork = Number(aff.recruiter_override_pct || 0) > 0
 
-    // Payment funnel for this affiliate's referred orders
-    const funnel = await affiliateFunnel(aff.code)
+    // Payment funnel + top sellers across all of this person's codes
+    const funnel = await affiliateFunnel(allCodes)
+    const topItems = await topItemsSold(allCodes)
 
-    // Top-selling products + earnings per product (lifetime)
-    const topItems = await topItemsSold(aff.code)
+    // Combined lifetime across all codes (each row maintains its own totals)
+    const lifetime = allRows.reduce((acc, r) => ({
+      volume: acc.volume + Number(r.total_revenue || 0),
+      orders: acc.orders + Number(r.total_sales || 0),
+      commission: acc.commission + Number(r.total_commission || 0),
+    }), { volume: 0, orders: 0, commission: 0 })
 
     // Royalty tracking — only for flat-rate primaries (e.g. Tris). Royalty is
     // ROYALTY_PCT of OPP's TOTAL gross, so the projection reveals gross by
@@ -278,10 +340,13 @@ export default async function handler(req, res) {
         ytd_orders: ytd.count,
         ytd_commission: ytd.commission,
         ytd_payouts_total: ytdPayoutsTotal,
-        lifetime_volume: Number(aff.total_revenue || 0),
-        lifetime_orders: Number(aff.total_sales || 0),
-        lifetime_commission: Number(aff.total_commission || 0),
+        lifetime_volume: lifetime.volume,
+        lifetime_orders: lifetime.orders,
+        lifetime_commission: lifetime.commission,
       },
+      // Per-code breakdown. Always present; the dashboard renders the section
+      // only when there's more than one code.
+      codes,
       pending_payouts: pendingPayouts || [],
       pending_total: pendingTotal,
       funnel,

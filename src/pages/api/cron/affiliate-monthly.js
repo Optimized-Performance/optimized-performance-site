@@ -90,10 +90,20 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { data: affiliates, error: affErr } = await supabaseAdmin
+    // Include owner_affiliate_id (v28) so secondary codes can be skipped by the
+    // tier ratchet. Fall back to the pre-v28 column set if the migration hasn't
+    // run yet, so the cron never hard-fails on a missing column.
+    let affiliates, affErr
+    ;({ data: affiliates, error: affErr } = await supabaseAdmin
       .from('affiliates')
-      .select('id, code, name, commission_pct, is_flat_rate, parent_affiliate_id, recruiter_override_pct, active')
-      .eq('active', true)
+      .select('id, code, name, commission_pct, is_flat_rate, parent_affiliate_id, recruiter_override_pct, owner_affiliate_id, active')
+      .eq('active', true))
+    if (affErr && /owner_affiliate_id/.test(affErr.message || '')) {
+      ;({ data: affiliates, error: affErr } = await supabaseAdmin
+        .from('affiliates')
+        .select('id, code, name, commission_pct, is_flat_rate, parent_affiliate_id, recruiter_override_pct, active')
+        .eq('active', true))
+    }
     if (affErr) throw affErr
 
     const affById = new Map((affiliates || []).map((a) => [a.id, a]))
@@ -103,8 +113,11 @@ export default async function handler(req, res) {
       try {
         const volume = await sumOrders(aff.code, period)
 
-        // Tier ratchet (skip flat-rate)
-        if (!aff.is_flat_rate) {
+        // Tier ratchet (skip flat-rate AND secondary codes). A secondary code
+        // (owner_affiliate_id set) carries a deliberately-set split for the
+        // same person's sub-channel — auto-ratcheting would silently overwrite
+        // the rate Matt configured for it.
+        if (!aff.is_flat_rate && !aff.owner_affiliate_id) {
           let newRate = tierLookup(volume)
           // Recruited affiliate — subtract recruiter's override
           if (aff.parent_affiliate_id) {

@@ -38,7 +38,7 @@ export default async function handler(req, res) {
     }
 
     if (req.method === 'POST') {
-      const { name, email, code, discountPct, commissionPct, active, notes, parentAffiliateId, isFlatRate, recruiterOverridePct } = req.body
+      const { name, email, code, discountPct, commissionPct, active, notes, parentAffiliateId, isFlatRate, recruiterOverridePct, ownerAffiliateId, codeLabel } = req.body
       if (!validateString(name) || !validateEmail(email)) {
         return res.status(400).json({ error: 'Invalid name or email' })
       }
@@ -62,6 +62,8 @@ export default async function handler(req, res) {
           parent_affiliate_id: parentAffiliateId || null,
           is_flat_rate: isFlatRate === true,
           recruiter_override_pct: clampPercent(recruiterOverridePct, 0),
+          owner_affiliate_id: ownerAffiliateId || null,
+          code_label: codeLabel || null,
         })
         .select()
         .single()
@@ -110,6 +112,12 @@ export default async function handler(req, res) {
       if (updates.recruiterOverridePct !== undefined) {
         patch.recruiter_override_pct = clampPercent(updates.recruiterOverridePct, 0)
       }
+      if (updates.ownerAffiliateId !== undefined) {
+        const oid = updates.ownerAffiliateId || null
+        if (oid && oid === id) return res.status(400).json({ error: 'A code cannot be its own owner' })
+        patch.owner_affiliate_id = oid
+      }
+      if (updates.codeLabel !== undefined) patch.code_label = updates.codeLabel || null
       patch.updated_at = new Date().toISOString()
 
       const { data, error } = await supabaseAdmin

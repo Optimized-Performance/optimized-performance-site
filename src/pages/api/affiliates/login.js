@@ -23,19 +23,29 @@ export default async function handler(req, res) {
   }
   if (!supabaseAdmin) return res.status(500).json({ error: 'Database not configured' })
 
-  // Look up by email — case-insensitive match
-  const { data: aff, error } = await supabaseAdmin
+  // Look up by email — case-insensitive. NOTE: email is NOT unique in the
+  // affiliates table (only `code` is), and a person can have secondary codes
+  // (owner_affiliate_id) that may reuse their email. So this can return >1 row
+  // — never use .single() here (it throws on multiples). Resolve to the one
+  // loginnable row: the row that actually has a login_password_hash. Secondary
+  // codes have none, so login always lands on the primary. Oldest-first as a
+  // deterministic tiebreak in the (unexpected) case of multiple password rows.
+  const { data: matches, error } = await supabaseAdmin
     .from('affiliates')
     .select('id, code, name, email, active, login_password_hash')
     .ilike('email', email)
-    .single()
+    .order('created_at', { ascending: true })
 
-  // Always run password compare even if affiliate not found, to prevent timing oracles.
-  // Use a dummy hash with the same scrypt cost as a real one.
-  const storedHash = aff?.login_password_hash || 'scrypt$00000000000000000000000000000000$' + '0'.repeat(128)
-  const passwordOk = verifyPassword(password, storedHash)
+  const loginnable = (matches || []).filter((a) => a.login_password_hash)
+  // When no loginnable row exists, run one dummy compare so an unknown email
+  // costs the same as a known one with a wrong password (no existence oracle).
+  if (loginnable.length === 0) {
+    verifyPassword(password, 'scrypt$00000000000000000000000000000000$' + '0'.repeat(128))
+  }
+  const aff = loginnable.find((a) => verifyPassword(password, a.login_password_hash)) || null
 
-  if (error || !aff || !aff.login_password_hash || !passwordOk) {
+  if (!aff) {
+    if (error) console.error('Affiliate login lookup error:', error)
     return res.status(401).json({ error: 'Invalid email or password' })
   }
   if (!aff.active) return res.status(403).json({ error: 'Account inactive — contact admin@optimizedperformancepeptides.com' })
