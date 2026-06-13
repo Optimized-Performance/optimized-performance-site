@@ -28,15 +28,22 @@ COMMENT ON COLUMN affiliates.code_label IS
   'Optional human label for a code shown on the dashboard breakdown, e.g. "Skool community". Falls back to the code itself.';
 
 -- ============================================================================
--- ACTIVATION for Tris's Skool code — edit the two code values, then run.
--- Links the Skool code to Tris's primary login so it shows on his dashboard
--- and is protected from the tier ratchet. Idempotent.
+-- ACTIVATION — links Tris's Skool code (SYNGYN) to his primary login.
+-- Resolves the owner by SAME EMAIL (no need to know his main code): picks the
+-- other affiliate row sharing SYNGYN's email that is itself a primary (no
+-- owner) and is loginnable (has a password). Fully idempotent + self-contained
+-- — safe to run with the rest of this file, and safe to re-run.
 -- ============================================================================
--- UPDATE affiliates
---   SET owner_affiliate_id = (SELECT id FROM affiliates WHERE code = 'TRIS'),
---       code_label = 'Skool community'
---   WHERE code = 'PUT_SKOOL_CODE_HERE'
---     AND code <> 'TRIS';
---
--- Optional: label Tris's primary code too, so the breakdown reads cleanly.
--- UPDATE affiliates SET code_label = 'Main' WHERE code = 'TRIS';
+UPDATE affiliates
+SET owner_affiliate_id = (
+      SELECT p.id
+      FROM affiliates p
+      WHERE lower(p.email) = (SELECT lower(email) FROM affiliates WHERE code = 'SYNGYN')
+        AND p.code <> 'SYNGYN'
+        AND p.owner_affiliate_id IS NULL
+      ORDER BY (p.login_password_hash IS NOT NULL) DESC, p.created_at ASC
+      LIMIT 1
+    ),
+    code_label = 'Skool community',
+    updated_at = now()
+WHERE code = 'SYNGYN';
