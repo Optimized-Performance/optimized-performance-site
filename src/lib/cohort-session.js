@@ -186,6 +186,36 @@ function appendSetCookie(res, cookie) {
 //
 // supabaseAdmin is passed in so this module stays import-cycle-free; callers
 // already have the admin client handy.
+
+// Resolve ?ref=CODE against the affiliates table and, if it's an active
+// affiliate, set the JS-readable opp_ref attribution cookie. Returns the
+// canonical code or null. Deliberately does NOT touch the opp_cohort cookie
+// so affiliate attribution stays independent of the catalog gate (works even
+// when COHORT_GATE_OFF=true).
+async function applyAffiliateRef(query, res, supabaseAdmin) {
+  const refParam = typeof query?.ref === 'string' ? query.ref : null
+  if (!refParam || !supabaseAdmin) return null
+  const code = refParam.toUpperCase().trim().slice(0, 50)
+  if (!code) return null
+  try {
+    const { data } = await supabaseAdmin
+      .from('affiliates')
+      .select('code')
+      .eq('code', code)
+      .eq('active', true)
+      .maybeSingle()
+    if (data) {
+      appendSetCookie(res, buildRefCookieHeader(data.code))
+      return data.code
+    }
+  } catch (err) {
+    // Don't fail the page render if the lookup blows up — bot scanners
+    // shouldn't be hitting ?ref= anyway.
+    console.warn('[cohort-session] affiliate lookup failed:', err.message)
+  }
+  return null
+}
+
 export async function getCohortFromRequest(context, supabaseAdmin) {
   const { req, res, query } = context
 
@@ -197,7 +227,11 @@ export async function getCohortFromRequest(context, supabaseAdmin) {
   // the moment a processor AUP inspection is imminent. Server-side env
   // (getServerSideProps), so no NEXT_PUBLIC prefix needed.
   if (process.env.COHORT_GATE_OFF === 'true') {
-    return { cohortAllowed: true, source: 'gate_off' }
+    // Catalog gate disabled (full catalog public for conversion), but STILL
+    // honor ?ref so affiliate commission attribution works — attribution is
+    // intentionally independent of the catalog-hiding switch.
+    const refCode = await applyAffiliateRef(query, res, supabaseAdmin)
+    return { cohortAllowed: true, source: 'gate_off', refCode: refCode || undefined }
   }
 
   const cookies = parseCookies(req?.headers?.cookie)
@@ -217,33 +251,13 @@ export async function getCohortFromRequest(context, supabaseAdmin) {
     return { cohortAllowed: true, source: 'cohort_param' }
   }
 
-  const refParam = typeof query?.ref === 'string' ? query.ref : null
-  if (refParam && supabaseAdmin) {
-    const code = refParam.toUpperCase().trim().slice(0, 50)
-    if (code) {
-      try {
-        const { data } = await supabaseAdmin
-          .from('affiliates')
-          .select('code')
-          .eq('code', code)
-          .eq('active', true)
-          .maybeSingle()
-        if (data) {
-          // Two cookies: opp_cohort unlocks the catalog (HttpOnly, signed),
-          // opp_ref carries the affiliate code for checkout attribution
-          // (JS-readable, plain). Checkout.js reads opp_ref client-side to
-          // pre-fill the affiliate code input so the customer doesn't have
-          // to type it manually for the affiliate to get commission.
-          appendSetCookie(res, buildSetCookieHeader(createCookieValue()))
-          appendSetCookie(res, buildRefCookieHeader(data.code))
-          return { cohortAllowed: true, source: 'ref_param', refCode: data.code }
-        }
-      } catch (err) {
-        // Don't fail the page render if the lookup blows up — fall through to
-        // unflagged. Bot scanners shouldn't be hitting ?ref= anyway.
-        console.warn('[cohort-session] affiliate lookup failed:', err.message)
-      }
-    }
+  // ?ref=CODE → set the opp_ref attribution cookie AND unlock the catalog for
+  // the referred visitor (opp_cohort). The lookup + opp_ref cookie are handled
+  // by applyAffiliateRef so the gate-off path above reuses identical attribution.
+  const refCode = await applyAffiliateRef(query, res, supabaseAdmin)
+  if (refCode) {
+    appendSetCookie(res, buildSetCookieHeader(createCookieValue()))
+    return { cohortAllowed: true, source: 'ref_param', refCode }
   }
 
   // A valid recovery token unlocks the catalog on its own (when no cohort/ref
