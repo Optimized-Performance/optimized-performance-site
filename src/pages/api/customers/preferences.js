@@ -1,6 +1,6 @@
 import { getCustomerIdFromReq } from '../../../lib/customer-session'
 import { supabaseAdmin } from '../../../lib/supabase'
-import { validateOrigin, rateLimit } from '../../../lib/security'
+import { validateOrigin, rateLimit, escapeLike } from '../../../lib/security'
 
 // Customer preference center — session-gated, operates only on the
 // account's own email.
@@ -34,11 +34,11 @@ export default async function handler(req, res) {
 
   if (req.method === 'GET') {
     const [{ data: suppression }, { data: alerts }] = await Promise.all([
-      supabaseAdmin.from('email_suppressions').select('id, reason').ilike('email', email).maybeSingle(),
+      supabaseAdmin.from('email_suppressions').select('id, reason').ilike('email', escapeLike(email)).maybeSingle(),
       supabaseAdmin
         .from('product_notify_requests')
         .select('product_sku, status, created_at')
-        .ilike('email', email)
+        .ilike('email', escapeLike(email))
         .order('created_at', { ascending: false })
         .limit(25),
     ])
@@ -68,7 +68,7 @@ export default async function handler(req, res) {
       const { error } = await supabaseAdmin
         .from('email_suppressions')
         .delete()
-        .ilike('email', email)
+        .ilike('email', escapeLike(email))
         .in('reason', ['unsubscribe', 'preference'])
       if (error) {
         console.error('[customers/preferences] unsuppress failed:', error)
@@ -81,7 +81,7 @@ export default async function handler(req, res) {
     const { error } = await supabaseAdmin
       .from('product_notify_requests')
       .delete()
-      .ilike('email', email)
+      .ilike('email', escapeLike(email))
       .eq('product_sku', removeRestockSku)
     if (error) {
       console.error('[customers/preferences] alert remove failed:', error)

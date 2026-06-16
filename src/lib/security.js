@@ -60,13 +60,13 @@ export function rateLimit(req, { maxRequests = 60, windowMs = 60 * 1000 } = {}) 
 
 // Input validation helpers
 export function validateEmail(email) {
-  // Reject SQL LIKE wildcards (% _) explicitly — they pass the loose regex and
-  // flow into Supabase `.ilike()` on email lookups (login/register/suppression),
-  // enabling account enumeration + row-targeting. Email-auth lookups should use
-  // exact `.eq()`, but rejecting wildcards here is the belt-and-suspenders gate.
+  // `_` and `%` are VALID in email local-parts (e.g. jane_doe@gmail.com), so we
+  // must NOT reject them here — doing so 400s checkout ("Invalid or missing
+  // required fields") for real customers on every rail. SQL LIKE-wildcard safety
+  // is enforced at the QUERY layer instead: every `.ilike()` on an email wraps
+  // the value in escapeLike() so `%`/`_` match literally, not as wildcards.
   return typeof email === 'string'
     && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
-    && !/[%_]/.test(email)
     && email.length <= 254
 }
 

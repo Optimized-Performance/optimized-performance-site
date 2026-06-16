@@ -1,7 +1,7 @@
 import { signResetToken } from '../../../lib/customer-tokens'
 import { sendPasswordResetEmail } from '../../../lib/customer-emails'
 import { supabaseAdmin } from '../../../lib/supabase'
-import { validateOrigin, rateLimit, validateEmail } from '../../../lib/security'
+import { validateOrigin, rateLimit, validateEmail, escapeLike } from '../../../lib/security'
 
 // POST /api/customers/request-reset  Body: { email }
 // ALWAYS returns 200 with the same body — whether or not the email has an
@@ -22,7 +22,7 @@ export default async function handler(req, res) {
   const { data: customer } = await supabaseAdmin
     .from('customers')
     .select('id, email, password_hash')
-    .ilike('email', email.trim())
+    .ilike('email', escapeLike(email.trim()))
     .maybeSingle()
 
   // Unknown email → identical response, no send.

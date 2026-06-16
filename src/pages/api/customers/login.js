@@ -1,6 +1,6 @@
 import { createCustomerToken, verifyPassword, customerCookieHeader } from '../../../lib/customer-session'
 import { supabaseAdmin } from '../../../lib/supabase'
-import { validateOrigin, rateLimit, validateEmail } from '../../../lib/security'
+import { validateOrigin, rateLimit, validateEmail, escapeLike } from '../../../lib/security'
 
 // POST /api/customers/login
 //   Body: { email, password }
@@ -22,7 +22,7 @@ export default async function handler(req, res) {
   const { data: customer, error } = await supabaseAdmin
     .from('customers')
     .select('id, email, name, password_hash')
-    .ilike('email', email)
+    .ilike('email', escapeLike(email))
     .maybeSingle()
 
   // Always run a scrypt compare even when the customer is absent, to avoid a

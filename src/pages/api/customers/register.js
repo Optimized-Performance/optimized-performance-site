@@ -2,7 +2,7 @@ import { createCustomerToken, hashPassword, customerCookieHeader } from '../../.
 import { signVerifyToken } from '../../../lib/customer-tokens'
 import { sendVerificationEmail } from '../../../lib/customer-emails'
 import { supabaseAdmin } from '../../../lib/supabase'
-import { validateOrigin, rateLimit, validateEmail, validateString } from '../../../lib/security'
+import { validateOrigin, rateLimit, validateEmail, validateString, escapeLike } from '../../../lib/security'
 
 // POST /api/customers/register
 //   Body: { email, password, name? }
@@ -30,7 +30,7 @@ export default async function handler(req, res) {
   const { data: existing } = await supabaseAdmin
     .from('customers')
     .select('id')
-    .ilike('email', normalizedEmail)
+    .ilike('email', escapeLike(normalizedEmail))
     .maybeSingle()
   if (existing) {
     return res.status(409).json({ error: 'An account with this email already exists. Please sign in.' })

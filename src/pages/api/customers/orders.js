@@ -1,7 +1,7 @@
 import { getCustomerIdFromReq } from '../../../lib/customer-session'
 import { supabaseAdmin } from '../../../lib/supabase'
 import { detectCarrierAndUrl } from '../../../lib/alerts'
-import { rateLimit } from '../../../lib/security'
+import { rateLimit, escapeLike } from '../../../lib/security'
 
 // GET /api/customers/orders — order history for the signed-in customer.
 //
@@ -70,7 +70,7 @@ export default async function handler(req, res) {
   const { data: orders, error } = await supabaseAdmin
     .from('orders')
     .select('order_number, created_at, payment_status, fulfillment_status, items, subtotal, discount, shipping, total, tracking, shipped_at, refunded_at, customer_email')
-    .ilike('customer_email', customer.email)
+    .ilike('customer_email', escapeLike(customer.email))
     .order('created_at', { ascending: false })
     .limit(50)
 

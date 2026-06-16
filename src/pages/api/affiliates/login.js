@@ -1,6 +1,6 @@
 import { createAffiliateToken, verifyPassword } from '../../../lib/affiliate-session'
 import { supabaseAdmin } from '../../../lib/supabase'
-import { validateOrigin, rateLimit, validateEmail } from '../../../lib/security'
+import { validateOrigin, rateLimit, validateEmail, escapeLike } from '../../../lib/security'
 
 // POST /api/affiliates/login
 //   Body: { email, password }
@@ -33,7 +33,7 @@ export default async function handler(req, res) {
   const { data: matches, error } = await supabaseAdmin
     .from('affiliates')
     .select('id, code, name, email, active, login_password_hash')
-    .ilike('email', email)
+    .ilike('email', escapeLike(email))
     .order('created_at', { ascending: true })
 
   const loginnable = (matches || []).filter((a) => a.login_password_hash)
