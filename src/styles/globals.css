@@ -195,3 +195,26 @@
     box-shadow: 0 0 0 1px var(--accent);
   }
 }
+
+/* ═════ Admin dashboard — mobile responsiveness ═════ */
+/* The authed admin shell (src/pages/admin/index.js) carries `.admin-shell`.
+   The tab components render wide desktop data tables; on phones, make each
+   table independently scroll horizontally rather than blow out the viewport,
+   and let the 12-tab nav swipe sideways. */
+.admin-tabs {
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+}
+.admin-tabs::-webkit-scrollbar { height: 4px; }
+.admin-tabs::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+@media (max-width: 768px) {
+  .admin-shell table {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    white-space: nowrap;
+  }
+}

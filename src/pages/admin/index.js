@@ -97,9 +97,9 @@ export default function AdminPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-paper">
+    <div className="min-h-screen bg-paper admin-shell">
       <div className="bg-ink text-paper">
-        <div className="max-w-container mx-auto px-8 py-5 flex justify-between items-center gap-4 flex-wrap">
+        <div className="max-w-container mx-auto px-4 sm:px-8 py-5 flex justify-between items-center gap-4 flex-wrap">
           <div className="flex items-center gap-3">
             <Logo size={28} />
             <div>
@@ -127,13 +127,13 @@ export default function AdminPage() {
         </div>
       </div>
 
-      <div className="max-w-container mx-auto px-8 py-8">
-        <div className="flex gap-1 mb-8 border-b border-line">
+      <div className="max-w-container mx-auto px-4 sm:px-8 py-6 sm:py-8">
+        <div className="admin-tabs flex gap-1 mb-6 sm:mb-8 border-b border-line overflow-x-auto">
           {tabs.map((t) => (
             <button
               key={t.id}
               onClick={() => setActiveTab(t.id)}
-              className={`px-5 py-3 text-sm border-b-2 -mb-px transition-colors ${
+              className={`px-4 sm:px-5 py-3 text-sm border-b-2 -mb-px shrink-0 whitespace-nowrap transition-colors ${
                 activeTab === t.id
                   ? 'text-ink border-ink font-semibold'
                   : 'text-ink-soft border-transparent hover:text-ink'
