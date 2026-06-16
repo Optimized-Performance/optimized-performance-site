@@ -1,6 +1,5 @@
 import Link from 'next/link';
 import { useRouter } from 'next/router';
-import { getVisibleProductsForCohort } from '../data/products';
 import { supabaseAdmin } from '../lib/supabase';
 import { getCohortFromRequest } from '../lib/cohort-session';
 import ProductCard from '../components/ProductCard';
@@ -218,6 +217,9 @@ export async function getServerSideProps(context) {
   // unflagged visitor would either see GLP-3 in the rendered HTML (bad) or
   // get a fallback hero (acceptable but the page does need SSR for the cookie
   // pickup either way, since affiliate links land here first).
+  // require (not top-level import) so the catalog array stays out of the client
+  // bundle — getVisibleProductsForCohort references the full products array.
+  const { getVisibleProductsForCohort } = require('../data/products');
   const { cohortAllowed } = await getCohortFromRequest(context, supabaseAdmin);
   const visibleProducts = getVisibleProductsForCohort(cohortAllowed);
   return { props: { visibleProducts } };

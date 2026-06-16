@@ -1,7 +1,6 @@
 import { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { track } from '../lib/track';
 import { RECOVERY_QUERY_PARAM } from '../lib/recovery-config';
-import products from '../data/products';
 
 const CartContext = createContext();
 
@@ -12,28 +11,53 @@ const CartContext = createContext();
 // flags are stored; on hydrate each line is re-joined against the current
 // catalog so prices/names/stock flags can never go stale in storage.
 const CART_STORAGE_KEY = 'opp_cart_v1';
+const CART_STORAGE_VERSION = 2; // bumped: lines now persist display fields, not just id/qty (legacy v1 carts drop on read)
 const CART_MAX_AGE_MS = 14 * 24 * 60 * 60 * 1000; // 14 days
+
+// Fields persisted per cart line so the cart rehydrates WITHOUT importing the
+// full product catalog into the client bundle. Importing `data/products` here
+// (as we used to) shipped every SKU — including restricted ones (HGH/GLP/Rx) —
+// into _app-*.js, defeating the cohort gate against any JS-aware scanner. The
+// CHARGE is always recomputed server-side from the catalog by id, so a stale
+// stored display price never affects what's billed.
+const LINE_FIELDS = [
+  'id', 'name', 'sku', 'dosage', 'price', 'category', 'format', 'vialSize',
+  'isKit', 'parentId', 'vialCount', 'purity', 'badge', 'durableRailsOnly', 'noCoa',
+];
+
+function serializeLine(item) {
+  const out = {
+    quantity: item.quantity,
+    isPreorder: Boolean(item.isPreorder),
+    preorderShipDate: item.isPreorder ? item.preorderShipDate || null : null,
+  };
+  for (const k of LINE_FIELDS) if (item[k] !== undefined) out[k] = item[k];
+  return out;
+}
+
+// Validate + normalize a stored/recovered line into a cart item. Drops anything
+// missing an id or a numeric price (incl. legacy v1 lines that only had id/qty).
+function reviveLine(line) {
+  if (!line || !line.id || typeof line.price !== 'number') return null;
+  const quantity = Math.floor(Number(line.quantity));
+  if (!Number.isFinite(quantity) || quantity < 1) return null;
+  const isPreorder = Boolean(line.isPreorder);
+  return {
+    ...line,
+    quantity: Math.min(quantity, 99),
+    isPreorder,
+    preorderShipDate: isPreorder ? line.preorderShipDate || null : null,
+  };
+}
 
 function readStoredCart() {
   try {
     const raw = localStorage.getItem(CART_STORAGE_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
-    if (!parsed || parsed.v !== 1 || !Array.isArray(parsed.items)) return [];
+    if (!parsed || parsed.v !== CART_STORAGE_VERSION || !Array.isArray(parsed.items)) return [];
     if (!parsed.ts || Date.now() - parsed.ts > CART_MAX_AGE_MS) return [];
-    return parsed.items
-      .map((line) => {
-        const product = products.find((p) => p.id === line.id);
-        const quantity = Math.floor(Number(line.quantity));
-        if (!product || !Number.isFinite(quantity) || quantity < 1) return null;
-        return {
-          ...product,
-          quantity: Math.min(quantity, 99),
-          isPreorder: Boolean(line.isPreorder),
-          preorderShipDate: line.isPreorder ? line.preorderShipDate || null : null,
-        };
-      })
-      .filter(Boolean);
+    return parsed.items.map(reviveLine).filter(Boolean);
   } catch {
     // localStorage blocked or corrupt payload — start empty, never crash
     return [];
@@ -46,13 +70,8 @@ function writeStoredCart(cartItems) {
       localStorage.removeItem(CART_STORAGE_KEY);
       return;
     }
-    const items = cartItems.map((item) => ({
-      id: item.id,
-      quantity: item.quantity,
-      isPreorder: Boolean(item.isPreorder),
-      preorderShipDate: item.preorderShipDate || null,
-    }));
-    localStorage.setItem(CART_STORAGE_KEY, JSON.stringify({ v: 1, ts: Date.now(), items }));
+    const items = cartItems.map(serializeLine);
+    localStorage.setItem(CART_STORAGE_KEY, JSON.stringify({ v: CART_STORAGE_VERSION, ts: Date.now(), items }));
   } catch {
     // localStorage blocked — cart stays session-only, same as before
   }
@@ -99,18 +118,10 @@ export function CartProvider({ children }) {
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
         if (cancelled || !data || !Array.isArray(data.items) || !data.items.length) return;
-        const rebuilt = data.items
-          .map((line) => {
-            const product = products.find((p) => p.id === line.id);
-            if (!product) return null;
-            return {
-              ...product,
-              quantity: Math.max(1, Math.min(99, Number(line.quantity) || 1)),
-              isPreorder: Boolean(line.isPreorder),
-              preorderShipDate: line.isPreorder ? line.preorderShipDate || null : null,
-            };
-          })
-          .filter(Boolean);
+        // /api/recovery/cart now resolves the order's lines server-side and
+        // returns display fields, so we revive them the same way as stored
+        // lines — no client-side catalog needed.
+        const rebuilt = data.items.map(reviveLine).filter(Boolean);
         if (!rebuilt.length) return;
         // Rebuild only if the cart is still empty (they may have added items
         // while the fetch was in flight).

@@ -2,7 +2,6 @@ import { useRouter } from 'next/router';
 import { useCart } from '../context/CartContext';
 import { Vial, Icon } from './Primitives';
 import { calcShipping, FREE_SHIPPING_THRESHOLD } from '../lib/shipping';
-import { getCartAddOns } from '../data/products';
 import { useCohortUi } from '../lib/cohort-ui';
 
 function formatShipDate(iso) {
@@ -19,6 +18,16 @@ function formatShipDate(iso) {
     return null;
   }
 }
+
+// Cohort-only BAC cross-sell. Hardcoded here (not pulled from data/products) so
+// the full catalog — including restricted SKUs — is never imported into this
+// _app-level client component (importing it shipped restricted SKU data into
+// the bundle and defeated the cohort gate). BAC is itself a restricted/
+// cohort-only SKU, so this list only ever renders for cohort visitors.
+const BAC_ADDONS = [
+  { id: 'bac-water-30ml-hospira', name: 'Bacteriostatic Water (Hospira)', dosage: '30 mL', price: 36.95, sku: 'OP-BAC-30ML', isKit: false },
+  { id: 'bac-water-10ml', name: 'Bacteriostatic Water', dosage: '10 mL', price: 9.95, sku: 'OP-BAC-10ML', isKit: false },
+];
 
 export default function CartDrawer() {
   const router = useRouter();
@@ -49,7 +58,14 @@ export default function CartDrawer() {
   const shippingBreakdown = calcShipping({ items: cartItems, discountedSubtotal: cartTotal });
   // Cross-sell add-ons (BAC water) + free-shipping progress — only meaningful for
   // vial-only carts (kits always pay the cold-pack surcharge, no free-ship tier).
-  const addOns = getCartAddOns(cartItems, cohort);
+  // BAC cross-sell: cohort only, only when the cart holds a real peptide (not
+  // just BAC), and only for a BAC SKU not already in the cart.
+  const bacIds = new Set(BAC_ADDONS.map((b) => b.id));
+  const inCart = new Set(cartItems.map((i) => i.id));
+  const hasPeptide = cartItems.some((i) => !bacIds.has(i.id));
+  const addOns = cohort && hasPeptide
+    ? BAC_ADDONS.filter((b) => !inCart.has(b.id)).slice(0, 1)
+    : [];
   const freeShipEligible = !shippingBreakdown.hasColdPack;
   const remaining = Math.max(0, FREE_SHIPPING_THRESHOLD - cartTotal);
   const freeShipPct = Math.min(100, (cartTotal / FREE_SHIPPING_THRESHOLD) * 100);

@@ -4,7 +4,6 @@ import Link from 'next/link'
 import SEO from '../../components/SEO'
 import { Icon } from '../../components/Primitives'
 import { useCart } from '../../context/CartContext'
-import products from '../../data/products'
 
 // Customer account dashboard — the retention surface behind the account
 // gate: order history (verified email only), live status + tracking,
@@ -130,9 +129,11 @@ export default function AccountDashboard() {
   function reorder(order) {
     let added = 0
     for (const item of order.items || []) {
-      const product = products.find((p) => p.id === item.id)
-      if (!product) continue
-      for (let i = 0; i < (item.quantity || 1); i++) addToCart(product)
+      // order.items are enriched with display fields server-side
+      // (/api/customers/orders), so add them straight to the cart — no
+      // client-side catalog import.
+      if (!item || !item.id || typeof item.price !== 'number') continue
+      for (let i = 0; i < (item.quantity || 1); i++) addToCart(item)
       added++
     }
     if (added === 0) {

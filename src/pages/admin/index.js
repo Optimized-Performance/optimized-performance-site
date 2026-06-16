@@ -1,5 +1,4 @@
-import { useState } from 'react';
-import products from '../../data/products';
+import { useState, useEffect } from 'react';
 import InventoryTab from './InventoryTab';
 import SupplyTab from './SupplyTab';
 import BatchesTab from './BatchesTab';
@@ -24,8 +23,24 @@ export default function AdminPage() {
   const [authError, setAuthError] = useState('');
   const [activeTab, setActiveTab] = useState('orders');
   const [saveMsg, setSaveMsg] = useState('');
+  // Product catalog is loaded via a DYNAMIC import gated on auth, NOT a static
+  // top-level import. A static import kept the full catalog (incl. restricted
+  // SKUs) in a shared client chunk that public pages also load — defeating the
+  // cohort gate. Dynamic + post-auth means the catalog ships in its own
+  // on-demand chunk that only loads after admin login, and tree-shakes out of
+  // the public bundle entirely.
+  const [catalog, setCatalog] = useState([]);
 
   const authed = !!token;
+
+  useEffect(() => {
+    if (!authed) return;
+    let cancelled = false;
+    import('../../data/products')
+      .then((m) => { if (!cancelled) setCatalog(m.default || []); })
+      .catch(() => { /* tabs render empty until retry/refresh */ });
+    return () => { cancelled = true; };
+  }, [authed]);
 
   async function handleLogin(e) {
     e.preventDefault();
@@ -144,10 +159,10 @@ export default function AdminPage() {
           ))}
         </div>
 
-        {activeTab === 'orders' && <OrdersTab products={products} showSaveMsg={showSaveMsg} token={token} />}
-        {activeTab === 'inventory' && <InventoryTab products={products} showSaveMsg={showSaveMsg} token={token} />}
-        {activeTab === 'supply' && <SupplyTab products={products} token={token} />}
-        {activeTab === 'batches' && <BatchesTab products={products} showSaveMsg={showSaveMsg} token={token} />}
+        {activeTab === 'orders' && <OrdersTab products={catalog} showSaveMsg={showSaveMsg} token={token} />}
+        {activeTab === 'inventory' && <InventoryTab products={catalog} showSaveMsg={showSaveMsg} token={token} />}
+        {activeTab === 'supply' && <SupplyTab products={catalog} token={token} />}
+        {activeTab === 'batches' && <BatchesTab products={catalog} showSaveMsg={showSaveMsg} token={token} />}
         {activeTab === 'affiliates' && <AffiliatesTab showSaveMsg={showSaveMsg} token={token} />}
         {activeTab === 'payouts' && <PayoutsTab showSaveMsg={showSaveMsg} token={token} />}
         {activeTab === 'chargebacks' && <ChargebacksTab showSaveMsg={showSaveMsg} token={token} />}

@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import SEO from '../components/SEO';
 import { Icon } from '../components/Primitives';
-import { getPrivateInquiryUrl } from '../data/products';
+import { getPrivateInquiryUrl } from '../data/catalog-client';
 
 // Public-facing "research inquiry" surface.
 //

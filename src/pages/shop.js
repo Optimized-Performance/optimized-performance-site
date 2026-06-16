@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/router';
 import ProductCard from '../components/ProductCard';
-import { getEffectiveStock, getVisibleProductsForCohort } from '../data/products';
+import { getEffectiveStock } from '../data/catalog-client';
 import { supabaseAdmin } from '../lib/supabase';
 import { getCohortFromRequest } from '../lib/cohort-session';
 import SEO from '../components/SEO';
@@ -151,6 +151,9 @@ export async function getServerSideProps(context) {
   // Cohort detection runs first so a Set-Cookie can ride on this response if
   // the visitor arrived via ?ref=CODE / ?cohort=TOKEN. Subsequent visits read
   // the cookie; no DB roundtrip required.
+  // require (not top-level import) so the catalog array stays out of the client
+  // bundle — getVisibleProductsForCohort references the full products array.
+  const { getVisibleProductsForCohort } = require('../data/products');
   const { cohortAllowed } = await getCohortFromRequest(context, supabaseAdmin);
   const visibleProducts = getVisibleProductsForCohort(cohortAllowed);
 

@@ -2,13 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import QRCode from 'qrcode';
-import products, {
-  getEffectiveStock,
-  shouldShowRestricted,
-  getPrivateInquiryUrl,
-  isPreorderable,
-  formatPreorderShipDate,
-} from '../../data/products';
+import { isPreorderable, formatPreorderShipDate } from '../../data/catalog-client';
 import { useCart } from '../../context/CartContext';
 import SEO from '../../components/SEO';
 import { Vial, Icon } from '../../components/Primitives';
@@ -518,6 +512,10 @@ function ComplianceRow({ icon, title, children }) {
 }
 
 export async function getServerSideProps(context) {
+  // require (not top-level import) so the catalog array + array-referencing
+  // helpers stay out of the client bundle.
+  const products = require('../../data/products').default;
+  const { getEffectiveStock, shouldShowRestricted, getPrivateInquiryUrl } = require('../../data/products');
   const { id } = context.params;
   const product = products.find((p) => p.id === id);
 

@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { useCart } from '../context/CartContext';
-import { isPreorderable, formatPreorderShipDate } from '../data/products';
+import { isPreorderable, formatPreorderShipDate } from '../data/catalog-client';
 import { isMemorialDaySaleActive, getSalePrice, MEMORIAL_DAY_DISCOUNT_PCT, isBogoProduct } from '../lib/sale';
 import { Vial, Icon } from './Primitives';
 

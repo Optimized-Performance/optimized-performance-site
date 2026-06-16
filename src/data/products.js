@@ -1,3 +1,5 @@
+import { shouldShowRestricted, isRestrictedHidden } from './catalog-client';
+
 const products = [
   {
     id: 'glp3-10mg',
@@ -454,60 +456,6 @@ const products = [
   },
 ];
 
-// Helper: get effective stock for a product (kits derive from parent).
-// Deliberately does NOT reference the global `products` array — that ensures
-// when this function is imported by client components (shop.js, [id].js),
-// Next.js does not pull the full product list (incl. restricted SKU data)
-// into the client JS bundle. The static product.stock fallback handles the
-// rare case where inventory is missing; for kits, missing parent inventory
-// = "out of stock" which is the safe default.
-export function getEffectiveStock(product, inventoryMap = {}) {
-  if (product.isKit) {
-    const parentStock = inventoryMap[product.parentId] ?? 0;
-    return Math.floor(parentStock / product.vialCount);
-  }
-  return inventoryMap[product.id] ?? product.stock ?? 0;
-}
-
-// Helper: get vials to deduct from inventory for an order item
-export function getInventoryDeductions(product, quantity = 1) {
-  if (product.isKit) {
-    return [{ productId: product.parentId, vials: product.vialCount * quantity }];
-  }
-  return [{ productId: product.id, vials: quantity }];
-}
-
-// Three-mode restricted-SKU visibility, in priority order:
-//
-//   1. NEXT_PUBLIC_HIDE_RESTRICTED=true  → hard hide everywhere (kill switch
-//      for "Bankful pulled, button up the catalog"). Ignores cohort flag.
-//   2. NEXT_PUBLIC_RESTRICTED_FORCE_SHOW=true → show restricted to everyone
-//      (kill switch for "durable rails live, gate is redundant"). Ignores
-//      cohort flag.
-//   3. Default (neither env set) → cohort gate active. The caller
-//      (getServerSideProps) reads the cohort cookie via lib/cohort-session
-//      and passes `cohortAllowed` here. cohortAllowed=true → restricted
-//      visible, false → restricted hidden.
-//
-// `isRestrictedHidden()` preserved for legacy callers but now means
-// "hard-kill mode is on" specifically.
-export function isRestrictedHidden() {
-  return process.env.NEXT_PUBLIC_HIDE_RESTRICTED === 'true';
-}
-
-export function isRestrictedForceShown() {
-  return process.env.NEXT_PUBLIC_RESTRICTED_FORCE_SHOW === 'true';
-}
-
-// True when restricted SKUs should appear for this request. Used by SSR pages
-// to decide what to render. cohortAllowed comes from the signed cookie /
-// query token check in lib/cohort-session.
-export function shouldShowRestricted(cohortAllowed) {
-  if (isRestrictedHidden()) return false;
-  if (isRestrictedForceShown()) return true;
-  return cohortAllowed === true;
-}
-
 // Cohort-aware. Pass cohortAllowed from getServerSideProps after calling
 // getCohortFromRequest(context, supabaseAdmin).
 export function getVisibleProductsForCohort(cohortAllowed) {
@@ -520,42 +468,6 @@ export function getVisibleProductsForCohort(cohortAllowed) {
 export function getVisibleProducts() {
   if (!isRestrictedHidden()) return products;
   return products.filter((p) => !p.restricted);
-}
-
-// Default inquiry CTA when someone hits a hidden detail page. Prefer
-// NEXT_PUBLIC_PRIVATE_INQUIRY_URL (e.g. Telegram invite) when set.
-export function getPrivateInquiryUrl() {
-  return (
-    process.env.NEXT_PUBLIC_PRIVATE_INQUIRY_URL ||
-    'mailto:admin@optimizedperformancepeptides.com?subject=Research%20inquiry&body=I%27m%20interested%20in%20a%20research%20inquiry.'
-  );
-}
-
-// Preorder behavior — opt-out by default.
-// A product is preorderable when out of stock UNLESS `preorder: false` is
-// explicitly set on it. Set `preorderShipDate: 'YYYY-MM-DD'` per product to
-// show a specific estimated ship date; if absent, the UI falls back to "TBD".
-export function isPreorderable(product) {
-  return product?.preorder !== false;
-}
-
-// Format a preorder ship date for customer display, e.g. "Jun 15, 2026".
-// Returns null if no date is set so callers can render a TBD fallback.
-export function formatPreorderShipDate(product) {
-  if (!product?.preorderShipDate) return null;
-  try {
-    // Parse YYYY-MM-DD as a local date (avoid UTC shift on display)
-    const [y, m, d] = product.preorderShipDate.split('-').map(Number);
-    if (!y || !m || !d) return null;
-    const date = new Date(y, m - 1, d);
-    return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    });
-  } catch {
-    return null;
-  }
 }
 
 // Cart cross-sell add-ons — surfaced in the cart drawer ("complete your order").
@@ -577,5 +489,11 @@ export function getCartAddOns(cartItems = [], cohort = false) {
     .sort((a, b) => CART_ADDON_IDS.indexOf(a.id) - CART_ADDON_IDS.indexOf(b.id))
     .slice(0, 1);
 }
+
+// Re-export the client-safe helpers so existing SERVER-side importers can keep
+// importing them from data/products. Client components must import these from
+// data/catalog-client directly (importing from here pulls the catalog array
+// into the client bundle).
+export * from './catalog-client';
 
 export default products;

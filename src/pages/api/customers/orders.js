@@ -2,6 +2,7 @@ import { getCustomerIdFromReq } from '../../../lib/customer-session'
 import { supabaseAdmin } from '../../../lib/supabase'
 import { detectCarrierAndUrl } from '../../../lib/alerts'
 import { rateLimit, escapeLike } from '../../../lib/security'
+import products from '../../../data/products'
 
 // GET /api/customers/orders — order history for the signed-in customer.
 //
@@ -20,14 +21,28 @@ function sanitize(order) {
     created_at: order.created_at,
     payment_status: order.payment_status,
     fulfillment_status: order.fulfillment_status || 'pending',
-    items: (order.items || []).map((it) => ({
-      id: it.id || null,
-      name: it.name,
-      sku: it.sku,
-      quantity: it.quantity,
-      price: it.price,
-      isPreorder: !!it.isPreorder,
-    })),
+    // Resolve display fields from the catalog server-side (order.items only
+    // store id/sku/price/quantity), so the account page + one-click reorder
+    // get name/dosage/etc. WITHOUT the client importing the product catalog
+    // (which would ship restricted SKUs into the bundle and defeat the gate).
+    items: (order.items || []).map((it) => {
+      const p = products.find((pp) => pp.id === it.id) || {}
+      return {
+        id: it.id || null,
+        name: p.name ?? it.name ?? null,
+        sku: p.sku ?? it.sku ?? null,
+        dosage: p.dosage ?? null,
+        quantity: it.quantity,
+        price: typeof p.price === 'number' ? p.price : (typeof it.price === 'number' ? it.price : null),
+        isKit: p.isKit || it.isKit || false,
+        parentId: p.parentId || null,
+        vialCount: p.vialCount || null,
+        category: p.category ?? null,
+        format: p.format ?? null,
+        vialSize: p.vialSize ?? null,
+        isPreorder: !!it.isPreorder,
+      }
+    }),
     subtotal: order.subtotal,
     discount: order.discount,
     shipping: order.shipping,
