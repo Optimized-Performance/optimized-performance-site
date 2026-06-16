@@ -71,16 +71,43 @@ export async function finalizePaidOrder({ orderNumber, sendConfirmation = true, 
     const deductQty = isKit ? product.vialCount * item.quantity : item.quantity
     if (!deductSku) continue
 
-    const { data: invItem, error: invError } = await supabaseAdmin
-      .from('inventory')
-      .select('*')
-      .eq('sku', deductSku)
-      .single()
-    if (invError || !invItem) continue
+    // Atomic decrement (single locked DB statement) to prevent the oversell
+    // race: two concurrent finalizes for the same SKU previously both read the
+    // same stock and lost a decrement. Falls back to the old read-modify-write
+    // if the decrement_inventory function isn't in the DB yet (see
+    // supabase-migration-atomic-inventory-decrement.sql) so finalization never
+    // breaks on a missing function; the fallback still carries the race until
+    // the migration is run.
+    let invItem = null
+    try {
+      const { data: rows, error: rpcErr } = await supabaseAdmin
+        .rpc('decrement_inventory', { p_sku: deductSku, p_qty: deductQty })
+      if (rpcErr) throw rpcErr
+      const row = Array.isArray(rows) ? rows[0] : rows
+      if (!row) continue // no inventory row for this SKU — nothing to deduct
+      if (row.out_oversold) {
+        console.error(`[finalizeOrder] OVERSOLD ${deductSku} on order ${order.order_number}: requested ${deductQty}, clamped to 0`)
+      }
+      invItem = {
+        sku: deductSku,
+        product: row.out_product,
+        stock: row.out_new_stock,
+        threshold: row.out_threshold,
+        reorder_threshold: row.out_reorder,
+      }
+    } catch (rpcErr) {
+      const { data: row, error: invError } = await supabaseAdmin
+        .from('inventory')
+        .select('*')
+        .eq('sku', deductSku)
+        .single()
+      if (invError || !row) continue
+      const fbStock = Math.max(0, row.stock - deductQty)
+      await supabaseAdmin.from('inventory').update({ stock: fbStock }).eq('sku', deductSku)
+      invItem = { ...row, stock: fbStock }
+    }
 
-    const newStock = Math.max(0, invItem.stock - deductQty)
-    await supabaseAdmin.from('inventory').update({ stock: newStock }).eq('sku', deductSku)
-
+    const newStock = invItem.stock
     if (newStock <= invItem.threshold) {
       lowStockItems.push({ ...invItem, stock: newStock, level: 'critical' })
     } else if (newStock <= invItem.reorder_threshold) {
