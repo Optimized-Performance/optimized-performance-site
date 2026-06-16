@@ -58,7 +58,16 @@ function splitStreetAndApt(addressLine) {
 
 function csvCell(value) {
   if (value === null || value === undefined) return ''
-  const s = String(value)
+  let s = String(value)
+  // CSV formula-injection defense: a cell a customer controls (name, address)
+  // that starts with =, +, -, @, or a leading tab/CR is interpreted as a
+  // FORMULA by Excel/Sheets when the export is opened — e.g.
+  // `=HYPERLINK(...)` or `=cmd|...`. Prefix a single quote so the cell is
+  // treated as literal text. Only affects cells that start with these chars
+  // (a normal name/number is untouched).
+  if (/^[=+\-@\t\r]/.test(s)) {
+    s = `'${s}`
+  }
   if (/[",\n\r]/.test(s)) {
     return `"${s.replace(/"/g, '""')}"`
   }

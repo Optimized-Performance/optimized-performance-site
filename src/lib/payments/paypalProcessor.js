@@ -137,7 +137,16 @@ export async function capturePaypalOrder({ paypalOrderId }) {
   if (!res.ok || !data) {
     throw new Error(`[paypal] order capture failed (${res.status}): ${text.slice(0, 500)}`)
   }
-  return { ok: true, captureStatus: data.status }
+  // Surface the actually-captured amount + our order number so the caller can
+  // finalize immediately rather than waiting on the (lossy) async
+  // PAYMENT.CAPTURE.COMPLETED webhook. The capture lives under
+  // purchase_units[].payments.captures[]; custom_id rides the purchase unit.
+  const pu = Array.isArray(data.purchase_units) ? data.purchase_units[0] : null
+  const capture = pu?.payments?.captures?.[0] || null
+  const amount = capture?.amount?.value != null ? Number(capture.amount.value) : null
+  const currency = capture?.amount?.currency_code || null
+  const orderNumber = pu?.custom_id || pu?.reference_id || null
+  return { ok: true, captureStatus: capture?.status || data.status, amount, currency, orderNumber }
 }
 
 // PayPal verifies webhook signatures by POSTing the received headers + parsed
@@ -259,8 +268,32 @@ export async function parsePaypalWebhookEvent({ rawBody, headers }) {
     }
   }
 
-  // Refunds and anything else not in our subscribed set — log and no-op.
-  // Refund flow is admin-driven via /api/admin/orders/refund.
+  // Money LEAVING us: a refund issued from the PayPal dashboard, or a
+  // capture reversal/chargeback. The admin refund endpoint already flips our
+  // order when WE initiate, but a refund/chargeback started outside the app
+  // would otherwise be silently no-op'd here and the order could still ship.
+  // custom_id is OUR order number (set on the purchase unit and propagated by
+  // PayPal to the capture/refund resource); when present it's authoritative,
+  // when absent we surface for manual reconciliation rather than guessing.
+  if (
+    eventType === 'PAYMENT.CAPTURE.REFUNDED' ||
+    eventType === 'PAYMENT.CAPTURE.REVERSED'
+  ) {
+    const orderNumber =
+      resource.custom_id ||
+      resource.purchase_units?.[0]?.custom_id ||
+      ''
+    return {
+      verified: true,
+      eventId: webhookEvent.id,
+      txId: resource.id || '',
+      orderNumber,
+      status: 'refunded',
+      reason: eventType,
+    }
+  }
+
+  // Anything else not in our subscribed set — log and no-op.
   return {
     verified: true,
     eventId: webhookEvent.id,

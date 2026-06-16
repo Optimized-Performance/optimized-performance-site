@@ -1,6 +1,7 @@
 import { supabaseAdmin } from '../../../lib/supabase'
 import { parsePaypalWebhookEvent, capturePaypalOrder } from '../../../lib/payments/paypalProcessor'
 import { finalizePaidOrder } from '../../../lib/payments/finalizeOrder'
+import { PAYMENT_STATUS, canTransitionPayment } from '../../../lib/order-status'
 
 export const config = {
   api: { bodyParser: false },
@@ -42,10 +43,14 @@ export default async function handler(req, res) {
       return res.status(200).json({ received: true, action: 'ignored', reason: event.reason })
     }
 
-    // Stage 1: customer approved at paypal.com. Trigger the capture; PayPal
-    // will then deliver PAYMENT.CAPTURE.COMPLETED, which is what finalizes
-    // the order below. Recording the event before capture ensures duplicate
-    // APPROVED deliveries don't double-capture.
+    // Stage 1: customer approved at paypal.com. Trigger the capture AND
+    // finalize right here off the capture response — do NOT depend solely on
+    // the separate PAYMENT.CAPTURE.COMPLETED webhook, which can be delayed or
+    // lost and would leave a genuinely-paid order sitting awaiting_payment
+    // until the expire cron abandons it. finalizePaidOrder is idempotent (it
+    // only acts on OPEN-state orders), so if COMPLETED arrives later it just
+    // no-ops. Recording the event before capture ensures duplicate APPROVED
+    // deliveries don't double-capture.
     if (event.status === 'approved_pending_capture') {
       if (!event.eventId || !event.paypalOrderId) {
         return res.status(200).json({ received: true, action: 'no_capture_ref' })
@@ -54,13 +59,34 @@ export default async function handler(req, res) {
       if (!fresh) {
         return res.status(200).json({ received: true, action: 'replay_ignored' })
       }
+      let capResult
       try {
-        await capturePaypalOrder({ paypalOrderId: event.paypalOrderId })
+        capResult = await capturePaypalOrder({ paypalOrderId: event.paypalOrderId })
       } catch (capErr) {
         console.error('[paypal-webhook] Capture failed:', capErr.message)
         return res.status(500).json({ error: capErr.message })
       }
-      return res.status(200).json({ received: true, action: 'captured', order_number: event.orderNumber })
+      // Finalize immediately. capResult carries our order number + the captured
+      // amount/currency (absent only on the already-captured 422 path, where a
+      // prior capture's COMPLETED webhook handles reconciliation).
+      const finalizeOrderNumber = capResult?.orderNumber || event.orderNumber
+      if (finalizeOrderNumber) {
+        try {
+          const fin = await finalizePaidOrder({
+            orderNumber: finalizeOrderNumber,
+            paidAmount: capResult?.amount ?? null,
+            paidCurrency: capResult?.currency ?? null,
+          })
+          if (!fin.ok && fin.reason !== 'order_not_found') {
+            console.error('[paypal-webhook] Finalize-on-capture failed:', fin.reason, fin.error)
+          }
+        } catch (finErr) {
+          // Don't fail the capture over a finalize hiccup — the COMPLETED
+          // webhook is still the backup. Log loudly.
+          console.error('[paypal-webhook] Finalize-on-capture threw (COMPLETED webhook will retry):', finErr.message)
+        }
+      }
+      return res.status(200).json({ received: true, action: 'captured', order_number: finalizeOrderNumber })
     }
 
     if (event.status === 'failed') {
@@ -68,6 +94,46 @@ export default async function handler(req, res) {
       if (eventId) await recordEvent({ eventId, txId }).catch(() => {})
       console.warn('[paypal-webhook] Capture denied/declined/voided for order:', orderNumber)
       return res.status(200).json({ received: true, action: 'failed', order_number: orderNumber })
+    }
+
+    // Money leaving us: dashboard refund or capture reversal/chargeback. Flip
+    // the order to refunded + cancel fulfillment so it can't ship. Only acts
+    // when PayPal handed us our order number (custom_id) and the transition is
+    // legal; otherwise log loudly for manual reconciliation.
+    if (event.status === 'refunded') {
+      const { eventId, txId, orderNumber, reason } = event
+      if (eventId) await recordEvent({ eventId, txId }).catch(() => {})
+      if (!orderNumber) {
+        console.error('[paypal-webhook] REFUND/REVERSAL with no order ref — RECONCILE MANUALLY:', reason, txId)
+        return res.status(200).json({ received: true, action: 'refund_no_order_ref' })
+      }
+      const { data: ord } = await supabaseAdmin
+        .from('orders')
+        .select('id, payment_status')
+        .eq('order_number', orderNumber)
+        .single()
+      if (!ord) {
+        console.error('[paypal-webhook] REFUND/REVERSAL order not found — RECONCILE MANUALLY:', orderNumber)
+        return res.status(200).json({ received: true, action: 'refund_order_not_found' })
+      }
+      if (!canTransitionPayment(ord.payment_status, PAYMENT_STATUS.REFUNDED)) {
+        // Already refunded, or terminal — nothing to do.
+        return res.status(200).json({ received: true, action: 'refund_noop', order_number: orderNumber })
+      }
+      const nowIso = new Date().toISOString()
+      await supabaseAdmin
+        .from('orders')
+        .update({
+          payment_status: PAYMENT_STATUS.REFUNDED,
+          fulfillment_status: 'cancelled',
+          refunded_at: nowIso,
+          refunded_by: 'paypal_webhook',
+          refund_reason: reason || 'PayPal refund/reversal',
+          updated_at: nowIso,
+        })
+        .eq('id', ord.id)
+      console.warn('[paypal-webhook] Order marked refunded via', reason, '-', orderNumber)
+      return res.status(200).json({ received: true, action: 'refunded', order_number: orderNumber })
     }
 
     if (event.status !== 'completed') {

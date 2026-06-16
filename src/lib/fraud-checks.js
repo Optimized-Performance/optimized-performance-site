@@ -114,8 +114,18 @@ export async function runVelocityChecks({
       )
 
       if (otherIdentityHits.length > 0) {
-        const inHardWindow = otherIdentityHits.some((o) => o.created_at >= hardCutoff)
-        if (inHardWindow) {
+        // Count DISTINCT other identities (emails), not order rows, inside the
+        // 24h window. 2+ different identities shipping to one address in a day
+        // is the classic card-testing / reshipper-ring pattern → block. A
+        // SINGLE other identity is far more often benign — a household, a gift,
+        // or a customer who fixed a typo'd email and re-ordered — so flag it
+        // for review instead of blocking a likely-real sale at checkout.
+        const distinctHardIdentities = new Set(
+          otherIdentityHits
+            .filter((o) => o.created_at >= hardCutoff)
+            .map((o) => String(o.customer_email || '').toLowerCase().trim())
+        )
+        if (distinctHardIdentities.size >= 2) {
           reasons.push(REASON_ADDRESS_HARD)
           status = escalate(status, 'block')
         } else {
@@ -152,7 +162,15 @@ export async function runVelocityChecks({
     status = escalate(status, 'flag')
   }
 
-  if (isLowTrustEmailPattern(email)) {
+  // Email-pattern is a WEAK signal: a letters-only local part on a major
+  // provider (e.g. johnsmith@gmail.com) describes an enormous number of real
+  // customers, so on its own it produces mostly false positives — and at volume
+  // a noisy flag trains the reviewer to clear everything, which hides the real
+  // hits. Use it only to CORROBORATE: it escalates to a flag exclusively when
+  // another velocity signal already fired, sharpening that signal rather than
+  // flagging clean orders. (When reasons only contains a velocity_check_error,
+  // status is already 'flag', so this is a no-op there.)
+  if (isLowTrustEmailPattern(email) && reasons.length > 0) {
     reasons.push(REASON_EMAIL_PATTERN)
     status = escalate(status, 'flag')
   }

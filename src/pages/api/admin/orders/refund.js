@@ -49,30 +49,43 @@ export default async function handler(req, res) {
       return res.status(409).json({ error: 'Order is already marked refunded' })
     }
 
-    // Default to full refund of order.total. Admin can pass a smaller amount
-    // for partial refunds. Disallow exceeding the original total.
-    const refundAmount = Number(amount ?? order.total ?? 0)
+    const orderTotal = Number(order.total || 0)
+    const alreadyRefunded = Number(order.refund_amount || 0)
+
+    // Default to refunding the OUTSTANDING balance (total minus anything already
+    // refunded), not the full total — so the default on a partially-refunded
+    // order doesn't try to over-refund. Admin can pass a smaller amount.
+    const outstanding = Math.max(0, orderTotal - alreadyRefunded)
+    const refundAmount = Number(amount ?? outstanding ?? 0)
     if (!Number.isFinite(refundAmount) || refundAmount <= 0) {
       return res.status(400).json({ error: 'Invalid refund amount' })
     }
-    if (refundAmount > Number(order.total || 0) + 0.01) {
-      return res.status(400).json({ error: 'Refund amount exceeds order total' })
+    // Guard the CUMULATIVE total, not just this single refund. Prior code only
+    // checked one refund against order.total, so two partial refunds could each
+    // pass yet together exceed what the customer paid. Accumulate and cap.
+    const cumulativeRefunded = alreadyRefunded + refundAmount
+    if (cumulativeRefunded > orderTotal + 0.01) {
+      return res.status(400).json({
+        error: `Refund exceeds order total. Already refunded $${alreadyRefunded.toFixed(2)} of $${orderTotal.toFixed(2)}; max additional $${outstanding.toFixed(2)}.`,
+      })
     }
 
     const refundReason = String(reason || '').slice(0, 500)
     const nowIso = new Date().toISOString()
 
-    // Partial refunds (refund_amount < total) leave the order open so it
-    // ships normally — used when correcting an overcharge (e.g. sale-discount
-    // bug fix, broken-item credit, shipping adjustment) without canceling
-    // fulfillment. Full refunds flip payment_status to 'refunded' and
-    // fulfillment_status to 'cancelled' as before.
-    const orderTotal = Number(order.total || 0)
-    const isFullRefund = refundAmount >= orderTotal - 0.01
+    // Partial refunds (cumulative < total) leave the order open so it ships
+    // normally — used when correcting an overcharge (e.g. sale-discount bug
+    // fix, broken-item credit, shipping adjustment) without canceling
+    // fulfillment. A refund that brings the CUMULATIVE total up to the order
+    // total flips payment_status to 'refunded' and fulfillment_status to
+    // 'cancelled'.
+    const isFullRefund = cumulativeRefunded >= orderTotal - 0.01
 
     const update = {
       refunded_at: nowIso,
-      refund_amount: refundAmount,
+      // Store the running total refunded, not just this call's amount, so the
+      // accumulation guard above stays correct across multiple partial refunds.
+      refund_amount: cumulativeRefunded,
       refund_reason: refundReason || null,
       refunded_by: 'admin',
       updated_at: nowIso,

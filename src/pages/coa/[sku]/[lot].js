@@ -12,6 +12,7 @@
 // "pending sterility") later without changing label artwork.
 
 import { supabaseAdmin } from '../../../lib/supabase'
+import { escapeLike } from '../../../lib/security'
 import SEO from '../../../components/SEO'
 
 const COA_BUCKET = 'coas'
@@ -29,8 +30,8 @@ export async function getServerSideProps(context) {
   let { data: batch, error } = await supabaseAdmin
     .from('batches')
     .select('sku, lot_number, production_date, expiry_date, coa_pdf_path, coa_uploaded_at')
-    .ilike('sku', String(sku))
-    .ilike('lot_number', String(lot))
+    .ilike('sku', escapeLike(String(sku)))
+    .ilike('lot_number', escapeLike(String(lot)))
     .maybeSingle()
 
   if (error) {
@@ -49,7 +50,7 @@ export async function getServerSideProps(context) {
     const { data: alt } = await supabaseAdmin
       .from('batches')
       .select('sku, lot_number, production_date, expiry_date, coa_pdf_path, coa_uploaded_at')
-      .ilike('sku', String(sku))
+      .ilike('sku', escapeLike(String(sku)))
       .not('coa_pdf_path', 'is', null)
       .order('production_date', { ascending: false })
       .limit(1)

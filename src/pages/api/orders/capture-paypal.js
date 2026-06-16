@@ -1,16 +1,20 @@
 import { supabaseAdmin } from '../../../lib/supabase'
 import { validateOrigin, rateLimit, validateString } from '../../../lib/security'
 import { capturePaypalOrder } from '../../../lib/payments/paypalProcessor'
+import { finalizePaidOrder } from '../../../lib/payments/finalizeOrder'
 
 // Smart-Buttons capture endpoint. The PayPal JS SDK's onApprove callback hits
 // this from the customer's browser after they approve in the PayPal / Venmo /
-// Apple Pay sheet. We call capturePaypalOrder server-side, then return 200.
+// Apple Pay sheet. We call capturePaypalOrder server-side, then finalize.
 //
-// The actual order finalization (inventory, affiliate, confirmation email)
-// still runs in /api/webhooks/paypal when PayPal delivers
-// PAYMENT.CAPTURE.COMPLETED. capturePaypalOrder is idempotent (handles
-// ORDER_ALREADY_CAPTURED), so if the CHECKOUT.ORDER.APPROVED webhook races us
-// and captures first, this just returns alreadyCaptured: true.
+// Order finalization (inventory, affiliate, confirmation email) runs HERE off
+// the capture response — we no longer wait solely on the
+// PAYMENT.CAPTURE.COMPLETED webhook, which can be delayed or dropped and would
+// leave a paid order stuck awaiting_payment until the expire cron abandons it.
+// finalizePaidOrder is idempotent (only acts on OPEN-state orders), so the
+// COMPLETED webhook finalizing first (or this finalizing first) is safe — the
+// loser no-ops. capturePaypalOrder is likewise idempotent on
+// ORDER_ALREADY_CAPTURED.
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end()
   if (!validateOrigin(req)) return res.status(403).json({ error: 'Forbidden' })
@@ -44,6 +48,26 @@ export default async function handler(req, res) {
     }
 
     const result = await capturePaypalOrder({ paypalOrderId: paypal_order_id })
+
+    // Finalize off the capture response so a lost COMPLETED webhook can't
+    // strand this paid order. Idempotent — if the webhook beat us, this no-ops
+    // (order_not_found because it's no longer in an OPEN state). Failures here
+    // are logged but don't fail the response: the customer WAS charged, and the
+    // webhook remains the backup finalizer.
+    if (result?.ok) {
+      try {
+        const fin = await finalizePaidOrder({
+          orderNumber: order_number,
+          paidAmount: result.amount ?? null,
+          paidCurrency: result.currency ?? null,
+        })
+        if (!fin.ok && fin.reason !== 'order_not_found') {
+          console.error('[capture-paypal] finalize failed:', fin.reason, fin.error)
+        }
+      } catch (finErr) {
+        console.error('[capture-paypal] finalize threw (webhook will retry):', finErr.message)
+      }
+    }
     return res.status(200).json({ ok: true, order_number, ...result })
   } catch (err) {
     console.error('[capture-paypal] failed:', err.message)

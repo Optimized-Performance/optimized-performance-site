@@ -52,9 +52,24 @@ export async function finalizePaidOrder({ orderNumber, sendConfirmation = true, 
   // here; the assert catches future filter/logic drift loudly rather than
   // silently writing an illegal transition.
   assertPaymentTransition(order.payment_status, PAYMENT_STATUS.COMPLETED)
+  const completedUpdate = { payment_status: PAYMENT_STATUS.COMPLETED, updated_at: new Date().toISOString() }
+
+  // On a captured-amount shortfall, complete the order (so a real payment is
+  // never false-blocked over a units/currency quirk) but FLAG it so it surfaces
+  // in admin with a warning badge + reason before anyone ships it. flagged
+  // (unlike blocked) doesn't gate fulfillment — it's a visible "review this"
+  // signal on a path that should essentially never fire (pricing is
+  // server-authoritative at create time). Never downgrade an existing 'blocked'.
+  if (amountMismatch) {
+    const existingReasons = Array.isArray(order.fraud_reasons) ? order.fraud_reasons : []
+    const reason = `Underpaid: $${Number(paidAmount).toFixed(2)} captured vs $${Number(order.total || 0).toFixed(2)} billed`
+    completedUpdate.fraud_reasons = existingReasons.includes(reason) ? existingReasons : [...existingReasons, reason]
+    if (order.fraud_status !== 'blocked') completedUpdate.fraud_status = 'flagged'
+  }
+
   const { error: updateError } = await supabaseAdmin
     .from('orders')
-    .update({ payment_status: PAYMENT_STATUS.COMPLETED, updated_at: new Date().toISOString() })
+    .update(completedUpdate)
     .eq('id', order.id)
 
   if (updateError) {
