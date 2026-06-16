@@ -5,14 +5,13 @@ const products = [
     name: 'GLP-3',
     dosage: '10mg',
     price: 69.95,
-    description: 'Triple agonist GLP peptide (GLP-1 / GIP / Glucagon receptor). Lyophilized powder for research use.',
+    description: 'Analytical reference material — triple-receptor GLP agonist (GLP-1 / GIP / glucagon), lyophilized. For in-vitro research and analytical use only; not for human or animal consumption.',
     category: 'GLPs',
     format: 'Lyophilized Powder',
     vialSize: '2 mL Vial',
     inStock: true,
     badge: 'HERO',
     stock: 150,
-    restricted: true,
   },
   {
     id: 'glp3-20mg',
@@ -20,14 +19,13 @@ const products = [
     name: 'GLP-3',
     dosage: '20mg',
     price: 109.95,
-    description: 'Triple agonist GLP peptide (GLP-1 / GIP / Glucagon receptor). Lyophilized powder for research use.',
+    description: 'Analytical reference material — triple-receptor GLP agonist (GLP-1 / GIP / glucagon), lyophilized. For in-vitro research and analytical use only; not for human or animal consumption.',
     category: 'GLPs',
     format: 'Lyophilized Powder',
     vialSize: '2 mL Vial',
     inStock: true,
     badge: 'HERO',
     stock: 100,
-    restricted: true,
   },
   {
     id: 'glp3-10mg-kit',
@@ -35,7 +33,7 @@ const products = [
     name: 'GLP-3 Kit (10x10mg)',
     dosage: '100mg total',
     price: 559.95,
-    description: '10-vial kit — GLP-3 triple agonist GLP peptide (GLP-1 / GIP / Glucagon), 10mg each. Lyophilized powder for research use.',
+    description: '10-vial analytical reference kit — triple-receptor GLP agonist (GLP-1 / GIP / glucagon), 10 mg per vial, lyophilized. For in-vitro research and analytical use only; not for human or animal consumption.',
     category: 'GLPs',
     format: 'Lyophilized Powder',
     vialSize: '10 x 2 mL Vials',
@@ -44,7 +42,6 @@ const products = [
     isKit: true,
     parentId: 'glp3-10mg',
     vialCount: 10,
-    restricted: true,
   },
   {
     id: 'glp3-20mg-kit',
@@ -52,7 +49,7 @@ const products = [
     name: 'GLP-3 Kit (10x20mg)',
     dosage: '200mg total',
     price: 879.95,
-    description: '10-vial kit — GLP-3 triple agonist GLP peptide (GLP-1 / GIP / Glucagon), 20mg each. Lyophilized powder for research use.',
+    description: '10-vial analytical reference kit — triple-receptor GLP agonist (GLP-1 / GIP / glucagon), 20 mg per vial, lyophilized. For in-vitro research and analytical use only; not for human or animal consumption.',
     category: 'GLPs',
     format: 'Lyophilized Powder',
     vialSize: '10 x 2 mL Vials',
@@ -61,7 +58,6 @@ const products = [
     isKit: true,
     parentId: 'glp3-20mg',
     vialCount: 10,
-    restricted: true,
   },
   {
     id: 'glp1-10mg',
@@ -69,14 +65,13 @@ const products = [
     name: 'GLP-1',
     dosage: '10mg',
     price: 74.95,
-    description: 'GLP-1 receptor agonist peptide. Lyophilized powder for research use.',
+    description: 'Analytical reference material — GLP-1 receptor agonist peptide, lyophilized. For in-vitro research and analytical use only; not for human or animal consumption.',
     category: 'GLPs',
     format: 'Lyophilized Powder',
     vialSize: '2 mL Vial',
     inStock: false,
     badge: 'NEW',
     stock: 0,
-    restricted: true,
   },
   {
     id: 'glp1-10mg-kit',
@@ -84,7 +79,7 @@ const products = [
     name: 'GLP-1 Kit (10x10mg)',
     dosage: '100mg total',
     price: 599.95,
-    description: '10-vial kit — GLP-1 receptor agonist, 10mg each. Lyophilized powder for research use.',
+    description: '10-vial analytical reference kit — GLP-1 receptor agonist, 10 mg per vial, lyophilized. For in-vitro research and analytical use only; not for human or animal consumption.',
     category: 'GLPs',
     format: 'Lyophilized Powder',
     vialSize: '10 x 2 mL Vials',
@@ -93,7 +88,6 @@ const products = [
     isKit: true,
     parentId: 'glp1-10mg',
     vialCount: 10,
-    restricted: true,
   },
   {
     id: 'bpc-5mg',
@@ -434,13 +428,14 @@ const products = [
     name: 'Bacteriostatic Water',
     dosage: '10 mL',
     price: 9.95,
-    description: 'Sterile bacteriostatic water (0.9% benzyl alcohol preservative). Used for reconstitution of lyophilized research peptides.',
+    description: 'Sterile bacteriostatic water (0.9% benzyl alcohol preservative). Laboratory diluent for research use.',
     category: 'Supplies',
     format: 'Bacteriostatic Solution',
     vialSize: '10 mL Vial',
     inStock: true,
     badge: null,
     stock: 40,
+    restricted: true,
   },
   {
     id: 'bac-water-30ml-hospira',
@@ -448,13 +443,14 @@ const products = [
     name: 'Bacteriostatic Water (Hospira)',
     dosage: '30 mL',
     price: 36.95,
-    description: 'Genuine Hospira bacteriostatic water (0.9% benzyl alcohol preservative), 30 mL vial. Pharmaceutical-grade sterile water for reconstitution of lyophilized research peptides.',
+    description: 'Genuine Hospira bacteriostatic water (0.9% benzyl alcohol preservative), 30 mL vial. Pharmaceutical-grade sterile laboratory diluent for research use.',
     category: 'Supplies',
     format: 'Bacteriostatic Solution',
     vialSize: '30 mL Vial',
     inStock: true,
     badge: 'NEW',
     stock: 100,
+    restricted: true,
   },
 ];
 
@@ -568,7 +564,7 @@ export function formatPreorderShipDate(product) {
 // add-on isn't already in the cart; the standard 10 mL is offered first.
 // Order = cross-sell feature priority (first in-stock, not-in-cart one is shown).
 const CART_ADDON_IDS = ['bac-water-30ml-hospira', 'bac-water-10ml'];
-export function getCartAddOns(cartItems = []) {
+export function getCartAddOns(cartItems = [], cohort = false) {
   const items = Array.isArray(cartItems) ? cartItems : [];
   const inCart = new Set(items.map((i) => i.id));
   const hasPeptide = items.some((i) => !CART_ADDON_IDS.includes(i.id));
@@ -577,7 +573,7 @@ export function getCartAddOns(cartItems = []) {
   // (not products-array order). The inStock guard means an out-of-stock add-on
   // never surfaces as an unbuyable "complete your order" suggestion.
   return products
-    .filter((p) => CART_ADDON_IDS.includes(p.id) && p.inStock && !inCart.has(p.id))
+    .filter((p) => CART_ADDON_IDS.includes(p.id) && p.inStock && (cohort || !p.restricted) && !inCart.has(p.id))
     .sort((a, b) => CART_ADDON_IDS.indexOf(a.id) - CART_ADDON_IDS.indexOf(b.id))
     .slice(0, 1);
 }

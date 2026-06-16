@@ -115,6 +115,26 @@ function buildSetCookieHeader(value, { secure = true } = {}) {
   return parts.join('; ')
 }
 
+// Companion cookie signaling "this visitor is cohort-allowed" for CLIENT-SIDE
+// merchandising decisions only (promo banners, free-ship bar, alt-pay SAVE,
+// product badges in globally-rendered components). NOT HttpOnly so client JS
+// can read it; NOT a security control — the real catalog gate is server-side
+// and never trusts this. Tampering only toggles whether conversion UI shows,
+// never what catalog/SKUs are accessible. Set whenever cohortAllowed=true so
+// the public/cold face stays merchandising-free for AUP review while cohort
+// (?ref=) visitors get the full conversion experience. Same 90-day TTL.
+function buildCohortUiCookieHeader({ secure = true } = {}) {
+  const maxAge = Math.floor(COOKIE_TTL_MS / 1000)
+  const parts = [
+    `opp_cohort_ui=1`,
+    'Path=/',
+    `Max-Age=${maxAge}`,
+    'SameSite=Lax',
+  ]
+  if (secure) parts.push('Secure')
+  return parts.join('; ')
+}
+
 // Companion cookie carrying the affiliate CODE for checkout attribution.
 // NOT HttpOnly — checkout.js reads it client-side to pre-fill the affiliate
 // code input. Tampering doesn't matter: the code is validated server-side at
@@ -231,6 +251,7 @@ export async function getCohortFromRequest(context, supabaseAdmin) {
     // honor ?ref so affiliate commission attribution works — attribution is
     // intentionally independent of the catalog-hiding switch.
     const refCode = await applyAffiliateRef(query, res, supabaseAdmin)
+    appendSetCookie(res, buildCohortUiCookieHeader())
     return { cohortAllowed: true, source: 'gate_off', refCode: refCode || undefined }
   }
 
@@ -248,6 +269,7 @@ export async function getCohortFromRequest(context, supabaseAdmin) {
   const cohortParam = typeof query?.cohort === 'string' ? query.cohort : null
   if (cohortParam && isCohortAllowedToken(cohortParam)) {
     appendSetCookie(res, buildSetCookieHeader(createCookieValue()))
+    appendSetCookie(res, buildCohortUiCookieHeader())
     return { cohortAllowed: true, source: 'cohort_param' }
   }
 
@@ -257,6 +279,7 @@ export async function getCohortFromRequest(context, supabaseAdmin) {
   const refCode = await applyAffiliateRef(query, res, supabaseAdmin)
   if (refCode) {
     appendSetCookie(res, buildSetCookieHeader(createCookieValue()))
+    appendSetCookie(res, buildCohortUiCookieHeader())
     return { cohortAllowed: true, source: 'ref_param', refCode }
   }
 
@@ -265,10 +288,12 @@ export async function getCohortFromRequest(context, supabaseAdmin) {
   // session works normally.
   if (recoverValid) {
     appendSetCookie(res, buildSetCookieHeader(createCookieValue()))
+    appendSetCookie(res, buildCohortUiCookieHeader())
     return { cohortAllowed: true, source: 'recover_param' }
   }
 
   if (cookies[COOKIE_NAME] && isCookieValueValid(cookies[COOKIE_NAME])) {
+    appendSetCookie(res, buildCohortUiCookieHeader())
     return { cohortAllowed: true, source: 'cookie' }
   }
 

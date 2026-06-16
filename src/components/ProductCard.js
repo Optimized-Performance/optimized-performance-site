@@ -6,12 +6,16 @@ import { Vial, Icon } from './Primitives';
 
 const LOW_STOCK_THRESHOLD = 20;
 
-export default function ProductCard({ product, qty }) {
+export default function ProductCard({ product, qty, cohort = false }) {
   const { addToCart } = useCart();
   const stock = qty ?? product.stock ?? 0;
-  const saleActive = isMemorialDaySaleActive();
+  // Merchandising (sale pricing, BOGO, promo badges, low-stock scarcity) shows
+  // only to cohort (?ref=) visitors. The public/cold face stays clean for AUP
+  // review — `cohort` is threaded from shop.js getServerSideProps so this is
+  // decided in the server HTML, not hidden client-side.
+  const saleActive = isMemorialDaySaleActive() && cohort;
   const salePrice = saleActive ? getSalePrice(product.price) : product.price;
-  const bogo = isBogoProduct(product);
+  const bogo = isBogoProduct(product) && cohort;
   const preorderEnabled = stock === 0 && isPreorderable(product);
   const shipDate = preorderEnabled ? formatPreorderShipDate(product) : null;
 
@@ -24,12 +28,16 @@ export default function ProductCard({ product, qty }) {
     status = 'in';
   }
 
+  // Public face hides the "Only N left" scarcity cue — render low stock as a
+  // plain "In stock". Availability/add-to-cart logic still uses `status`.
+  const displayStatus = !cohort && status === 'low' ? 'in' : status;
+
   const statusText =
-    status === 'out'
+    displayStatus === 'out'
       ? 'Sold out'
-      : status === 'low'
+      : displayStatus === 'low'
       ? `Only ${stock} left`
-      : status === 'preorder'
+      : displayStatus === 'preorder'
       ? shipDate
         ? `Preorder · ships ~${shipDate}`
         : 'Preorder · ship date TBD'
@@ -47,7 +55,7 @@ export default function ProductCard({ product, qty }) {
         <div className="absolute top-3 right-3 px-2 py-1 bg-surface border border-line rounded-sm opp-meta-mono">
           {product.purity ?? 99}% · HPLC
         </div>
-        {product.badge && (
+        {cohort && product.badge && (
           <div
             className={`absolute top-3 left-3 font-mono text-[10px] font-bold tracking-[0.12em] px-2 py-1 rounded-sm ${
               product.badge === 'BUNDLE' ? 'bg-ink text-paper' : 'bg-accent text-surface'
@@ -99,7 +107,7 @@ export default function ProductCard({ product, qty }) {
                 ${product.price.toFixed(2)}
               </div>
             )}
-            <div className={`opp-stock opp-stock--${status} mt-1.5`}>
+            <div className={`opp-stock opp-stock--${displayStatus} mt-1.5`}>
               <span className="opp-stock-dot" /> {statusText}
             </div>
           </div>

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { isGlp3BogoActive, bogoWindowLabel } from '../lib/sale'
+import { useCohortUi } from '../lib/cohort-ui'
 
 // Site-wide banner announcing the GLP-3 Buy 2 Get 1 Free promo. Auto-hides
 // outside the promo window (returns null when isGlp3BogoActive is false).
@@ -10,9 +11,12 @@ import { isGlp3BogoActive, bogoWindowLabel } from '../lib/sale'
 const STORAGE_KEY = 'opp-glp3-bogo-banner-dismissed-2026'
 
 export default function Glp3BogoBanner() {
+  const cohort = useCohortUi()
   const [visible, setVisible] = useState(false)
 
   useEffect(() => {
+    // Cohort-only: the public/cold face never shows promo banners (AUP review).
+    if (!cohort) return
     if (!isGlp3BogoActive()) return
     try {
       if (localStorage.getItem(STORAGE_KEY) === 'true') return
@@ -20,7 +24,7 @@ export default function Glp3BogoBanner() {
       // localStorage blocked — show anyway, session-scoped
     }
     setVisible(true)
-  }, [])
+  }, [cohort])
 
   if (!visible) return null
 

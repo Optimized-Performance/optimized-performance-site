@@ -9,7 +9,7 @@ import { Icon } from '../components/Primitives';
 
 const ALL_CATEGORIES = ['All', 'GLPs', 'Peptides', 'GH Peptides', 'Combos', 'Tinctures', 'Supplements', 'Supplies'];
 
-export default function Shop({ inventory, visibleProducts: visibleProductsProp }) {
+export default function Shop({ inventory, visibleProducts: visibleProductsProp, cohortAllowed }) {
   const router = useRouter();
   const initialCat = typeof router.query.cat === 'string' ? router.query.cat : 'All';
   const [cat, setCat] = useState(initialCat);
@@ -131,6 +131,7 @@ export default function Shop({ inventory, visibleProducts: visibleProductsProp }
             key={p.id}
             product={p}
             qty={p.isKit ? getEffectiveStock(p, inventory) : inventory[p.id]}
+            cohort={cohortAllowed}
           />
         ))}
       </div>
@@ -175,12 +176,12 @@ export async function getServerSideProps(context) {
         inventory[item.product_id] = item.stock;
       }
     });
-    return { props: { inventory, visibleProducts } };
+    return { props: { inventory, visibleProducts, cohortAllowed } };
   } catch {
     const inventory = {};
     visibleProducts.filter((p) => !p.isKit).forEach((p) => {
       inventory[p.id] = p.stock;
     });
-    return { props: { inventory, visibleProducts } };
+    return { props: { inventory, visibleProducts, cohortAllowed } };
   }
 }

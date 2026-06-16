@@ -29,6 +29,7 @@ export default function ProductDetail({
   inquiryUrl,
   coaQr,
   bacCrossSell,
+  cohort,
 }) {
   const router = useRouter();
   const { addToCart } = useCart();
@@ -131,7 +132,10 @@ export default function ProductDetail({
 
   const preorderEnabled = stock === 0 && isPreorderable(product);
   const shipDate = preorderEnabled ? formatPreorderShipDate(product) : null;
-  const bogoActive = isBogoProduct(product);
+  // Merchandising (BOGO, promo badge, sale pricing, low-stock scarcity) shows
+  // only to cohort (?ref=) visitors; public/cold face stays clean for AUP
+  // review. `cohort` = cohortAllowed from getServerSideProps.
+  const bogoActive = isBogoProduct(product) && cohort;
 
   let status; // 'in' | 'low' | 'out' | 'preorder'
   if (stock === 0) {
@@ -142,12 +146,15 @@ export default function ProductDetail({
     status = 'in';
   }
 
+  // Public face renders low stock as a plain "In stock" (no scarcity cue).
+  const displayStatus = !cohort && status === 'low' ? 'in' : status;
+
   const statusText =
-    status === 'out'
+    displayStatus === 'out'
       ? 'Sold out'
-      : status === 'low'
+      : displayStatus === 'low'
       ? `Only ${stock} left`
-      : status === 'preorder'
+      : displayStatus === 'preorder'
       ? shipDate
         ? `Preorder · ships ~${shipDate}`
         : 'Preorder · ship date TBD'
@@ -216,7 +223,7 @@ export default function ProductDetail({
           <div className="absolute top-5 right-5 px-2.5 py-1 bg-surface border border-line rounded-sm opp-meta-mono">
             {product.purity ?? 99}% · HPLC
           </div>
-          {product.badge && (
+          {cohort && product.badge && (
             <div
               className={`absolute top-5 left-5 font-mono text-[10px] font-bold tracking-[0.12em] px-2 py-1 rounded-sm ${
                 product.badge === 'BUNDLE' ? 'bg-ink text-paper' : 'bg-accent text-surface'
@@ -266,7 +273,7 @@ export default function ProductDetail({
           <div className="flex items-end justify-between pb-5 border-b border-line mb-5">
             <div>
               {(() => {
-                const saleActive = isMemorialDaySaleActive();
+                const saleActive = isMemorialDaySaleActive() && cohort;
                 const salePrice = saleActive ? getSalePrice(product.price) : product.price;
                 return saleActive ? (
                   <div className="flex items-baseline gap-3">
@@ -289,7 +296,7 @@ export default function ProductDetail({
                   ${(product.price / product.vialCount).toFixed(2)} per vial
                 </div>
               )}
-              <div className={`opp-stock opp-stock--${status} mt-2`}>
+              <div className={`opp-stock opp-stock--${displayStatus} mt-2`}>
                 <span className="opp-stock-dot" /> {statusText}
               </div>
             </div>
@@ -617,8 +624,11 @@ export async function getServerSideProps(context) {
 
   // BAC cross-sell for any lyophilized-powder peptide (skipped when viewing BAC itself
   // or when BAC is out of stock — silent fall-through, no broken cart adds).
+  // BAC is a restricted SKU now (gated from the public/cold face), so only
+  // surface the BAC cross-sell to cohort-cleared visitors — otherwise a public
+  // peptide PDP would expose a gated product.
   let bacCrossSell = null;
-  if (product.format === 'Lyophilized Powder' && product.id !== 'bac-water-10ml') {
+  if (product.format === 'Lyophilized Powder' && product.id !== 'bac-water-10ml' && restrictedVisible) {
     const bacProduct = products.find((p) => p.id === 'bac-water-10ml');
     if (bacProduct) {
       const bacStock = inventory[bacProduct.id] ?? bacProduct.stock ?? 0;
@@ -637,6 +647,7 @@ export async function getServerSideProps(context) {
       inquiryUrl: null,
       coaQr,
       bacCrossSell,
+      cohort: cohortAllowed,
     },
   };
 }

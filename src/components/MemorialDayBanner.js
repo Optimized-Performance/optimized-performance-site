@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { isMemorialDaySaleActive, saleWindowLabel, MEMORIAL_DAY_DISCOUNT_PCT } from '../lib/sale'
+import { useCohortUi } from '../lib/cohort-ui'
 
 // Site-wide banner announcing the Memorial Day weekend sale. Auto-hides
 // outside the sale window (returns null if isMemorialDaySaleActive is false).
@@ -12,9 +13,12 @@ import { isMemorialDaySaleActive, saleWindowLabel, MEMORIAL_DAY_DISCOUNT_PCT } f
 const STORAGE_KEY = 'opp-memorial-day-banner-dismissed-2026'
 
 export default function MemorialDayBanner() {
+  const cohort = useCohortUi()
   const [visible, setVisible] = useState(false)
 
   useEffect(() => {
+    // Cohort-only: the public/cold face never shows promo banners (AUP review).
+    if (!cohort) return
     if (!isMemorialDaySaleActive()) return
     try {
       if (localStorage.getItem(STORAGE_KEY) === 'true') return
@@ -22,7 +26,7 @@ export default function MemorialDayBanner() {
       // localStorage blocked — show anyway, session-scoped
     }
     setVisible(true)
-  }, [])
+  }, [cohort])
 
   if (!visible) return null
 

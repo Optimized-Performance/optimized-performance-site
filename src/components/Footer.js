@@ -55,6 +55,8 @@ export default function Footer() {
         <FooterCol title="Resources">
           <FooterLink href="/faq">FAQ</FooterLink>
           <FooterLink href="/shipping">Shipping &amp; Returns</FooterLink>
+          <FooterLink href="/compliance">Compliance</FooterLink>
+          <FooterLink href="/coa-documentation">CoA &amp; Lot Testing</FooterLink>
           {SHOW_INQUIRY_SURFACE && (
             <FooterLink href="/research-inquiries">Research inquiries</FooterLink>
           )}

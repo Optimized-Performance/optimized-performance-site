@@ -11,6 +11,7 @@ import { track, getSessionId } from '../lib/track';
 import PaypalCheckoutButtons from '../components/PaypalCheckoutButtons';
 import AltRailPanel, { VENMO_HANDLE } from '../components/AltRailPanel';
 import AltPaySaveBanner from '../components/AltPaySaveBanner';
+import { useCohortUi } from '../lib/cohort-ui';
 import PaymentMethodTiles from '../components/PaymentMethodTiles';
 
 // Read the opp_ref cookie set by lib/cohort-session when a visitor arrives
@@ -97,6 +98,9 @@ export default function Checkout() {
   const [recoveryToken, setRecoveryToken] = useState(null);
   const [recoveryPct, setRecoveryPct] = useState(0);
   const [researchAck, setResearchAck] = useState(false);
+  // Cohort-only merchandising: alt-pay SAVE badge + banner show for cohort
+  // (?ref=) visitors; public/cold checkout stays free of savings-urgency copy.
+  const cohort = useCohortUi();
   const [researchField, setResearchField] = useState('');
   const [customer, setCustomer] = useState(null);
   const [authChecked, setAuthChecked] = useState(!requireAccount);
@@ -488,8 +492,8 @@ export default function Checkout() {
   const paymentMethods = [
     cardUp && { key: 'card', label: 'Card', price: discountedTotal },
     paypalUp && { key: 'paypal', label: 'PayPal', price: discountedTotal, sub: 'Pay Later & card too' },
-    cryptoUp && { key: 'crypto', label: 'Crypto', price: altPayTotal, perk: `SAVE ${ALT_PAY_DISCOUNT_PCT}%` },
-    zelleUp && { key: 'zelle', label: 'Zelle', price: altPayTotal, perk: `SAVE ${ALT_PAY_DISCOUNT_PCT}%` },
+    cryptoUp && { key: 'crypto', label: 'Crypto', price: altPayTotal, perk: cohort ? `SAVE ${ALT_PAY_DISCOUNT_PCT}%` : undefined },
+    zelleUp && { key: 'zelle', label: 'Zelle', price: altPayTotal, perk: cohort ? `SAVE ${ALT_PAY_DISCOUNT_PCT}%` : undefined },
     venmoUp && { key: 'venmo', label: 'Venmo', price: discountedTotal },
   ].filter(Boolean);
   // Pre-select the first available rail so the action area is never empty.
@@ -526,7 +530,7 @@ export default function Checkout() {
             })}
           </ol>
         </div>
-        {altPayEnabled && (
+        {cohort && altPayEnabled && (
           <AltPaySaveBanner pct={ALT_PAY_DISCOUNT_PCT} amount={altPayDiscount} label={altPayLabel} className="md:max-w-sm md:shrink-0" />
         )}
       </div>
@@ -622,8 +626,9 @@ export default function Checkout() {
                 onChange={(e) => setResearchAck(e.target.checked)}
               />
               <span>
-                I acknowledge these products are for in-vitro research use only, I am 21+, and I am not
-                purchasing for human or animal consumption.
+                I confirm I am a qualified researcher or institutional buyer acquiring these analytical
+                reference materials strictly for in-vitro laboratory research. I am 21+ and am not purchasing
+                for human or animal consumption, administration, or any therapeutic, clinical, or diagnostic use.
               </span>
             </label>
 
@@ -843,7 +848,7 @@ export default function Checkout() {
             </div>
           </div>
 
-          {altPayEnabled && (
+          {cohort && altPayEnabled && (
             <AltPaySaveBanner pct={ALT_PAY_DISCOUNT_PCT} amount={altPayDiscount} label={altPayLabel} className="mt-5" />
           )}
         </aside>

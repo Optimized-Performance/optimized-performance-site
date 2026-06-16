@@ -3,6 +3,7 @@ import { useCart } from '../context/CartContext';
 import { Vial, Icon } from './Primitives';
 import { calcShipping, FREE_SHIPPING_THRESHOLD } from '../lib/shipping';
 import { getCartAddOns } from '../data/products';
+import { useCohortUi } from '../lib/cohort-ui';
 
 function formatShipDate(iso) {
   if (!iso) return null;
@@ -30,6 +31,9 @@ export default function CartDrawer() {
     addToCart,
     cartTotal,
   } = useCart();
+  // Merchandising (free-ship progress bar, BAC cross-sell) is cohort-only;
+  // public/cold face stays clean. Hook must run before the early return.
+  const cohort = useCohortUi();
 
   if (!isCartOpen) return null;
 
@@ -45,7 +49,7 @@ export default function CartDrawer() {
   const shippingBreakdown = calcShipping({ items: cartItems, discountedSubtotal: cartTotal });
   // Cross-sell add-ons (BAC water) + free-shipping progress — only meaningful for
   // vial-only carts (kits always pay the cold-pack surcharge, no free-ship tier).
-  const addOns = getCartAddOns(cartItems);
+  const addOns = getCartAddOns(cartItems, cohort);
   const freeShipEligible = !shippingBreakdown.hasColdPack;
   const remaining = Math.max(0, FREE_SHIPPING_THRESHOLD - cartTotal);
   const freeShipPct = Math.min(100, (cartTotal / FREE_SHIPPING_THRESHOLD) * 100);
@@ -145,7 +149,7 @@ export default function CartDrawer() {
 
             <footer className="border-t border-line px-6 py-5 flex flex-col gap-2.5">
               {/* Free-shipping progress — nudges AOV toward the $250 vial-only tier */}
-              {freeShipEligible && (
+              {cohort && freeShipEligible && (
                 remaining > 0 ? (
                   <div className="mb-1">
                     <div className="flex justify-between opp-meta-mono mb-1.5">
