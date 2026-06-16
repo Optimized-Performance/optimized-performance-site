@@ -82,7 +82,14 @@ export function validateString(str, { minLength = 1, maxLength = 500 } = {}) {
 }
 
 export function validateZip(zip) {
-  return typeof zip === 'string' && /^\d{5}(-\d{4})?$/.test(zip)
+  // Accept US ZIP, ZIP+4 (hyphen OR space), and international postal codes.
+  // Do NOT over-restrict to ^\d{5}(-\d{4})?$ — that 400s real customers at
+  // checkout (ZIP+4 typed with a space "12345 6789", Canadian "K1A 0B1", UK
+  // postcodes). Same revenue-killing class as the validateEmail _/% bug. This
+  // is a sanity check only; address/shipping correctness is validated
+  // downstream. 3–12 chars, alphanumeric with internal spaces/hyphens.
+  if (typeof zip !== 'string') return false
+  return /^[A-Za-z0-9][A-Za-z0-9 -]{1,10}[A-Za-z0-9]$/.test(zip.trim())
 }
 
 export function validatePositiveInt(val) {
