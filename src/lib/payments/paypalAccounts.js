@@ -48,13 +48,15 @@ const ACCOUNT_DEFS = [
     weightEnv: 'PAYPAL_WEIGHT_ETHAN',
     defaultWeight: 0, // off until Matt sets a weight in Vercel
   },
-  // LLC slot (add when wiring the third account):
-  // {
-  //   key: 'llc', label: 'New LLC',
-  //   clientIdEnv: 'PAYPAL_CLIENT_ID_LLC', secretEnv: 'PAYPAL_CLIENT_SECRET_LLC',
-  //   webhookIdEnv: 'PAYPAL_WEBHOOK_ID_LLC', weightEnv: 'PAYPAL_WEIGHT_LLC',
-  //   defaultWeight: 0,
-  // },
+  {
+    key: 'llc',
+    label: 'New LLC',
+    clientIdEnv: 'PAYPAL_CLIENT_ID_LLC',
+    secretEnv: 'PAYPAL_CLIENT_SECRET_LLC',
+    webhookIdEnv: 'PAYPAL_WEBHOOK_ID_LLC',
+    weightEnv: 'PAYPAL_WEIGHT_LLC',
+    defaultWeight: 0, // off until Matt sets a weight in Vercel
+  },
 ]
 
 function parseWeight(raw, fallback) {
