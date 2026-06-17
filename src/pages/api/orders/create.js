@@ -1,6 +1,7 @@
 import { supabaseAdmin } from '../../../lib/supabase'
 import { validateOrigin, rateLimit, validateEmail, validateString, validateZip } from '../../../lib/security'
 import { getRail, isInstantRail as railIsInstant } from '../../../lib/payments/rails'
+import { resolvePaypalAccount } from '../../../lib/payments/paypalAccounts'
 import { runVelocityChecks, extractClientIP } from '../../../lib/fraud-checks'
 import { getCustomerIdFromReq } from '../../../lib/customer-session'
 import { computeOrderTotals } from '../../../lib/pricing'
@@ -57,7 +58,7 @@ export default async function handler(req, res) {
   const elapsed = startTimer()
 
   try {
-    const { name, email, address, city, state, zip, items, affiliateCode, recoveryToken, sessionId, researchUseAck, researchField, paymentMethod, idempotencyKey } = req.body
+    const { name, email, address, city, state, zip, items, affiliateCode, recoveryToken, sessionId, researchUseAck, researchField, paymentMethod, idempotencyKey, paypalAccount } = req.body
 
     if (!validateString(name) || !validateEmail(email) || !validateString(address) ||
         !validateString(city) || !validateString(state, { minLength: 1, maxLength: 50 }) || !validateZip(zip) ||
@@ -325,6 +326,14 @@ export default async function handler(req, res) {
       }
     }
 
+    // PayPal multi-account routing. The client got {key, clientId} from
+    // /api/payments/paypal-account (server-authoritative weighted pick) and
+    // rendered the SDK with that clientId; it sends the key back so we create +
+    // capture under the SAME account. Absent key (older client JS using the
+    // baked default clientId) resolves to OPP, which matches that default — so
+    // a deploy mid-checkout can't misroute. Only meaningful for the paypal rail.
+    const resolvedPaypalAccount = paymentMethod === 'paypal' ? resolvePaypalAccount(paypalAccount) : null
+
     const insertData = {
       order_number: orderNumber,
       customer_name: name,
@@ -345,6 +354,13 @@ export default async function handler(req, res) {
       user_agent: userAgent,
       fraud_status: velocity.status === 'block' ? 'blocked' : velocity.status === 'flag' ? 'flagged' : 'unreviewed',
       fraud_reasons: velocity.reasons,
+    }
+
+    // Persist which PayPal account this order routes to so capture + the
+    // webhook use the matching credentials. Column added in the multi-account
+    // migration (orders.paypal_account TEXT, null = OPP legacy default).
+    if (resolvedPaypalAccount) {
+      insertData.paypal_account = resolvedPaypalAccount.key
     }
 
     if (validatedAffiliateCode) {
@@ -377,6 +393,17 @@ export default async function handler(req, res) {
     if (resumeOrder) {
       orderNumber = resumeOrder.order_number
       order = { id: resumeOrder.id }
+      // A resumed PayPal order gets a BRAND-NEW paypal_order_id below, created
+      // under THIS load's selected account (which the resuming client's SDK
+      // rendered with). Re-point the stored account to match so capture/webhook
+      // later use the right credentials — otherwise we'd try to capture the new
+      // order id with the original account's secret and it would fail.
+      if (resolvedPaypalAccount) {
+        await supabaseAdmin
+          .from('orders')
+          .update({ paypal_account: resolvedPaypalAccount.key })
+          .eq('id', resumeOrder.id)
+      }
     } else {
       const { data: inserted, error } = await supabaseAdmin
         .from('orders')
@@ -458,6 +485,7 @@ export default async function handler(req, res) {
         },
         resumeOrder,
         siteUrl: SITE_URL,
+        paypalAccount: resolvedPaypalAccount,
       })
       // ms_total = full handler; ms_session = the processor round-trip alone.
       // A large ms_total with small ms_session points at cold-start / pre-session

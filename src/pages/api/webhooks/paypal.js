@@ -2,6 +2,7 @@ import { supabaseAdmin } from '../../../lib/supabase'
 import { parsePaypalWebhookEvent, capturePaypalOrder } from '../../../lib/payments/paypalProcessor'
 import { finalizePaidOrder } from '../../../lib/payments/finalizeOrder'
 import { PAYMENT_STATUS, canTransitionPayment } from '../../../lib/order-status'
+import { resolvePaypalAccount } from '../../../lib/payments/paypalAccounts'
 
 export const config = {
   api: { bodyParser: false },
@@ -31,8 +32,13 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end()
 
   try {
+    // Multi-account: each PayPal account posts to its OWN webhook URL with an
+    // ?acct=<key> marker (OPP's existing webhook has none → resolves to OPP).
+    // The account determines which webhook_id + credentials we verify against;
+    // verifying account A's event with account B's webhook_id always fails.
+    const account = resolvePaypalAccount(req.query.acct)
     const rawBody = await readRawBody(req)
-    const event = await parsePaypalWebhookEvent({ rawBody, headers: req.headers })
+    const event = await parsePaypalWebhookEvent({ rawBody, headers: req.headers, account })
 
     if (!event.verified) {
       console.error('[paypal-webhook] Verification failed:', event.reason)
@@ -61,7 +67,7 @@ export default async function handler(req, res) {
       }
       let capResult
       try {
-        capResult = await capturePaypalOrder({ paypalOrderId: event.paypalOrderId })
+        capResult = await capturePaypalOrder({ paypalOrderId: event.paypalOrderId, account })
       } catch (capErr) {
         console.error('[paypal-webhook] Capture failed:', capErr.message)
         return res.status(500).json({ error: capErr.message })

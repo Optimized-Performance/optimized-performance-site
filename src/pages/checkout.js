@@ -429,12 +429,14 @@ export default function Checkout() {
   // Smart-Buttons createOrder hook: server validates + creates our local order
   // + a PayPal order, returns { paypal_order_id, order_number }. The SDK then
   // hands paypal_order_id back to PayPal so the customer can approve.
-  const createPaypalOrderOnServer = async () => {
+  const createPaypalOrderOnServer = async (paypalAccount) => {
     track('payment_attempt', { value: Number(discountedTotal) || null, meta: { method: 'paypal' } });
     const res = await fetch('/api/orders/create', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(buildOrderPayload('paypal')),
+      // paypalAccount = the server-chosen account key the Smart Buttons rendered
+      // with; create.js creates the PayPal order under that same account.
+      body: JSON.stringify({ ...buildOrderPayload('paypal'), paypalAccount }),
     });
     const data = await res.json();
     // Duplicate-order guard tripped (identical cart already paid moments ago):

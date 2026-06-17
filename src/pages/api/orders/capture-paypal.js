@@ -2,6 +2,7 @@ import { supabaseAdmin } from '../../../lib/supabase'
 import { validateOrigin, rateLimit, validateString } from '../../../lib/security'
 import { capturePaypalOrder } from '../../../lib/payments/paypalProcessor'
 import { finalizePaidOrder } from '../../../lib/payments/finalizeOrder'
+import { resolvePaypalAccount } from '../../../lib/payments/paypalAccounts'
 
 // Smart-Buttons capture endpoint. The PayPal JS SDK's onApprove callback hits
 // this from the customer's browser after they approve in the PayPal / Venmo /
@@ -39,7 +40,7 @@ export default async function handler(req, res) {
     // detail in the error message to a stranger probing this endpoint.
     const { data: order } = await supabaseAdmin
       .from('orders')
-      .select('id, payment_status, payment_method')
+      .select('id, payment_status, payment_method, paypal_account')
       .eq('order_number', order_number)
       .maybeSingle()
 
@@ -47,7 +48,10 @@ export default async function handler(req, res) {
       return res.status(404).json({ error: 'Order not found' })
     }
 
-    const result = await capturePaypalOrder({ paypalOrderId: paypal_order_id })
+    // Capture under the SAME account that created this order (multi-account
+    // split). Legacy/null → OPP.
+    const account = resolvePaypalAccount(order.paypal_account)
+    const result = await capturePaypalOrder({ paypalOrderId: paypal_order_id, account })
 
     // Finalize off the capture response so a lost COMPLETED webhook can't
     // strand this paid order. Idempotent — if the webhook beat us, this no-ops

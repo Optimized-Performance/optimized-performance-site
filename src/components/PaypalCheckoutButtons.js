@@ -1,18 +1,22 @@
-import { useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { PayPalScriptProvider, PayPalButtons } from '@paypal/react-paypal-js'
 
-// PayPal Smart Buttons. Replaces the redirect-style "Pay with PayPal" button.
-// Renders the JS SDK inline so customers stay on the site and PayPal can
-// surface PayPal account, Pay Later, and Debit/Credit Card as separate
-// funding sources. Venmo is explicitly disabled (see disable-funding below).
+// PayPal Smart Buttons. Renders the JS SDK inline so customers stay on the site
+// and PayPal can surface PayPal account, Pay Later, and Debit/Credit Card as
+// separate funding sources. Venmo is explicitly disabled (see disable-funding).
 //
-// Apple Pay was deliberately removed because this account doesn't have
-// Advanced Credit and Debit Card Payments (ACDC) enabled — Apple Pay is
-// gated behind ACDC underwriting. If ACDC is approved later, restore the
-// ApplePayBlock (see git history for the prior implementation) and add
-// `applepay` to components + enable-funding.
+// Multi-account split: instead of baking one clientId, we fetch the
+// server-chosen account (weighted, server-authoritative) from
+// /api/payments/paypal-account on mount and init the SDK with THAT account's
+// clientId, then pass its `key` into createOrder so the order is created +
+// captured under the same account. If the fetch fails we fall back to the
+// baked OPP clientId so checkout never breaks.
+//
+// Apple Pay was deliberately removed because the account doesn't have Advanced
+// Credit and Debit Card Payments (ACDC) enabled. If ACDC is approved later,
+// restore the ApplePayBlock (see git history) and add `applepay`.
 
-const PAYPAL_CLIENT_ID = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID
+const FALLBACK_CLIENT_ID = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID
 
 export default function PaypalCheckoutButtons({
   disabled,
@@ -21,17 +25,56 @@ export default function PaypalCheckoutButtons({
   onSuccess,
   onError,
 }) {
-  if (!PAYPAL_CLIENT_ID) {
+  // { key, clientId } once resolved. null = still resolving.
+  const [account, setAccount] = useState(null)
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const res = await fetch('/api/payments/paypal-account')
+        if (!res.ok) throw new Error(`account fetch ${res.status}`)
+        const data = await res.json()
+        if (!cancelled && data?.clientId) {
+          setAccount({ key: data.key || 'opp', clientId: data.clientId })
+          return
+        }
+        throw new Error('no clientId in response')
+      } catch {
+        // Resilience: fall back to the baked OPP clientId so a hiccup on the
+        // picker endpoint doesn't take checkout down. Orders then route to OPP
+        // (key 'opp'), which create.js treats as the default anyway.
+        if (!cancelled && FALLBACK_CLIENT_ID) {
+          setAccount({ key: 'opp', clientId: FALLBACK_CLIENT_ID })
+        }
+      }
+    })()
+    return () => { cancelled = true }
+  }, [])
+
+  if (!account?.clientId) {
+    if (account === null && !FALLBACK_CLIENT_ID) {
+      // Never resolved AND nothing baked → misconfigured.
+      return (
+        <p className="opp-meta-mono text-danger m-0">
+          PayPal is misconfigured (no client id available).
+        </p>
+      )
+    }
     return (
-      <p className="opp-meta-mono text-danger m-0">
-        PayPal is misconfigured (missing NEXT_PUBLIC_PAYPAL_CLIENT_ID).
+      <p className="opp-meta-mono text-ink-soft m-0" aria-live="polite">
+        Loading PayPal…
       </p>
     )
   }
+
   return (
     <PayPalScriptProvider
+      // key forces a clean SDK mount once the clientId resolves (and if it ever
+      // changes between loads, which it can with weighted routing).
+      key={account.clientId}
       options={{
-        clientId: PAYPAL_CLIENT_ID,
+        clientId: account.clientId,
         currency: 'USD',
         intent: 'capture',
         // `card` shows the standalone "Debit or Credit Card" guest button —
@@ -47,6 +90,7 @@ export default function PaypalCheckoutButtons({
       }}
     >
       <PayPalStack
+        accountKey={account.key}
         disabled={disabled}
         validateBeforeCheckout={validateBeforeCheckout}
         createOrderOnServer={createOrderOnServer}
@@ -57,7 +101,7 @@ export default function PaypalCheckoutButtons({
   )
 }
 
-function PayPalStack({ disabled, validateBeforeCheckout, createOrderOnServer, onSuccess, onError }) {
+function PayPalStack({ accountKey, disabled, validateBeforeCheckout, createOrderOnServer, onSuccess, onError }) {
   const ourOrderNumberRef = useRef(null)
   return (
     <PayPalButtons
@@ -68,7 +112,9 @@ function PayPalStack({ disabled, validateBeforeCheckout, createOrderOnServer, on
         return ok ? actions.resolve() : actions.reject()
       }}
       createOrder={async () => {
-        const { paypal_order_id, order_number } = await createOrderOnServer()
+        // Pass the chosen account key so the server creates the PayPal order
+        // under the SAME account whose clientId rendered these buttons.
+        const { paypal_order_id, order_number } = await createOrderOnServer(accountKey)
         ourOrderNumberRef.current = order_number
         return paypal_order_id
       }}

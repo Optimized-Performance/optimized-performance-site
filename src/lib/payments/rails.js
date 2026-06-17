@@ -85,10 +85,13 @@ const RAILS = {
     kind: 'paypal',
     instant: true,
     failureError: 'PayPal payment processor unavailable. Please try again.',
-    async createSession({ orderNumber, total, customer, urls }) {
+    async createSession({ orderNumber, total, customer, urls, paypalAccount }) {
       // Smart-Buttons flow: client submits the returned paypal_order_id back via
       // the SDK's createOrder hook. No redirect_url is used; return/cancel URLs
-      // are passed for the rare popup-approval fallback.
+      // are passed for the rare popup-approval fallback. paypalAccount is the
+      // resolved account this order routes to (multi-account split) — the order
+      // MUST be created under the same account whose clientId rendered the
+      // buttons and whose secret will capture it.
       const { paypalOrderId } = await createPaypalCheckoutSession({
         orderNumber,
         amountCents: cents(total),
@@ -96,6 +99,7 @@ const RAILS = {
         customer: { email: customer.email },
         returnUrl: urls.returnUrl,
         cancelUrl: urls.cancelUrl,
+        account: paypalAccount,
       })
       return { paypal_order_id: paypalOrderId }
     },

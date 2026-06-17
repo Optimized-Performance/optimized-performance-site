@@ -12,6 +12,8 @@
 // Sandbox vs live is selected by PAYPAL_ENV=sandbox|live (default sandbox so a
 // missing env var can never accidentally charge real cards).
 
+import { getDefaultPaypalAccount } from './paypalAccounts'
+
 const PAYPAL_LIVE_BASE = 'https://api-m.paypal.com'
 const PAYPAL_SANDBOX_BASE = 'https://api-m.sandbox.paypal.com'
 
@@ -20,27 +22,32 @@ function paypalBaseUrl() {
   return process.env.PAYPAL_ENV === 'live' ? PAYPAL_LIVE_BASE : PAYPAL_SANDBOX_BASE
 }
 
-// Module-level token cache. PayPal client-credentials tokens are valid ~9h,
-// but we were minting a fresh one on EVERY order — a second PayPal round-trip
+// Per-account token cache. PayPal client-credentials tokens are valid ~9h, but
+// we were minting a fresh one on EVERY order — a second PayPal round-trip
 // sitting inside the Smart-Buttons createOrder window, which is part of what
 // caused the "pay screen timed out" failures (the popup couldn't open before
 // PayPal's patience ran out). Caching reuses the token across orders within a
 // warm serverless instance, removing that round-trip from the critical path.
-// Persists per warm instance; a cold/new instance just mints its own. No
-// cross-instance store needed for this win.
-let _tokenCache = { token: null, expiresAt: 0 }
+// Keyed by account so the multi-account split doesn't cross-contaminate tokens
+// (each account's token is only valid for that account's API calls). Persists
+// per warm instance; a cold/new instance just mints its own.
+const _tokenCacheByAccount = new Map()
 
-async function getAccessToken() {
+// account: { key, clientId, secret } from paypalAccounts. Defaults to OPP so
+// callers that don't pass one keep the original single-account behavior.
+async function getAccessToken(account) {
+  const acct = account || getDefaultPaypalAccount()
   const now = Date.now()
+  const cached = _tokenCacheByAccount.get(acct.key)
   // Reuse until 60s before expiry (clock-skew + in-flight safety margin).
-  if (_tokenCache.token && now < _tokenCache.expiresAt - 60_000) {
-    return _tokenCache.token
+  if (cached && cached.token && now < cached.expiresAt - 60_000) {
+    return cached.token
   }
 
-  const clientId = process.env.PAYPAL_CLIENT_ID
-  const secret = process.env.PAYPAL_CLIENT_SECRET
+  const clientId = acct.clientId
+  const secret = acct.secret
   if (!clientId || !secret) {
-    throw new Error('[paypal] PAYPAL_CLIENT_ID / PAYPAL_CLIENT_SECRET not configured')
+    throw new Error(`[paypal] account "${acct.key}" missing client id / secret`)
   }
   const basic = Buffer.from(`${clientId}:${secret}`).toString('base64')
   const res = await fetch(`${paypalBaseUrl()}/v1/oauth2/token`, {
@@ -55,16 +62,16 @@ async function getAccessToken() {
   let data
   try { data = JSON.parse(text) } catch { data = null }
   if (!res.ok || !data?.access_token) {
-    throw new Error(`[paypal] OAuth token failed (${res.status}): ${text.slice(0, 400)}`)
+    throw new Error(`[paypal] OAuth token failed for "${acct.key}" (${res.status}): ${text.slice(0, 400)}`)
   }
   // expires_in is seconds (~32400 = 9h); default to 8h if PayPal omits it.
   const ttlMs = (Number(data.expires_in) > 0 ? Number(data.expires_in) : 28800) * 1000
-  _tokenCache = { token: data.access_token, expiresAt: now + ttlMs }
+  _tokenCacheByAccount.set(acct.key, { token: data.access_token, expiresAt: now + ttlMs })
   return data.access_token
 }
 
-export async function createPaypalCheckoutSession({ orderNumber, amountCents, currency, customer, returnUrl, cancelUrl }) {
-  const accessToken = await getAccessToken()
+export async function createPaypalCheckoutSession({ orderNumber, amountCents, currency, customer, returnUrl, cancelUrl, account }) {
+  const accessToken = await getAccessToken(account)
 
   const body = {
     intent: 'CAPTURE',
@@ -115,8 +122,8 @@ export async function createPaypalCheckoutSession({ orderNumber, amountCents, cu
 // Called by the webhook handler in response to CHECKOUT.ORDER.APPROVED. PayPal
 // will then fire PAYMENT.CAPTURE.COMPLETED, which is what triggers our
 // finalizePaidOrder pipeline.
-export async function capturePaypalOrder({ paypalOrderId }) {
-  const accessToken = await getAccessToken()
+export async function capturePaypalOrder({ paypalOrderId, account }) {
+  const accessToken = await getAccessToken(account)
   const res = await fetch(`${paypalBaseUrl()}/v2/checkout/orders/${encodeURIComponent(paypalOrderId)}/capture`, {
     method: 'POST',
     headers: {
@@ -152,9 +159,10 @@ export async function capturePaypalOrder({ paypalOrderId }) {
 // PayPal verifies webhook signatures by POSTing the received headers + parsed
 // body back to /v1/notifications/verify-webhook-signature with the configured
 // webhook_id. Returns verification_status: "SUCCESS" | "FAILURE".
-export async function parsePaypalWebhookEvent({ rawBody, headers }) {
-  const webhookId = process.env.PAYPAL_WEBHOOK_ID
-  if (!webhookId) return { verified: false, reason: 'PAYPAL_WEBHOOK_ID not configured' }
+export async function parsePaypalWebhookEvent({ rawBody, headers, account }) {
+  const acct = account || getDefaultPaypalAccount()
+  const webhookId = acct.webhookId
+  if (!webhookId) return { verified: false, reason: `webhook_id not configured for account "${acct.key}"` }
 
   const transmissionId = headers['paypal-transmission-id']
   const transmissionTime = headers['paypal-transmission-time']
@@ -171,7 +179,7 @@ export async function parsePaypalWebhookEvent({ rawBody, headers }) {
   }
 
   let accessToken
-  try { accessToken = await getAccessToken() } catch (err) {
+  try { accessToken = await getAccessToken(acct) } catch (err) {
     return { verified: false, reason: `OAuth failed: ${err.message}` }
   }
 
