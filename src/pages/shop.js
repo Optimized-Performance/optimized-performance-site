@@ -4,6 +4,8 @@ import ProductCard from '../components/ProductCard';
 import { getEffectiveStock } from '../data/catalog-client';
 import { supabaseAdmin } from '../lib/supabase';
 import { getCohortFromRequest } from '../lib/cohort-session';
+import { getVisibleCatalog } from '../lib/catalog';
+import { hasGatedAccess } from '../lib/gated-access';
 import SEO from '../components/SEO';
 import { Icon } from '../components/Primitives';
 
@@ -151,13 +153,14 @@ export async function getServerSideProps(context) {
   // Cohort detection runs first so a Set-Cookie can ride on this response if
   // the visitor arrived via ?ref=CODE / ?cohort=TOKEN. Subsequent visits read
   // the cookie; no DB roundtrip required.
-  // require (not top-level import) so the catalog array stays out of the client
-  // bundle — getVisibleProductsForCohort references the full products array.
-  const { getVisibleProductsForCohort } = require('../data/products');
-  const { hasGatedAccess } = require('../lib/gated-access');
+  // Catalog + gated-access come from the server catalog layer, STATICALLY
+  // imported at top (Next strips gSSP-only imports from the client bundle, and
+  // neither module contains the catalog array, so nothing leaks). MUST be static,
+  // not require() — a module reached only via dynamic require has its exports
+  // tree-shaken to {} in the prod build (that was the catalog-migration 500).
   const { cohortAllowed } = await getCohortFromRequest(context, supabaseAdmin);
   const gatedAccess = await hasGatedAccess(context.req);
-  const visibleProducts = await getVisibleProductsForCohort(cohortAllowed, gatedAccess);
+  const visibleProducts = await getVisibleCatalog({ cohort: cohortAllowed, gatedAccess });
 
   // Build the set of product_ids the inventory prop is allowed to expose.
   // Visible products themselves PLUS the parent_ids of visible kits (kits
