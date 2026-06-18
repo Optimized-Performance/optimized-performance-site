@@ -486,12 +486,17 @@ export default function Checkout() {
   // without a code change. The per-SKU durableRailsOnly flag stays as data
   // (which SKUs would be gated). Server mirrors this in /api/orders/create.js.
   const durableRailsGating = process.env.NEXT_PUBLIC_DURABLE_RAILS_GATING === 'true';
-  const cartDurableOnly = durableRailsGating && cartItems.some((item) => item.durableRailsOnly);
-  const cardUp = cardEnabled && railUp('card') && !cartDurableOnly;
+  // p2p_crypto (account-gated line) is always off card/PayPal (Venmo+Zelle+crypto
+  // ok). zelle_crypto (legacy Rx) is off card/PayPal/Venmo, behind the kill-switch.
+  // (Legacy carts persisted durableRailsOnly w/o railPolicy → treat as zelle_crypto.)
+  const cartHasZelleCrypto = durableRailsGating && cartItems.some((item) => item.railPolicy === 'zelle_crypto' || (item.durableRailsOnly && item.railPolicy == null));
+  const cartOffCard = cartItems.some((item) => item.railPolicy === 'p2p_crypto') || cartHasZelleCrypto;
+  const cartOffVenmo = cartHasZelleCrypto;
+  const cardUp = cardEnabled && railUp('card') && !cartOffCard;
   const cryptoUp = cryptoEnabled && railUp('crypto');
   const zelleUp = zelleEnabled && railUp('zelle');
-  const venmoUp = venmoEnabled && railUp('venmo') && !cartDurableOnly;
-  const paypalUp = paypalEnabled && railUp('paypal') && !cartDurableOnly;
+  const venmoUp = venmoEnabled && railUp('venmo') && !cartOffVenmo;
+  const paypalUp = paypalEnabled && railUp('paypal') && !cartOffCard;
 
   // Unified payment-method selector. Every available rail is presented as an
   // equal, card-grade tile (no primary-card-button vs. demoted-outline-alt

@@ -2,6 +2,8 @@ import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { supabaseAdmin } from '../lib/supabase';
 import { getCohortFromRequest } from '../lib/cohort-session';
+import { getVisibleCatalog } from '../lib/catalog';
+import { hasGatedAccess } from '../lib/gated-access';
 import ProductCard from '../components/ProductCard';
 import SEO from '../components/SEO';
 import { Vial, Icon } from '../components/Primitives';
@@ -217,10 +219,13 @@ export async function getServerSideProps(context) {
   // unflagged visitor would either see GLP-3 in the rendered HTML (bad) or
   // get a fallback hero (acceptable but the page does need SSR for the cookie
   // pickup either way, since affiliate links land here first).
-  // require (not top-level import) so the catalog array stays out of the client
-  // bundle — getVisibleProductsForCohort references the full products array.
-  const { getVisibleProductsForCohort } = require('../data/products');
+  // Catalog + gated-access come from the server catalog layer, STATICALLY
+  // imported at top (Next strips gSSP-only imports from the client bundle, and
+  // neither module contains the catalog array, so nothing leaks). MUST be static,
+  // not require() — a module reached only via dynamic require has its exports
+  // tree-shaken to {} in the prod build (that was the catalog-migration 500).
   const { cohortAllowed } = await getCohortFromRequest(context, supabaseAdmin);
-  const visibleProducts = getVisibleProductsForCohort(cohortAllowed);
+  const gatedAccess = await hasGatedAccess(context.req);
+  const visibleProducts = await getVisibleCatalog({ cohort: cohortAllowed, gatedAccess });
   return { props: { visibleProducts } };
 }

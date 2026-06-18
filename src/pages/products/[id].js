@@ -514,8 +514,13 @@ function ComplianceRow({ icon, title, children }) {
 export async function getServerSideProps(context) {
   // require (not top-level import) so the catalog array + array-referencing
   // helpers stay out of the client bundle.
-  const products = require('../../data/products').default;
-  const { getEffectiveStock, shouldShowRestricted, getPrivateInquiryUrl } = require('../../data/products');
+  const { getCatalog } = require('../../lib/catalog');
+  const products = await getCatalog();
+  // From catalog-client directly (not via products.js): products.js has no
+  // static importer post-migration, so requiring through it would hit a
+  // tree-shaken {} in the prod build. catalog-client is statically imported
+  // elsewhere, so its exports survive.
+  const { getEffectiveStock, shouldShowRestricted, getPrivateInquiryUrl } = require('../../data/catalog-client');
   const { id } = context.params;
   const product = products.find((p) => p.id === id);
 

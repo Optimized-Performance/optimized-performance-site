@@ -2,7 +2,7 @@ import { getCustomerIdFromReq } from '../../../lib/customer-session'
 import { supabaseAdmin } from '../../../lib/supabase'
 import { detectCarrierAndUrl } from '../../../lib/alerts'
 import { rateLimit, escapeLike } from '../../../lib/security'
-import products from '../../../data/products'
+import { getCatalog } from '../../../lib/catalog'
 
 // GET /api/customers/orders — order history for the signed-in customer.
 //
@@ -14,7 +14,7 @@ import products from '../../../data/products'
 //
 // Response is the same sanitized subset as /api/orders/lookup, plus the
 // item product `id`s (for one-click reorder) and server-detected carrier.
-function sanitize(order) {
+function sanitize(order, products) {
   const { carrier, url } = order.tracking ? detectCarrierAndUrl(order.tracking) : { carrier: null, url: null }
   return {
     order_number: order.order_number,
@@ -94,5 +94,6 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'Could not load orders.' })
   }
 
-  return res.status(200).json({ orders: (orders || []).map(sanitize) })
+  const products = await getCatalog()
+  return res.status(200).json({ orders: (orders || []).map((o) => sanitize(o, products)) })
 }

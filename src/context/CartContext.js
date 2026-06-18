@@ -22,7 +22,7 @@ const CART_MAX_AGE_MS = 14 * 24 * 60 * 60 * 1000; // 14 days
 // stored display price never affects what's billed.
 const LINE_FIELDS = [
   'id', 'name', 'sku', 'dosage', 'price', 'category', 'format', 'vialSize',
-  'isKit', 'parentId', 'vialCount', 'purity', 'badge', 'durableRailsOnly', 'noCoa',
+  'isKit', 'parentId', 'vialCount', 'purity', 'badge', 'durableRailsOnly', 'railPolicy', 'noCoa',
 ];
 
 function serializeLine(item) {

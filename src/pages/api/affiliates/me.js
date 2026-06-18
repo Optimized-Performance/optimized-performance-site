@@ -3,7 +3,7 @@ import { supabaseAdmin } from '../../../lib/supabase'
 import { rateLimit } from '../../../lib/security'
 import { calcCommission, commissionableTotal } from '../../../lib/commission'
 import { ROYALTY_PCT } from '../../../lib/affiliate-config'
-import products from '../../../data/products'
+import { getCatalog } from '../../../lib/catalog'
 
 // Tier table — direct affiliates. Recruited affiliates use the same thresholds
 // but the cron applies a -recruiter_override_pct adjustment to commission_pct.
@@ -130,6 +130,7 @@ async function affiliateFunnel(codes) {
 // allocated earnings exclude shipping/discount (they inherit it from the
 // order-level commission). Returns the top 3 by units sold.
 async function topItemsSold(codes) {
+  const products = await getCatalog()
   const { data, error } = await supabaseAdmin
     .from('orders')
     .select('items, total, shipping, affiliate_commission_pct')

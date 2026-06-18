@@ -11,6 +11,7 @@ import { logMetric, startTimer } from '../../../lib/metrics'
 import { isRailAvailable } from '../../../lib/rail-utilization'
 import { verifyRecoveryToken } from '../../../lib/recovery'
 import { generateOrderNumber } from '../../../lib/order-number'
+import { getCatalog } from '../../../lib/catalog'
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://optimizedperformancepeptides.com'
 
@@ -145,10 +146,10 @@ export default async function handler(req, res) {
     // single-source pricing module (lib/pricing.computeOrderTotals) — the SAME
     // function the client checkout calls, so the customer-visible total and the
     // charged total cannot drift (the class of bug behind the May sale mispricing).
-    const products = require('../../../data/products').default
-    // Durable-rails-only: true if any cart item is an ancillary Rx SKU restricted
-    // to Zelle/crypto (keeps the most-pharma items off the card rail).
-    let cartDurableOnly = false
+    const products = await getCatalog()
+    // Per-cart rail policy: collect each non-'all' item's rail_policy to enforce
+    // the allowed payment rails below.
+    const cartRailPolicies = new Set()
     // Server-validated line items (catalog price + isKit) feed both the pricing
     // module and the order record — never the client-supplied price.
     const lineItems = []
@@ -162,18 +163,23 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: 'Invalid item quantity' })
       }
       lineItems.push({ id: product.id, sku: product.sku, price: product.price, quantity: qty, isKit: product.isKit === true })
-      if (product.durableRailsOnly === true) cartDurableOnly = true
+      if (product.railPolicy && product.railPolicy !== 'all') cartRailPolicies.add(product.railPolicy)
     }
 
-    // Durable-rails-only gating (ancillary Rx tablets/tinctures → Zelle/crypto
-    // only) is a kill-switch, DEFAULT OFF (Matt 2026-06-06): self-restricting
-    // these SKUs costs conversion and any processor we land will take the
-    // volume — sell them through every rail until a compliance audit forces
-    // otherwise. Flip NEXT_PUBLIC_DURABLE_RAILS_GATING=true to re-arm. Mirrors
-    // the checkout.js gating. Server-authoritative when on.
+    // Rail-policy enforcement. p2p_crypto (account-gated line) is ALWAYS enforced
+    // — off-card is the whole point of that line. zelle_crypto (legacy Rx
+    // ancillary) stays behind the default-OFF kill-switch (no preemptive revenue
+    // self-restriction, Matt 2026-06-06). Server-authoritative; checkout.js
+    // mirrors the UI. Flip NEXT_PUBLIC_DURABLE_RAILS_GATING=true to arm zelle_crypto.
     const durableRailsGating = process.env.NEXT_PUBLIC_DURABLE_RAILS_GATING === 'true'
-    if (durableRailsGating && cartDurableOnly && paymentMethod !== 'zelle' && paymentMethod !== 'crypto') {
-      return res.status(400).json({ error: 'One or more items in this order can only be paid via Zelle or crypto. Please choose Zelle or crypto at checkout.' })
+    let allowedRails = null // null = no rail restriction
+    if (cartRailPolicies.has('p2p_crypto')) allowedRails = new Set(['zelle', 'venmo', 'crypto'])
+    if (cartRailPolicies.has('zelle_crypto') && durableRailsGating) {
+      const zc = new Set(['zelle', 'crypto'])
+      allowedRails = allowedRails ? new Set([...allowedRails].filter((r) => zc.has(r))) : zc
+    }
+    if (allowedRails && !allowedRails.has(paymentMethod)) {
+      return res.status(400).json({ error: `This order can only be paid via ${[...allowedRails].join(', ')}. Please choose one of those at checkout.` })
     }
 
     // Validate affiliate code server-side (cannot trust a client-supplied %).

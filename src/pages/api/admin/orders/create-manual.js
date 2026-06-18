@@ -19,6 +19,7 @@ import { calcShipping } from '../../../../lib/shipping'
 import { finalizePaidOrder } from '../../../../lib/payments/finalizeOrder'
 import { PAYMENT_STATUS } from '../../../../lib/order-status'
 import { generateOrderNumber } from '../../../../lib/order-number'
+import { getCatalog } from '../../../../lib/catalog'
 
 const VALID_METHODS = new Set(['zelle', 'venmo', 'crypto', 'card', 'paypal', 'cash', 'other'])
 
@@ -54,7 +55,7 @@ export default async function handler(req, res) {
     // Recompute everything server-side from the catalog — never trust
     // client-supplied prices. Build the full item shape the confirmation
     // email + admin view expect: { id, sku, name, price, quantity, isKit }.
-    const products = require('../../../../data/products').default
+    const products = await getCatalog()
     let subtotal = 0
     const lineItems = []
     const validatedItems = []

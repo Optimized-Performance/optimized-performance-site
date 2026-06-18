@@ -9,7 +9,7 @@
 import { supabaseAdmin } from '../../../lib/supabase'
 import { validateSessionToken } from '../../../lib/session'
 import { validateOrigin, rateLimit } from '../../../lib/security'
-import productsData from '../../../data/products'
+import { getCatalog } from '../../../lib/catalog'
 
 export const config = { maxDuration: 30 }
 
@@ -17,7 +17,7 @@ const EVENT_CAP = 100000
 const ORDER_CAP = 50000
 
 // product id OR sku -> display label ("MOTS-C 10mg")
-const PRODUCT_LABEL = (() => {
+function buildProductLabel(productsData) {
   const m = new Map()
   for (const p of productsData) {
     const label = p.dosage ? `${p.name} ${p.dosage}` : p.name
@@ -25,8 +25,7 @@ const PRODUCT_LABEL = (() => {
     if (p.sku) m.set(p.sku, label)
   }
   return m
-})()
-const labelFor = (pid) => PRODUCT_LABEL.get(pid) || pid
+}
 
 function requireAuth(req) {
   return validateSessionToken(req.headers['x-admin-token'])
@@ -82,6 +81,10 @@ export default async function handler(req, res) {
   if (!supabaseAdmin) return res.status(500).json({ error: 'Database not configured' })
 
   try {
+    const productsData = await getCatalog()
+    const PRODUCT_LABEL = buildProductLabel(productsData)
+    const labelFor = (pid) => PRODUCT_LABEL.get(pid) || pid
+
     const days = Math.min(Math.max(Number(req.query.days) || 14, 1), 90)
     const now = Date.now()
     const curStart = new Date(now - days * 24 * 60 * 60 * 1000)
