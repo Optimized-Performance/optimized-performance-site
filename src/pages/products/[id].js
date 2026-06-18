@@ -516,7 +516,11 @@ export async function getServerSideProps(context) {
   // helpers stay out of the client bundle.
   const { getCatalog } = require('../../lib/catalog');
   const products = await getCatalog();
-  const { getEffectiveStock, shouldShowRestricted, getPrivateInquiryUrl } = require('../../data/products');
+  // From catalog-client directly (not via products.js): products.js has no
+  // static importer post-migration, so requiring through it would hit a
+  // tree-shaken {} in the prod build. catalog-client is statically imported
+  // elsewhere, so its exports survive.
+  const { getEffectiveStock, shouldShowRestricted, getPrivateInquiryUrl } = require('../../data/catalog-client');
   const { id } = context.params;
   const product = products.find((p) => p.id === id);
 
