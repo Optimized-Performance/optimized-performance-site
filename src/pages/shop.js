@@ -155,7 +155,7 @@ export async function getServerSideProps(context) {
   // bundle — getVisibleProductsForCohort references the full products array.
   const { getVisibleProductsForCohort } = require('../data/products');
   const { cohortAllowed } = await getCohortFromRequest(context, supabaseAdmin);
-  const visibleProducts = getVisibleProductsForCohort(cohortAllowed);
+  const visibleProducts = await getVisibleProductsForCohort(cohortAllowed);
 
   // Build the set of product_ids the inventory prop is allowed to expose.
   // Visible products themselves PLUS the parent_ids of visible kits (kits

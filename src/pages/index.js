@@ -221,6 +221,6 @@ export async function getServerSideProps(context) {
   // bundle — getVisibleProductsForCohort references the full products array.
   const { getVisibleProductsForCohort } = require('../data/products');
   const { cohortAllowed } = await getCohortFromRequest(context, supabaseAdmin);
-  const visibleProducts = getVisibleProductsForCohort(cohortAllowed);
+  const visibleProducts = await getVisibleProductsForCohort(cohortAllowed);
   return { props: { visibleProducts } };
 }

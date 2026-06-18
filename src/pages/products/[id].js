@@ -514,7 +514,8 @@ function ComplianceRow({ icon, title, children }) {
 export async function getServerSideProps(context) {
   // require (not top-level import) so the catalog array + array-referencing
   // helpers stay out of the client bundle.
-  const products = require('../../data/products').default;
+  const { getCatalog } = require('../../lib/catalog');
+  const products = await getCatalog();
   const { getEffectiveStock, shouldShowRestricted, getPrivateInquiryUrl } = require('../../data/products');
   const { id } = context.params;
   const product = products.find((p) => p.id === id);

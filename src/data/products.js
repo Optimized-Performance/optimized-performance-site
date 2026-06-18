@@ -458,9 +458,12 @@ const products = [
 
 // Cohort-aware. Pass cohortAllowed from getServerSideProps after calling
 // getCohortFromRequest(context, supabaseAdmin).
-export function getVisibleProductsForCohort(cohortAllowed) {
-  if (shouldShowRestricted(cohortAllowed)) return products;
-  return products.filter((p) => !p.restricted);
+export async function getVisibleProductsForCohort(cohortAllowed) {
+  // DB-backed via the catalog layer. require() inside keeps the dependency
+  // lazy + server-only. The static `products` array below is retired once
+  // every consumer is migrated off it.
+  const { getVisibleCatalog } = require('../lib/catalog');
+  return getVisibleCatalog({ cohort: !!cohortAllowed });
 }
 
 // Cart cross-sell add-ons — surfaced in the cart drawer ("complete your order").

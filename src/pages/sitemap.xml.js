@@ -1,4 +1,4 @@
-import products from '../data/products';
+import { getVisibleCatalog } from '../lib/catalog';
 
 const SITE_URL = 'https://optimizedperformancepeptides.com';
 
@@ -19,10 +19,12 @@ const STATIC_PAGES = [
   { path: '/research-inquiries', priority: '0.4', changefreq: 'monthly' },
 ];
 
-function buildSitemap() {
+async function buildSitemap() {
   const today = new Date().toISOString().slice(0, 10);
+  // Public-tier only (getVisibleCatalog with no cohort/gated flags) — same set
+  // as the old `!p.restricted` filter, now from the DB catalog.
+  const products = await getVisibleCatalog({});
   const productEntries = products
-    .filter((p) => !p.restricted)
     .map((p) => ({
       path: `/products/${p.id}`,
       priority: '0.8',
@@ -54,7 +56,7 @@ export default function Sitemap() {
 }
 
 export async function getServerSideProps({ res }) {
-  const xml = buildSitemap();
+  const xml = await buildSitemap();
   res.setHeader('Content-Type', 'application/xml; charset=utf-8');
   res.setHeader('Cache-Control', 'public, max-age=3600, s-maxage=3600');
   res.write(xml);
