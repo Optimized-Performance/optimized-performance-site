@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import InventoryTab from './InventoryTab';
+import ProductsTab from './ProductsTab';
 import SupplyTab from './SupplyTab';
 import BatchesTab from './BatchesTab';
 import OrdersTab from './OrdersTab';
@@ -103,6 +104,7 @@ export default function AdminPage() {
   const tabs = [
     { id: 'orders', label: 'Orders' },
     { id: 'inventory', label: 'Inventory' },
+    { id: 'products', label: 'Products' },
     { id: 'supply', label: 'Supply Tracker' },
     { id: 'batches', label: 'Batches' },
     { id: 'affiliates', label: 'Affiliates' },
@@ -165,6 +167,7 @@ export default function AdminPage() {
 
         {activeTab === 'orders' && <OrdersTab products={catalog} showSaveMsg={showSaveMsg} token={token} />}
         {activeTab === 'inventory' && <InventoryTab products={catalog} showSaveMsg={showSaveMsg} token={token} />}
+        {activeTab === 'products' && <ProductsTab token={token} showSaveMsg={showSaveMsg} />}
         {activeTab === 'supply' && <SupplyTab products={catalog} token={token} />}
         {activeTab === 'batches' && <BatchesTab products={catalog} showSaveMsg={showSaveMsg} token={token} />}
         {activeTab === 'affiliates' && <AffiliatesTab showSaveMsg={showSaveMsg} token={token} />}
