@@ -2,10 +2,6 @@ import crypto from 'crypto'
 
 const PROCESSOR = process.env.CARD_PROCESSOR || 'bankful'
 
-export function getProcessorName() {
-  return PROCESSOR
-}
-
 export async function createCheckoutSession(opts) {
   if (PROCESSOR === 'bankful') return bankfulCreateSession(opts)
   throw new Error(`[cardProcessor] Unsupported processor: ${PROCESSOR}`)

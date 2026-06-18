@@ -18,17 +18,9 @@ import { validateOrigin, rateLimit, validateEmail, validateString, validateZip }
 import { calcShipping } from '../../../../lib/shipping'
 import { finalizePaidOrder } from '../../../../lib/payments/finalizeOrder'
 import { PAYMENT_STATUS } from '../../../../lib/order-status'
+import { generateOrderNumber } from '../../../../lib/order-number'
 
 const VALID_METHODS = new Set(['zelle', 'venmo', 'crypto', 'card', 'paypal', 'cash', 'other'])
-
-function generateOrderNumber() {
-  const date = new Date()
-  const y = date.getFullYear()
-  const m = String(date.getMonth() + 1).padStart(2, '0')
-  const d = String(date.getDate()).padStart(2, '0')
-  const rand = Math.random().toString(36).substring(2, 6).toUpperCase()
-  return `OP-${y}${m}${d}-${rand}`
-}
 
 function requireAuth(req) {
   return validateSessionToken(req.headers['x-admin-token'])

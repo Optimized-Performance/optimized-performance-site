@@ -177,11 +177,3 @@ export async function runVelocityChecks({
 
   return { status, reasons }
 }
-
-export const REASONS = {
-  REASON_ADDRESS_HARD,
-  REASON_ADDRESS_SOFT,
-  REASON_IP_VELOCITY,
-  REASON_EMAIL_PATTERN,
-  REASON_CHECK_ERROR,
-}

@@ -91,8 +91,3 @@ export function validateZip(zip) {
   if (typeof zip !== 'string') return false
   return /^[A-Za-z0-9][A-Za-z0-9 -]{1,10}[A-Za-z0-9]$/.test(zip.trim())
 }
-
-export function validatePositiveInt(val) {
-  const n = Number(val)
-  return Number.isInteger(n) && n > 0 && n < 100000
-}

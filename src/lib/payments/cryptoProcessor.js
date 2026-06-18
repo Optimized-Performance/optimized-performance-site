@@ -2,10 +2,6 @@ import crypto from 'crypto'
 
 const PROCESSOR = process.env.CRYPTO_PROCESSOR || 'nowpayments'
 
-export function getCryptoProcessorName() {
-  return PROCESSOR
-}
-
 export async function createCryptoCheckoutSession(opts) {
   if (PROCESSOR === 'nowpayments') return nowpaymentsCreateInvoice(opts)
   throw new Error(`[cryptoProcessor] Unsupported processor: ${PROCESSOR}`)

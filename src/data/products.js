@@ -463,13 +463,6 @@ export function getVisibleProductsForCohort(cohortAllowed) {
   return products.filter((p) => !p.restricted);
 }
 
-// Legacy: env-only filter. Kept for any non-SSR callers (none currently in
-// this repo, but exported in case external scripts import it).
-export function getVisibleProducts() {
-  if (!isRestrictedHidden()) return products;
-  return products.filter((p) => !p.restricted);
-}
-
 // Cart cross-sell add-ons — surfaced in the cart drawer ("complete your order").
 // Bacteriostatic water is the natural attach for any reconstitutable peptide.
 // Only suggest when the cart holds a real peptide (not just add-ons) and the

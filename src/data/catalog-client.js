@@ -20,14 +20,6 @@ export function getEffectiveStock(product, inventoryMap = {}) {
   return inventoryMap[product.id] ?? product.stock ?? 0;
 }
 
-// Vials to deduct from inventory for an order item.
-export function getInventoryDeductions(product, quantity = 1) {
-  if (product.isKit) {
-    return [{ productId: product.parentId, vials: product.vialCount * quantity }];
-  }
-  return [{ productId: product.id, vials: quantity }];
-}
-
 // Restricted-SKU visibility kill switches + cohort gate resolution.
 export function isRestrictedHidden() {
   return process.env.NEXT_PUBLIC_HIDE_RESTRICTED === 'true';

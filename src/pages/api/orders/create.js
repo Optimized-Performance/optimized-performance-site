@@ -10,15 +10,7 @@ import { PAYMENT_STATUS } from '../../../lib/order-status'
 import { logMetric, startTimer } from '../../../lib/metrics'
 import { isRailAvailable } from '../../../lib/rail-utilization'
 import { verifyRecoveryToken } from '../../../lib/recovery'
-
-function generateOrderNumber() {
-  const date = new Date()
-  const y = date.getFullYear()
-  const m = String(date.getMonth() + 1).padStart(2, '0')
-  const d = String(date.getDate()).padStart(2, '0')
-  const rand = Math.random().toString(36).substring(2, 6).toUpperCase()
-  return `OP-${y}${m}${d}-${rand}`
-}
+import { generateOrderNumber } from '../../../lib/order-number'
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://optimizedperformancepeptides.com'
 
