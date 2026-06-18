@@ -13,6 +13,7 @@ import AltRailPanel, { VENMO_HANDLE } from '../components/AltRailPanel';
 import AltPaySaveBanner from '../components/AltPaySaveBanner';
 import { useCohortUi } from '../lib/cohort-ui';
 import PaymentMethodTiles from '../components/PaymentMethodTiles';
+import { US_STATES } from '../lib/us-states';
 
 // Read the opp_ref cookie set by lib/cohort-session when a visitor arrives
 // via a valid ?ref=CODE link. Used to pre-fill + auto-apply the affiliate
@@ -582,9 +583,13 @@ export default function Checkout() {
             </Field>
             <div className="grid grid-cols-1 md:grid-cols-[2fr_1fr_1fr] gap-4 mb-4">
               <Field label="City"><input className="input-field" required value={city} onChange={(e) => setCity(e.target.value)} /></Field>
-              <Field label="State"><input className="input-field" required value={state} onChange={(e) => setState(e.target.value)} /></Field>
+              <Field label="State"><select className="input-field" required value={state} onChange={(e) => setState(e.target.value)}>
+                <option value="" disabled>State…</option>
+                {US_STATES.map((s) => (<option key={s.code} value={s.code}>{s.name}</option>))}
+              </select></Field>
               <Field label="ZIP"><input className="input-field" required value={zip} onChange={(e) => setZip(e.target.value)} /></Field>
             </div>
+            <p className="opp-meta-mono text-ink-soft -mt-2 mb-4 m-0">We currently ship within the United States only.</p>
 
             <Field label="Affiliate / Promo Code (optional)">
               <div className="flex gap-2">

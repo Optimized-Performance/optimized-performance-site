@@ -2,6 +2,7 @@ import { supabaseAdmin } from '../../../lib/supabase'
 import { validateOrigin, rateLimit, validateEmail, validateString, validateZip } from '../../../lib/security'
 import { getRail, isInstantRail as railIsInstant } from '../../../lib/payments/rails'
 import { resolvePaypalAccount } from '../../../lib/payments/paypalAccounts'
+import { isUsState } from '../../../lib/us-states'
 import { runVelocityChecks, extractClientIP } from '../../../lib/fraud-checks'
 import { getCustomerIdFromReq } from '../../../lib/customer-session'
 import { computeOrderTotals } from '../../../lib/pricing'
@@ -85,6 +86,16 @@ export default async function handler(req, res) {
     if (!validateZip(zip)) return res.status(400).json({ error: 'Invalid or missing ZIP / postal code' })
     if (!Array.isArray(items) || !items.length) return res.status(400).json({ error: 'Your cart appears to be empty — please re-add your items.' })
     if (items.length > 50) return res.status(400).json({ error: 'Too many items in cart (max 50).' })
+
+    // US-only shipping gate. The State field is a US-states dropdown client-side,
+    // but enforce it HERE too — a client gate can be bypassed, and this is what
+    // actually stops an unshippable international order from being created +
+    // charged (an AU order slipped through when State was free-text). Gates on
+    // the destination address, NOT visitor IP, so VPN'd/traveling US customers
+    // shipping to a US address are unaffected.
+    if (!isUsState(state)) {
+      return res.status(400).json({ error: 'We currently ship within the United States only.' })
+    }
 
     if (paymentMethod !== 'card' && paymentMethod !== 'crypto' && paymentMethod !== 'zelle' && paymentMethod !== 'venmo' && paymentMethod !== 'paypal') {
       return res.status(400).json({ error: 'Invalid paymentMethod (must be "card", "crypto", "zelle", "venmo", or "paypal")' })
