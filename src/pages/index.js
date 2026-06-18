@@ -220,7 +220,9 @@ export async function getServerSideProps(context) {
   // require (not top-level import) so the catalog array stays out of the client
   // bundle — getVisibleProductsForCohort references the full products array.
   const { getVisibleProductsForCohort } = require('../data/products');
+  const { hasGatedAccess } = require('../lib/gated-access');
   const { cohortAllowed } = await getCohortFromRequest(context, supabaseAdmin);
-  const visibleProducts = await getVisibleProductsForCohort(cohortAllowed);
+  const gatedAccess = await hasGatedAccess(context.req);
+  const visibleProducts = await getVisibleProductsForCohort(cohortAllowed, gatedAccess);
   return { props: { visibleProducts } };
 }
