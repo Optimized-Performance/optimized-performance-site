@@ -1,12 +1,15 @@
-import products from '../data/products';
+import { getCatalog } from './catalog';
 
 const LOW_STOCK_THRESHOLD = 20;
 
 // In-memory fallback used when Upstash is not configured
 const memStore = new Map();
 
-function initMem() {
+// Lazily seed the fallback map from the DB catalog (async — can't read the
+// catalog at module scope anymore now that it's a DB call).
+async function initMem() {
   if (memStore.size === 0) {
+    const products = await getCatalog();
     products.forEach((p) => memStore.set(p.id, p.stock));
   }
 }
@@ -21,6 +24,7 @@ function getRedis() {
 
 export async function getAllInventory() {
   const redis = getRedis();
+  const products = await getCatalog();
   const result = {};
 
   if (redis) {
@@ -31,7 +35,7 @@ export async function getAllInventory() {
       result[p.id] = values[i] !== null ? Number(values[i]) : p.stock;
     });
   } else {
-    initMem();
+    await initMem();
     products.forEach((p) => { result[p.id] = memStore.get(p.id) ?? p.stock; });
   }
 
@@ -43,10 +47,12 @@ export async function getProductInventory(id) {
   if (redis) {
     const val = await redis.get(`inv:${id}`);
     if (val !== null) return Number(val);
+    const products = await getCatalog();
     const product = products.find((p) => p.id === id);
     return product?.stock ?? 0;
   }
-  initMem();
+  await initMem();
+  const products = await getCatalog();
   const product = products.find((p) => p.id === id);
   return memStore.get(id) ?? product?.stock ?? 0;
 }
@@ -57,7 +63,7 @@ export async function setProductInventory(id, quantity) {
   if (redis) {
     await redis.set(`inv:${id}`, qty);
   } else {
-    initMem();
+    await initMem();
     memStore.set(id, qty);
   }
   return qty;

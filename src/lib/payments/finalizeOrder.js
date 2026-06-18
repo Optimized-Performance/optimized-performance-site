@@ -2,6 +2,7 @@ import { supabaseAdmin } from '../supabase'
 import { sendEmailAlert, sendSmsAlert, sendOrderConfirmation } from '../alerts'
 import { calcCommission } from '../commission'
 import { OPEN_PAYMENT_STATES, PAYMENT_STATUS, assertPaymentTransition } from '../order-status'
+import { getCatalog } from '../catalog'
 
 // Shared post-payment finalization for any processor webhook. Looks up the
 // pending order, marks it completed, decrements inventory (kit-aware), updates
@@ -76,7 +77,7 @@ export async function finalizePaidOrder({ orderNumber, sendConfirmation = true, 
     return { ok: false, reason: 'order_update_failed', error: updateError }
   }
 
-  const products = require('../../data/products').default
+  const products = await getCatalog()
   const lowStockItems = []
   for (const item of order.items) {
     const product = products.find((p) => p.sku === item.sku)

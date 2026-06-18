@@ -14,6 +14,7 @@
 import { supabaseAdmin } from '../../../../lib/supabase'
 import { validateSessionToken } from '../../../../lib/session'
 import { validateOrigin, rateLimit } from '../../../../lib/security'
+import { getCatalog } from '../../../../lib/catalog'
 
 function requireAuth(req) {
   const token = req.headers['x-admin-token']
@@ -44,7 +45,7 @@ export default async function handler(req, res) {
       return !['shipped', 'fulfilled', 'cancelled'].includes(status)
     })
 
-    const products = require('../../../../data/products').default
+    const products = await getCatalog()
 
     // Aggregate by parent SKU. For each parent SKU, track:
     //   - total vials needed (kits × vialCount + individual qty)

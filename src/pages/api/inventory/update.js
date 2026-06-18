@@ -1,9 +1,7 @@
 import { supabaseAdmin } from '../../../lib/supabase'
 import { validateSessionToken } from '../../../lib/session'
 import { validateOrigin, rateLimit } from '../../../lib/security'
-import productsData from '../../../data/products'
-
-const PRODUCT_BY_ID = new Map(productsData.map((p) => [p.id, p]))
+import { getCatalog } from '../../../lib/catalog'
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end()
@@ -20,6 +18,8 @@ export default async function handler(req, res) {
       }
 
       if (body.updates && typeof body.updates === 'object') {
+        const productsData = await getCatalog()
+        const PRODUCT_BY_ID = new Map(productsData.map((p) => [p.id, p]))
         const MAX_STOCK = 1_000_000
         const entries = Object.entries(body.updates)
         for (const [productId, qty] of entries) {

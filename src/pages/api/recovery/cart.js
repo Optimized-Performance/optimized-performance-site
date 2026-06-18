@@ -1,7 +1,7 @@
 import { verifyRecoveryToken } from '../../../lib/recovery'
 import { supabaseAdmin } from '../../../lib/supabase'
 import { rateLimit } from '../../../lib/security'
-import products from '../../../data/products'
+import { getCatalog } from '../../../lib/catalog'
 
 // POST /api/recovery/cart  Body: { token }
 // Returns the cart lines of the order a recovery token is bound to, so the
@@ -39,6 +39,7 @@ export default async function handler(req, res) {
     return res.status(200).json({ items: [] })
   }
 
+  const products = await getCatalog()
   const items = (order.items || [])
     .filter((it) => it && it.id)
     .map((it) => {
