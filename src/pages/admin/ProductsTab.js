@@ -23,7 +23,7 @@ function emptyForm() {
     category: 'Peptides', format: 'Lyophilized Powder', vialSize: '',
     stock: '', inStock: true, isKit: false, parentId: '', vialCount: '',
     badge: '', visibilityTier: 'account_gated', railPolicy: 'all',
-    hasCoa: true, published: false,
+    hasCoa: true, published: false, imageUrl: '',
   };
 }
 
@@ -33,6 +33,7 @@ export default function ProductsTab({ token, showSaveMsg }) {
   const [editingId, setEditingId] = useState(null); // null | '__new__' | <product id>
   const [form, setForm] = useState(emptyForm());
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [gatedEmails, setGatedEmails] = useState([]);
   const [newEmail, setNewEmail] = useState('');
   const [newNote, setNewNote] = useState('');
@@ -58,6 +59,27 @@ export default function ProductsTab({ token, showSaveMsg }) {
   }
   useEffect(() => { fetchProducts(); fetchGated(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  async function handleImageFile(file) {
+    if (!file) return;
+    if (!/^image\/(jpeg|jpg|png|webp)$/i.test(file.type)) { msg('Image must be JPEG, PNG, or WebP'); return; }
+    setUploading(true);
+    try {
+      const dataUrl = await new Promise((resolve, reject) => {
+        const r = new FileReader();
+        r.onload = () => resolve(r.result);
+        r.onerror = reject;
+        r.readAsDataURL(file);
+      });
+      const res = await fetch('/api/admin/upload-image', {
+        method: 'POST', headers: authHeaders(), body: JSON.stringify({ dataUrl, productId: form.id }),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (res.ok && d.url) { set('imageUrl', d.url); msg('Image uploaded'); }
+      else msg(d.error || 'Upload failed');
+    } catch { msg('Upload failed'); }
+    setUploading(false);
+  }
+
   function startCreate() { setForm(emptyForm()); setEditingId('__new__'); }
   function startEdit(p) {
     setForm({
@@ -68,7 +90,7 @@ export default function ProductsTab({ token, showSaveMsg }) {
       parentId: p.parentId || '', vialCount: p.vialCount ?? '',
       badge: typeof p.badge === 'string' ? p.badge : (p.badge ? JSON.stringify(p.badge) : ''),
       visibilityTier: p.visibilityTier || 'public', railPolicy: p.railPolicy || 'all',
-      hasCoa: !p.noCoa, published: !!p.published,
+      hasCoa: !p.noCoa, published: !!p.published, imageUrl: p.imageUrl || '',
     });
     setEditingId(p.id);
   }
@@ -90,6 +112,7 @@ export default function ProductsTab({ token, showSaveMsg }) {
       badge: form.badge ? form.badge : null,
       visibilityTier: form.visibilityTier, railPolicy: form.railPolicy,
       hasCoa: form.hasCoa, published: form.published,
+      imageUrl: form.imageUrl || null,
     };
     try {
       const res = await fetch('/api/admin/products', {
@@ -182,6 +205,28 @@ export default function ProductsTab({ token, showSaveMsg }) {
           </div>
           <Field label="Description">
             <textarea className="input-field w-full" rows={3} value={form.description} onChange={(e) => set('description', e.target.value)} />
+          </Field>
+          <Field label="Thumbnail">
+            <div
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={(e) => { e.preventDefault(); handleImageFile(e.dataTransfer.files && e.dataTransfer.files[0]); }}
+              className="flex items-center gap-4 p-3 border border-dashed border-line rounded-opp"
+            >
+              {form.imageUrl ? (
+                <img src={form.imageUrl} alt="thumbnail" className="w-16 h-16 object-cover rounded" />
+              ) : (
+                <div className="w-16 h-16 rounded bg-white/5 flex items-center justify-center text-ink-soft text-[11px]">none</div>
+              )}
+              <div className="text-sm text-ink-soft">
+                <label className="btn-primary px-3 py-1.5 cursor-pointer inline-block">
+                  {uploading ? 'Uploading…' : 'Choose / drop image'}
+                  <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden"
+                    onChange={(e) => handleImageFile(e.target.files && e.target.files[0])} />
+                </label>
+                {form.imageUrl && <button type="button" onClick={() => set('imageUrl', '')} className="ml-3 text-danger text-[13px] hover:underline">Remove</button>}
+                <div className="text-[11px] mt-1">JPEG/PNG/WebP · drag-drop or click · falls back to the Vial graphic if none</div>
+              </div>
+            </div>
           </Field>
           <div className="flex flex-wrap gap-5 mt-3 mb-4 text-sm text-ink">
             <label className="flex items-center gap-2"><input type="checkbox" checked={form.isKit} onChange={(e) => set('isKit', e.target.checked)} /> Kit</label>
