@@ -11,6 +11,7 @@ import { logMetric, startTimer } from '../../../lib/metrics'
 import { isRailAvailable } from '../../../lib/rail-utilization'
 import { verifyRecoveryToken } from '../../../lib/recovery'
 import { generateOrderNumber } from '../../../lib/order-number'
+import { getCatalog } from '../../../lib/catalog'
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://optimizedperformancepeptides.com'
 
@@ -145,7 +146,7 @@ export default async function handler(req, res) {
     // single-source pricing module (lib/pricing.computeOrderTotals) — the SAME
     // function the client checkout calls, so the customer-visible total and the
     // charged total cannot drift (the class of bug behind the May sale mispricing).
-    const products = require('../../../data/products').default
+    const products = await getCatalog()
     // Durable-rails-only: true if any cart item is an ancillary Rx SKU restricted
     // to Zelle/crypto (keeps the most-pharma items off the card rail).
     let cartDurableOnly = false
