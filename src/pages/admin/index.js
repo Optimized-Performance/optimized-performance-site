@@ -36,11 +36,15 @@ export default function AdminPage() {
   useEffect(() => {
     if (!authed) return;
     let cancelled = false;
-    import('../../data/products')
-      .then((m) => { if (!cancelled) setCatalog(m.default || []); })
+    // Catalog now comes from the DB via the admin products API (was a dynamic
+    // import of the static data/products array). The Products tab writes back
+    // to this same endpoint, so edits show on refresh.
+    fetch('/api/admin/products', { headers: { 'x-admin-token': token } })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (!cancelled && d?.products) setCatalog(d.products); })
       .catch(() => { /* tabs render empty until retry/refresh */ });
     return () => { cancelled = true; };
-  }, [authed]);
+  }, [authed, token]);
 
   async function handleLogin(e) {
     e.preventDefault();
