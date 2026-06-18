@@ -90,11 +90,25 @@ export function getAllPaypalAccounts() {
   return ACCOUNT_DEFS.map(resolveDef)
 }
 
-// The OPP account is the canonical default/fallback — always resolved, used
-// for legacy orders (null paypal_account) and as the last-resort selection so
-// checkout never breaks even if every weight is misconfigured to 0.
+// The canonical fallback when no specific account is named — legacy orders
+// (null paypal_account), a missing client key, or a picker miss.
+//
+// ★ This MUST be a LIVE account. OPP was TERMINATED 2026-06-17, so the old
+// behavior (always return ACCOUNT_DEFS[0] = OPP) meant any fallback captured
+// against dead credentials → the order stranded in awaiting_payment and the
+// expire cron abandoned it ("orders falling off"). So prefer the highest-weight
+// SELECTABLE (configured + weighted) account; only fall to a configured-but-
+// unweighted account, and to OPP's def as a true last resort so checkout still
+// renders something rather than null.
 export function getDefaultPaypalAccount() {
-  return resolveDef(ACCOUNT_DEFS[0])
+  const all = getAllPaypalAccounts()
+  const selectable = all.filter((a) => a.selectable)
+  if (selectable.length > 0) {
+    // Highest weight = the stable default; deterministic on ties (first wins).
+    return selectable.reduce((best, a) => (a.weight > best.weight ? a : best))
+  }
+  // Nothing weighted/selectable — fall to any configured account, else OPP def.
+  return all.find((a) => a.configured) || resolveDef(ACCOUNT_DEFS[0])
 }
 
 // Resolve a stored key (from orders.paypal_account) back to its account for

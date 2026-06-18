@@ -9,14 +9,15 @@ import { PayPalScriptProvider, PayPalButtons } from '@paypal/react-paypal-js'
 // server-chosen account (weighted, server-authoritative) from
 // /api/payments/paypal-account on mount and init the SDK with THAT account's
 // clientId, then pass its `key` into createOrder so the order is created +
-// captured under the same account. If the fetch fails we fall back to the
-// baked OPP clientId so checkout never breaks.
+// captured under the same account. On a picker failure we RETRY, then surface
+// "use another method" — we do NOT fall back to a baked clientId, because the
+// only baked one is OPP's (NEXT_PUBLIC_PAYPAL_CLIENT_ID) and OPP was terminated
+// 2026-06-17. Rendering its buttons would route the customer into a dead
+// account, fail capture, and silently strand the order.
 //
 // Apple Pay was deliberately removed because the account doesn't have Advanced
 // Credit and Debit Card Payments (ACDC) enabled. If ACDC is approved later,
 // restore the ApplePayBlock (see git history) and add `applepay`.
-
-const FALLBACK_CLIENT_ID = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID
 
 export default function PaypalCheckoutButtons({
   disabled,
@@ -27,37 +28,44 @@ export default function PaypalCheckoutButtons({
 }) {
   // { key, clientId } once resolved. null = still resolving.
   const [account, setAccount] = useState(null)
+  // True once the picker has failed all retries — render a graceful message
+  // instead of dead buttons.
+  const [failed, setFailed] = useState(false)
 
   useEffect(() => {
     let cancelled = false
     ;(async () => {
-      try {
-        const res = await fetch('/api/payments/paypal-account')
-        if (!res.ok) throw new Error(`account fetch ${res.status}`)
-        const data = await res.json()
-        if (!cancelled && data?.clientId) {
-          setAccount({ key: data.key || 'opp', clientId: data.clientId })
-          return
-        }
-        throw new Error('no clientId in response')
-      } catch {
-        // Resilience: fall back to the baked OPP clientId so a hiccup on the
-        // picker endpoint doesn't take checkout down. Orders then route to OPP
-        // (key 'opp'), which create.js treats as the default anyway.
-        if (!cancelled && FALLBACK_CLIENT_ID) {
-          setAccount({ key: 'opp', clientId: FALLBACK_CLIENT_ID })
+      // Retry transient picker hiccups (cold start / timeout). We deliberately
+      // do NOT fall back to a baked clientId on failure: the only baked one is
+      // OPP's and OPP was terminated 2026-06-17, so its buttons would route the
+      // customer into a dead account, fail capture, and strand the order.
+      // Surfacing "use another method" is correct — Zelle/crypto are on the page.
+      for (let attempt = 0; attempt < 3 && !cancelled; attempt++) {
+        try {
+          const res = await fetch('/api/payments/paypal-account')
+          if (!res.ok) throw new Error(`account fetch ${res.status}`)
+          const data = await res.json()
+          if (data?.clientId && data?.key) {
+            if (!cancelled) setAccount({ key: data.key, clientId: data.clientId })
+            return
+          }
+          throw new Error('no clientId/key in response')
+        } catch {
+          if (attempt < 2) await new Promise((r) => setTimeout(r, 400 * (attempt + 1)))
         }
       }
+      if (!cancelled) setFailed(true)
     })()
     return () => { cancelled = true }
   }, [])
 
   if (!account?.clientId) {
-    if (account === null && !FALLBACK_CLIENT_ID) {
-      // Never resolved AND nothing baked → misconfigured.
+    if (failed) {
+      // Picker failed all retries — don't render dead OPP buttons; point the
+      // customer at the other rails on the page.
       return (
-        <p className="opp-meta-mono text-danger m-0">
-          PayPal is misconfigured (no client id available).
+        <p className="opp-meta-mono text-ink-soft m-0" aria-live="polite">
+          PayPal is temporarily unavailable — please use another payment method below.
         </p>
       )
     }
