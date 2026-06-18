@@ -58,13 +58,33 @@ export default async function handler(req, res) {
   const elapsed = startTimer()
 
   try {
-    const { name, email, address, city, state, zip, items, affiliateCode, recoveryToken, sessionId, researchUseAck, researchField, paymentMethod, idempotencyKey, paypalAccount } = req.body
+    let { name, email, address, city, state, zip } = req.body
+    const { items, affiliateCode, recoveryToken, sessionId, researchUseAck, researchField, paymentMethod, idempotencyKey, paypalAccount } = req.body
 
-    if (!validateString(name) || !validateEmail(email) || !validateString(address) ||
-        !validateString(city) || !validateString(state, { minLength: 1, maxLength: 50 }) || !validateZip(zip) ||
-        !Array.isArray(items) || !items.length || items.length > 50) {
-      return res.status(400).json({ error: 'Invalid or missing required fields' })
-    }
+    // Trim string fields before validating. Trailing/leading whitespace from
+    // mobile autofill is common, and validateEmail is whitespace-intolerant and
+    // does NOT trim — so " a@b.com " (field LOOKS filled, passes the client's
+    // truthy check) 400'd here as a generic "Invalid or missing required
+    // fields" with no clue which field. Trimming closes that class; the
+    // normalized values flow downstream (storage + the .ilike lookups). Same
+    // revenue-critical spirit as the validateEmail _/% and validateZip fixes.
+    if (typeof name === 'string') name = name.trim()
+    if (typeof email === 'string') email = email.trim()
+    if (typeof address === 'string') address = address.trim()
+    if (typeof city === 'string') city = city.trim()
+    if (typeof state === 'string') state = state.trim()
+    if (typeof zip === 'string') zip = zip.trim()
+
+    // Per-field validation with a SPECIFIC error — the old single combined check
+    // returned a generic blob, so a customer tripping one field was undiagnosable.
+    if (!validateString(name)) return res.status(400).json({ error: 'Invalid or missing name' })
+    if (!validateEmail(email)) return res.status(400).json({ error: 'Invalid or missing email address' })
+    if (!validateString(address)) return res.status(400).json({ error: 'Invalid or missing street address' })
+    if (!validateString(city)) return res.status(400).json({ error: 'Invalid or missing city' })
+    if (!validateString(state, { minLength: 1, maxLength: 50 })) return res.status(400).json({ error: 'Invalid or missing state' })
+    if (!validateZip(zip)) return res.status(400).json({ error: 'Invalid or missing ZIP / postal code' })
+    if (!Array.isArray(items) || !items.length) return res.status(400).json({ error: 'Your cart appears to be empty — please re-add your items.' })
+    if (items.length > 50) return res.status(400).json({ error: 'Too many items in cart (max 50).' })
 
     if (paymentMethod !== 'card' && paymentMethod !== 'crypto' && paymentMethod !== 'zelle' && paymentMethod !== 'venmo' && paymentMethod !== 'paypal') {
       return res.status(400).json({ error: 'Invalid paymentMethod (must be "card", "crypto", "zelle", "venmo", or "paypal")' })

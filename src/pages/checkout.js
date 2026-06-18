@@ -322,7 +322,11 @@ export default function Checkout() {
   // Shared validation for all rails. PayPal Smart Buttons call this from the
   // SDK's onClick hook so they can reject() the flow if the form is incomplete.
   const validateCheckoutForm = () => {
-    if (!email || !name || !address || !city || !state || !zip) {
+    if (!cartItems.length) {
+      alert('Your cart is empty — please add items before checking out.');
+      return false;
+    }
+    if (!email.trim() || !name.trim() || !address.trim() || !city.trim() || !state.trim() || !zip.trim()) {
       alert('Please fill in all shipping fields.');
       return false;
     }
@@ -349,7 +353,8 @@ export default function Checkout() {
   };
 
   const buildOrderPayload = (paymentMethod) => ({
-    name, email, address, city, state, zip,
+    name: name.trim(), email: email.trim(), address: address.trim(),
+    city: city.trim(), state: state.trim(), zip: zip.trim(),
     items: cartItems.map((item) => ({
       id: item.id, sku: item.sku, name: item.name,
       dosage: item.dosage, price: item.price, quantity: item.quantity,
