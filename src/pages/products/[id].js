@@ -2,7 +2,14 @@ import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import QRCode from 'qrcode';
-import { isPreorderable, formatPreorderShipDate } from '../../data/catalog-client';
+import {
+  getEffectiveStock,
+  shouldShowRestricted,
+  getPrivateInquiryUrl,
+  isPreorderable,
+  formatPreorderShipDate,
+} from '../../data/catalog-client';
+import { getCatalog } from '../../lib/catalog';
 import { useCart } from '../../context/CartContext';
 import SEO from '../../components/SEO';
 import { Vial, Icon } from '../../components/Primitives';
@@ -513,15 +520,13 @@ function ComplianceRow({ icon, title, children }) {
 }
 
 export async function getServerSideProps(context) {
-  // require (not top-level import) so the catalog array + array-referencing
-  // helpers stay out of the client bundle.
-  const { getCatalog } = require('../../lib/catalog');
+  // Catalog + helpers are STATICALLY imported at top (same pattern as shop.js /
+  // index.js). Next strips gSSP-only imports from the client bundle, so the
+  // server-only catalog array never ships to the browser. Do NOT switch these
+  // back to dynamic require() — a module reached only via require() gets its
+  // exports tree-shaken to {} in the prod build, making getCatalog undefined
+  // and 500-ing every product page (the catalog-migration 500).
   const products = await getCatalog();
-  // From catalog-client directly (not via products.js): products.js has no
-  // static importer post-migration, so requiring through it would hit a
-  // tree-shaken {} in the prod build. catalog-client is statically imported
-  // elsewhere, so its exports survive.
-  const { getEffectiveStock, shouldShowRestricted, getPrivateInquiryUrl } = require('../../data/catalog-client');
   const { id } = context.params;
   const product = products.find((p) => p.id === id);
 
