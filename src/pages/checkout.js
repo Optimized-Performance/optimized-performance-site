@@ -649,7 +649,7 @@ export default function Checkout() {
               </span>
             </label>
 
-            {cartDurableOnly && (
+            {cartOffCard && (
               <div className="mb-4 p-4 rounded-opp-lg border border-accent-strong bg-accent-soft text-center">
                 <div className="opp-meta-mono text-accent-strong font-semibold">Zelle or crypto only for this order</div>
                 <div className="text-[13px] text-ink-soft mt-1">An item in your cart is fulfilled via direct payment (Zelle or crypto) — and you save {ALT_PAY_DISCOUNT_PCT}%.</div>
