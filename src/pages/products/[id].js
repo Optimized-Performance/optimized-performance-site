@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import QRCode from 'qrcode';
-import { isPreorderable, formatPreorderShipDate } from '../../data/catalog-client';
+import { isPreorderable, formatPreorderShipDate, getEffectiveStock, shouldShowRestricted, getPrivateInquiryUrl } from '../../data/catalog-client';
 import { useCart } from '../../context/CartContext';
 import SEO from '../../components/SEO';
 import { Vial, Icon } from '../../components/Primitives';
@@ -10,6 +10,12 @@ import NotifyMe from '../../components/NotifyMe';
 import { supabaseAdmin } from '../../lib/supabase';
 import { getCohortFromRequest } from '../../lib/cohort-session';
 import { isMemorialDaySaleActive, getSalePrice, MEMORIAL_DAY_DISCOUNT_PCT, isBogoProduct } from '../../lib/sale';
+// Static import (NOT require) so Next keeps lib/catalog in this page's server
+// bundle — a dynamic require() of a module with no static importer tree-shakes
+// to {} in the prod build, so getCatalog() became "t is not a function" and
+// 500'd every PDP. Only used in getServerSideProps, so Next strips it (and the
+// supabaseAdmin it pulls) from the client bundle automatically.
+import { getCatalog } from '../../lib/catalog';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://optimizedperformancepeptides.com';
 
@@ -513,15 +519,7 @@ function ComplianceRow({ icon, title, children }) {
 }
 
 export async function getServerSideProps(context) {
-  // require (not top-level import) so the catalog array + array-referencing
-  // helpers stay out of the client bundle.
-  const { getCatalog } = require('../../lib/catalog');
   const products = await getCatalog();
-  // From catalog-client directly (not via products.js): products.js has no
-  // static importer post-migration, so requiring through it would hit a
-  // tree-shaken {} in the prod build. catalog-client is statically imported
-  // elsewhere, so its exports survive.
-  const { getEffectiveStock, shouldShowRestricted, getPrivateInquiryUrl } = require('../../data/catalog-client');
   const { id } = context.params;
   const product = products.find((p) => p.id === id);
 
