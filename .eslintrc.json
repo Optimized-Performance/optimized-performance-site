@@ -1,0 +1,30 @@
+{
+  "root": true,
+  "env": { "browser": true, "node": true, "es2021": true },
+  "parserOptions": {
+    "ecmaVersion": 2022,
+    "sourceType": "module",
+    "ecmaFeatures": { "jsx": true }
+  },
+  "plugins": ["react-hooks"],
+  "globals": { "React": "readonly" },
+  "rules": {
+    "no-undef": "error",
+    "react-hooks/rules-of-hooks": "off",
+    "react-hooks/exhaustive-deps": "off"
+  },
+  "overrides": [
+    {
+      "files": ["src/pages/**/*.js"],
+      "rules": {
+        "no-restricted-syntax": [
+          "error",
+          {
+            "selector": "CallExpression[callee.name='require'][arguments.0.value=/^\\./]",
+            "message": "Use a static import, not require(), for local modules in pages. A dynamic require() of a module with no static importer tree-shakes to {} in the prod build (the getCatalog 500) and throws at runtime while the build still passes. Import it at the top of the file instead."
+          }
+        ]
+      }
+    }
+  ]
+}
