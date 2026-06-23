@@ -108,8 +108,8 @@ export function renderBrandedEmail({
       <tr><td style="height:4px;font-size:0;line-height:0;background-color:${C.accent};background-image:linear-gradient(90deg,${C.accentDeep},${C.accent},${C.accentDeep});">&nbsp;</td></tr>
       <!-- header -->
       <tr><td style="background-color:${C.cardTop};padding:30px 40px 26px;text-align:center;border-bottom:1px solid ${C.border};">
-        <div style="font-family:${FONT};font-size:15px;font-weight:800;letter-spacing:4px;color:${C.ink};">OPTIMIZED&nbsp;PERFORMANCE</div>
-        <div style="font-family:${FONT};font-size:10px;font-weight:600;letter-spacing:3px;color:${C.mute};margin-top:7px;text-transform:uppercase;">Research Peptides</div>
+        <div style="font-family:${FONT};font-size:15px;font-weight:800;letter-spacing:4px;color:${C.ink};">SYNGYN</div>
+        <div style="font-family:${FONT};font-size:10px;font-weight:600;letter-spacing:3px;color:${C.mute};margin-top:7px;text-transform:uppercase;">Analytical Reference Materials</div>
       </td></tr>
       <!-- body -->
       <tr><td style="padding:34px 40px 30px;font-family:${FONT};text-align:${ta};">

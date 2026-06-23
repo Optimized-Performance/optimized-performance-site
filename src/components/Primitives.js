@@ -23,10 +23,10 @@ export function Logo({ size = 28, full = false }) {
       </g>
       <line x1="-45" y1="60" x2="45" y2="60" stroke="currentColor" strokeWidth="0.4" opacity="0.4" />
       <text x="0" y="84" textAnchor="middle" fontFamily="var(--font-display)"
-            fontSize="22" fontWeight="600" letterSpacing="10" fill="currentColor">OPP</text>
+            fontSize="22" fontWeight="600" letterSpacing="10" fill="currentColor">SYN</text>
       <text x="0" y="102" textAnchor="middle" fontFamily="var(--font-mono)"
             fontSize="5" letterSpacing="2" fill="currentColor" opacity="0.6">
-        OPTIMIZED  PERFORMANCE  PEPTIDES
+        SYNGYN
       </text>
       <line x1="-35" y1="108" x2="35" y2="108" stroke="currentColor" strokeWidth="0.3" opacity="0.3" />
     </svg>
@@ -203,13 +203,13 @@ function VialFallback({ label = '—', dosage = '', size = 220, purity, kit = fa
           <circle r="1.3" fill="#00B4D8" stroke="none" />
         </g>
       </g>
-      {/* Small "OPTIMIZED PERFORMANCE" text vertical */}
+      {/* Small brand text vertical */}
       <text
         transform="translate(70 220) rotate(-90)"
         fontSize="3.5" fill="#8a96a8"
         fontFamily="var(--font-display)"
         letterSpacing="1.3"
-      >OPTIMIZED PERFORMANCE</text>
+      >SYNGYN</text>
 
       {/* Product name */}
       <text x="106" y="136" fontSize="17" fill="#FFFFFF"
