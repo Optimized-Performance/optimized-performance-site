@@ -643,9 +643,10 @@ export default function Checkout() {
                 onChange={(e) => setResearchAck(e.target.checked)}
               />
               <span>
-                I confirm I am a qualified researcher or institutional buyer acquiring these analytical
-                reference materials strictly for in-vitro laboratory research. I am 21+ and am not purchasing
-                for human or animal consumption, administration, or any therapeutic, clinical, or diagnostic use.
+                I am 21 years of age or older. I confirm that I am purchasing these materials exclusively for
+                qualified laboratory research or analytical use. I will not use these materials for human or
+                animal consumption, therapeutic use, clinical use, diagnostic use, dietary supplementation,
+                dosing, injection, ingestion, or administration.
               </span>
             </label>
 

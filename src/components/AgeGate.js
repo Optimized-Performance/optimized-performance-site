@@ -16,14 +16,10 @@ const ATTESTATIONS = [
     label: 'I am 21 years of age or older.',
   },
   {
-    id: 'researcher',
+    id: 'use',
+    // Verbatim per the MCC-5169 / payment pre-vet checklist mandated language.
     label:
-      'I am a qualified researcher or institutional buyer, and I am accessing this site solely to acquire analytical reference materials for in-vitro laboratory research.',
-  },
-  {
-    id: 'ruo',
-    label:
-      'I understand all products are research-use-only (RUO) — they are not drugs, foods, or cosmetics, and are not intended for human or animal consumption, administration, or any therapeutic, clinical, or diagnostic use.',
+      'I confirm that I am purchasing these materials exclusively for qualified laboratory research or analytical use. I will not use these materials for human or animal consumption, therapeutic use, clinical use, diagnostic use, dietary supplementation, dosing, injection, ingestion, or administration.',
   },
 ];
 
