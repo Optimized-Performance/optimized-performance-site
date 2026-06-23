@@ -67,7 +67,14 @@ export default function Footer() {
           >
             Sample CoA
           </a>
-          <FooterLink href="/shipping-label-example">Shipping label</FooterLink>
+          <a
+            href="/shipping-label.png"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block text-ink text-sm py-1.5 hover:text-accent-strong transition-colors"
+          >
+            Shipping label
+          </a>
           {SHOW_INQUIRY_SURFACE && (
             <FooterLink href="/research-inquiries">Research inquiries</FooterLink>
           )}
