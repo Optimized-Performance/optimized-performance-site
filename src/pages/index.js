@@ -53,7 +53,7 @@ export default function Home({ visibleProducts }) {
 
       {/* Hero */}
       <section className="py-16 md:py-20">
-        <div className="grid md:grid-cols-[1.2fr_1fr] gap-16 items-center">
+        <div className="max-w-3xl">
           <div>
             <div className="flex items-center gap-3 mb-7">
               <span className="opp-eyebrow">Est. 2024 · USA</span>
@@ -92,39 +92,6 @@ export default function Home({ visibleProducts }) {
               </div>
             </dl>
           </div>
-
-          {heroShowcase && (
-            <div className="flex flex-col items-center gap-8">
-              <Link
-                href={`/products/${heroShowcase.id}`}
-                className="p-8 bg-surface border border-line rounded-opp-lg opp-grid-bg-lg block hover:border-ink transition-colors"
-                aria-label={`View ${heroShowcase.name} ${heroShowcase.dosage}`}
-              >
-                <Vial
-                  label={heroShowcase.name}
-                  dosage={heroShowcase.dosage}
-                  size={280}
-                  purity={heroShowcase.purity ?? 99}
-                  sku={heroShowcase.sku}
-                  kit={heroShowcase.isKit}
-                  subtitle={heroSubtitle}
-                />
-              </Link>
-              <div className="w-full max-w-[320px] px-5 py-4 bg-surface border border-line rounded-opp flex flex-col gap-2 opp-meta-mono">
-                <SpecLine k="SKU" v={heroShowcase.sku} />
-                <SpecLine k="CLASS" v={heroClass} />
-                <SpecLine k="PURITY" v={`${heroShowcase.purity ?? 99}%`} />
-                <SpecLine k="FORMAT" v={`${heroShowcase.format || 'Lyophilized'} / ${heroShowcase.vialSize || '2mL Vial'}`} />
-                <SpecLine k="STORAGE" v="-20°C" />
-              </div>
-              <Link
-                href={`/products/${heroShowcase.id}`}
-                className="btn-primary w-full max-w-[320px] py-3.5 text-sm flex items-center justify-center gap-2"
-              >
-                Shop {heroShowcase.name}{heroShowcase.price ? ` — $${heroShowcase.price.toFixed(2)}` : ''} <Icon name="arrow" size={14} />
-              </Link>
-            </div>
-          )}
         </div>
       </section>
 
@@ -144,6 +111,48 @@ export default function Home({ visibleProducts }) {
           ))}
         </div>
       </section>
+
+      {/* Featured specimen — vial showcase, moved below the fold (kiani review) */}
+      {heroShowcase && (
+        <section className="py-20">
+          <div className="mb-10 text-center">
+            <span className="opp-eyebrow">Featured specimen</span>
+            <h2 className="font-display font-semibold tracking-display text-[clamp(28px,3.5vw,48px)] leading-tight m-0 mt-2.5 text-balance text-ink">
+              {heroShowcase.name} <span className="text-ink-soft">{heroShowcase.dosage}</span>
+            </h2>
+          </div>
+          <div className="flex flex-col items-center gap-8">
+            <Link
+              href={`/products/${heroShowcase.id}`}
+              className="p-8 bg-surface border border-line rounded-opp-lg opp-grid-bg-lg block hover:border-ink transition-colors"
+              aria-label={`View ${heroShowcase.name} ${heroShowcase.dosage}`}
+            >
+              <Vial
+                label={heroShowcase.name}
+                dosage={heroShowcase.dosage}
+                size={280}
+                purity={heroShowcase.purity ?? 99}
+                sku={heroShowcase.sku}
+                kit={heroShowcase.isKit}
+                subtitle={heroSubtitle}
+              />
+            </Link>
+            <div className="w-full max-w-[320px] px-5 py-4 bg-surface border border-line rounded-opp flex flex-col gap-2 opp-meta-mono">
+              <SpecLine k="SKU" v={heroShowcase.sku} />
+              <SpecLine k="CLASS" v={heroClass} />
+              <SpecLine k="PURITY" v={`${heroShowcase.purity ?? 99}%`} />
+              <SpecLine k="FORMAT" v={`${heroShowcase.format || 'Lyophilized'} / ${heroShowcase.vialSize || '2mL Vial'}`} />
+              <SpecLine k="STORAGE" v="-20°C" />
+            </div>
+            <Link
+              href={`/products/${heroShowcase.id}`}
+              className="btn-primary w-full max-w-[320px] py-3.5 text-sm flex items-center justify-center gap-2"
+            >
+              Shop {heroShowcase.name}{heroShowcase.price ? ` — $${heroShowcase.price.toFixed(2)}` : ''} <Icon name="arrow" size={14} />
+            </Link>
+          </div>
+        </section>
+      )}
 
       {/* Featured */}
       <section className="py-20">
