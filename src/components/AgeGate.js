@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Logo } from './Primitives';
+import { BRAND } from '../lib/brand';
 
 // Bumped from the old 'opp-age-verified' key so EVERY returning visitor
 // re-attests against the new researcher gate (full-page + per-statement
@@ -27,6 +28,7 @@ const ATTESTATIONS = [
 ];
 
 export default function AgeGate() {
+  const brand = BRAND;
   // Default to "verified" so SSR and first client paint match (no hydration
   // flash); useEffect then reveals the gate only if not previously attested.
   const [verified, setVerified] = useState(true);
@@ -88,10 +90,10 @@ export default function AgeGate() {
             <Logo size={32} />
             <span className="flex flex-col leading-none">
               <span className="font-display font-semibold text-[15px] tracking-[0.08em]">
-                OPTIMIZED PERFORMANCE
+                {brand.name.toUpperCase()}
               </span>
               <span className="font-mono text-[10px] text-ink-mute tracking-[0.12em] uppercase mt-1">
-                Research Peptides
+                {brand.tagline}
               </span>
             </span>
           </div>

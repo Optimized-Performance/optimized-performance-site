@@ -2,15 +2,15 @@ import SEO from '../components/SEO';
 
 export default function TermsOfService() {
   const lastUpdated = 'April 4, 2026';
-  const companyName = 'Optimized Performance Inc.';
-  const contactEmail = 'admin@optimizedperformancepeptides.com';
+  const companyName = 'Syngyn';
+  const contactEmail = 'support@syngyn.co';
   const contactPhone = '+1 (831) 218-5147';
   const contactPhoneHref = '+18312185147';
-  const siteUrl = 'optimizedperformancepeptides.com';
+  const siteUrl = 'syngyn.co';
 
   return (
     <div className="max-w-container mx-auto px-8 pt-14 pb-20">
-      <SEO title="Terms of Service" description="Optimized Performance terms of service — research use only disclaimer, ordering terms, and policies." path="/terms" />
+      <SEO title="Terms of Service" description="Syngyn terms of service — research use only disclaimer, ordering terms, and policies." path="/terms" />
 
       <div className="pb-8 border-b border-line">
         <span className="opp-eyebrow">Legal</span>

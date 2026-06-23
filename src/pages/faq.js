@@ -37,14 +37,14 @@ const faqs = [
     items: [
       { q: 'What is your return policy?', a: 'Due to the nature of research compounds, all sales are final once shipped. We do offer replacements or refunds for damaged, defective, or incorrect items — contact us within 7 days of delivery.' },
       { q: 'What if my order arrives damaged?', a: 'Contact us within 7 days with photos of the damage. We will send a replacement or issue a full refund.' },
-      { q: 'How do I contact support?', a: 'Three channels: (1) email admin@optimizedperformancepeptides.com, (2) call/text +1 (831) 218-5147, or (3) join our customer Telegram group for direct access to the team and other customers. Email and phone both respond within 24 hours; Telegram is typically real-time during business hours. Customers who place an order receive a Telegram invite link in their order confirmation.' },
+      { q: 'How do I contact support?', a: 'Three channels: (1) email support@syngyn.co, (2) call/text +1 (831) 218-5147, or (3) join our customer Telegram group for direct access to the team and other customers. Email and phone both respond within 24 hours; Telegram is typically real-time during business hours. Customers who place an order receive a Telegram invite link in their order confirmation.' },
     ],
   },
   {
     category: 'Legal',
     items: [
       { q: 'Are these products for human use?', a: 'No. All products are sold strictly for in-vitro research and laboratory use only. They are not intended for human consumption, veterinary use, or as drugs, foods, or cosmetics.' },
-      { q: 'Do I need to be a certain age to purchase?', a: 'Yes. You must be 21 years of age or older to purchase from Optimized Performance.' },
+      { q: 'Do I need to be a certain age to purchase?', a: 'Yes. You must be 21 years of age or older to purchase from Syngyn.' },
       { q: 'Are peptides legal to purchase?', a: 'Research peptides are legal to purchase for in-vitro research purposes in the United States. They are not FDA-approved for human use.' },
     ],
   },
@@ -75,7 +75,7 @@ export default function FAQ() {
     <div className="max-w-container mx-auto px-8 pt-14 pb-20">
       <SEO
         title="FAQ"
-        description="Frequently asked questions about Optimized Performance research peptides — products, ordering, shipping, returns, and legal information."
+        description="Frequently asked questions about Syngyn research peptides — products, ordering, shipping, returns, and legal information."
         path="/faq"
       />
       <div className="pb-8 border-b border-line">
@@ -102,8 +102,8 @@ export default function FAQ() {
           <h3 className="font-display font-semibold text-lg mb-2 text-ink">Still have questions?</h3>
           <p className="text-sm text-ink-soft leading-relaxed m-0">
             Reach out at{' '}
-            <a href="mailto:admin@optimizedperformancepeptides.com" className="text-accent-strong hover:underline font-semibold">
-              admin@optimizedperformancepeptides.com
+            <a href="mailto:support@syngyn.co" className="text-accent-strong hover:underline font-semibold">
+              support@syngyn.co
             </a>
             {' '}or{' '}
             <a href="tel:+18312185147" className="text-accent-strong hover:underline font-semibold font-mono">

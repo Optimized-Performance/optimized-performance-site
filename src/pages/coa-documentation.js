@@ -5,7 +5,7 @@ export default function CoaDocumentation() {
     <div className="max-w-container mx-auto px-8 pt-14 pb-20">
       <SEO
         title="Certificate of Analysis & Lot Testing"
-        description="How Optimized Performance Inc. tests every lot through a third-party ISO/IEC 17025-accredited laboratory, and how to access the lot-specific Certificate of Analysis for any product."
+        description="How Syngyn tests every lot through a third-party ISO/IEC 17025-accredited laboratory, and how to access the lot-specific Certificate of Analysis for any product."
         path="/coa-documentation"
       />
       <div className="pb-8 border-b border-line">
@@ -22,7 +22,7 @@ export default function CoaDocumentation() {
           <Section title="Independent Testing">
             <p className={P}>
               Every product lot is independently analyzed by a third-party laboratory accredited to
-              ISO/IEC&nbsp;17025. Optimized Performance Inc. does not perform its own release testing — verification
+              ISO/IEC&nbsp;17025. Syngyn does not perform its own release testing — verification
               is external so the analytical record is independent of the supplier.
             </p>
           </Section>
@@ -65,8 +65,8 @@ export default function CoaDocumentation() {
           <Section title="Questions">
             <p className={P}>
               For documentation requests or questions about a specific lot, contact{' '}
-              <a className={A} href="mailto:admin@optimizedperformancepeptides.com">
-                admin@optimizedperformancepeptides.com
+              <a className={A} href="mailto:support@syngyn.co">
+                support@syngyn.co
               </a>.
             </p>
           </Section>

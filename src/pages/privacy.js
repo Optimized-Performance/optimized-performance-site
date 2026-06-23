@@ -2,15 +2,15 @@ import SEO from '../components/SEO';
 
 export default function PrivacyPolicy() {
   const lastUpdated = 'May 7, 2026';
-  const companyName = 'Optimized Performance Inc.';
-  const contactEmail = 'admin@optimizedperformancepeptides.com';
+  const companyName = 'Syngyn';
+  const contactEmail = 'support@syngyn.co';
   const contactPhone = '+1 (831) 218-5147';
   const contactPhoneHref = '+18312185147';
-  const siteUrl = 'optimizedperformancepeptides.com';
+  const siteUrl = 'syngyn.co';
 
   return (
     <div className="max-w-container mx-auto px-8 pt-14 pb-20">
-      <SEO title="Privacy Policy" description="Optimized Performance privacy policy — how we collect, use, and protect your data." path="/privacy" />
+      <SEO title="Privacy Policy" description="Syngyn privacy policy — how we collect, use, and protect your data." path="/privacy" />
 
       <div className="pb-8 border-b border-line">
         <span className="opp-eyebrow">Legal</span>

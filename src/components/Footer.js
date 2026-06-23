@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { Logo } from './Primitives';
+import { BRAND } from '../lib/brand';
 
 // Show the "Research inquiries" footer link only when explicitly enabled via
 // env var. Default is OFF — the /research-inquiries page is still reachable
@@ -10,6 +11,7 @@ import { Logo } from './Primitives';
 const SHOW_INQUIRY_SURFACE = process.env.NEXT_PUBLIC_SHOW_INQUIRY_SURFACE === 'true';
 
 export default function Footer() {
+  const brand = BRAND;
   return (
     <footer className="mt-20 border-t border-line bg-surfaceAlt">
       <div className="max-w-container mx-auto px-8 pt-16 pb-10 grid gap-12 md:grid-cols-[2fr_1fr_1fr_1fr] grid-cols-1">
@@ -18,28 +20,28 @@ export default function Footer() {
             <Logo size={24} />
             <span className="flex flex-col leading-none">
               <span className="font-display font-semibold text-[14px] tracking-[0.08em]">
-                OPTIMIZED PERFORMANCE
+                {brand.name.toUpperCase()}
               </span>
               <span className="font-mono text-[10px] text-ink-mute tracking-[0.12em] uppercase mt-1">
-                Research Peptides
+                {brand.tagline}
               </span>
             </span>
           </div>
           <p className="text-ink-soft text-sm max-w-md leading-relaxed mb-4">
-            High-purity lyophilized research peptides. Third-party verified. Shipped from the United States.
+            {brand.footerBlurb}
           </p>
           <div className="flex flex-col gap-1.5 text-sm mb-6">
             <a
-              href="mailto:admin@optimizedperformancepeptides.com"
+              href={`mailto:${brand.email}`}
               className="text-ink-soft hover:text-accent-strong transition-colors"
             >
-              admin@optimizedperformancepeptides.com
+              {brand.email}
             </a>
             <a
-              href="tel:+18312185147"
+              href={`tel:${brand.phoneTel}`}
               className="text-ink-soft hover:text-accent-strong transition-colors font-mono tracking-wide"
             >
-              +1 (831) 218-5147
+              {brand.phoneDisplay}
             </a>
           </div>
           <NewsletterSignup />
@@ -79,7 +81,7 @@ export default function Footer() {
           </p>
         </div>
         <div className="flex justify-between font-mono text-[11px] text-ink-mute tracking-wide">
-          <span>© {new Date().getFullYear()} Optimized Performance Inc.</span>
+          <span>© {new Date().getFullYear()} {brand.legalName}</span>
           <span>Made in the USA</span>
         </div>
       </div>

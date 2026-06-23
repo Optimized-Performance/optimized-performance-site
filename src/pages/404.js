@@ -47,8 +47,8 @@ export default function NotFound() {
             <span className="text-ink-mute"> — common questions</span>
           </li>
           <li>
-            <a href="mailto:admin@optimizedperformancepeptides.com" className="text-accent-strong hover:underline">
-              admin@optimizedperformancepeptides.com
+            <a href="mailto:support@syngyn.co" className="text-accent-strong hover:underline">
+              support@syngyn.co
             </a>
             <span className="text-ink-mute"> — contact us</span>
           </li>

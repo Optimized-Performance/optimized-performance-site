@@ -5,7 +5,7 @@ export default function ShippingReturns() {
     <div className="max-w-container mx-auto px-8 pt-14 pb-20">
       <SEO
         title="Shipping & Returns"
-        description="Optimized Performance shipping policy — processing times, carriers, tracking, and return policy for research peptide orders."
+        description="Syngyn shipping policy — processing times, carriers, tracking, and return policy for research peptide orders."
         path="/shipping"
       />
 
@@ -88,7 +88,7 @@ export default function ShippingReturns() {
 
           <Section title="Returns & Refunds">
             <p className="text-sm text-ink-soft leading-relaxed mb-3">
-              We want every order to land right. The policy below is straightforward — email <a href="mailto:admin@optimizedperformancepeptides.com" className="text-accent-strong hover:underline">admin@optimizedperformancepeptides.com</a> or call <a href="tel:+18312185147" className="text-accent-strong hover:underline font-mono">(831) 218-5147</a> the moment something is off and we&apos;ll work it out.
+              We want every order to land right. The policy below is straightforward — email <a href="mailto:support@syngyn.co" className="text-accent-strong hover:underline">support@syngyn.co</a> or call <a href="tel:+18312185147" className="text-accent-strong hover:underline font-mono">(831) 218-5147</a> the moment something is off and we&apos;ll work it out.
             </p>
             <ul className="list-disc pl-5 space-y-1.5 text-sm text-ink-soft leading-relaxed">
               <li><strong className="text-ink">Damaged, defective, or incorrect items:</strong> Contact us within 7 days of delivery with photos. We replace at no charge or issue a full refund — your call.</li>
@@ -120,8 +120,8 @@ export default function ShippingReturns() {
             <div className="bg-surfaceAlt border border-line rounded-opp p-5 mb-3">
               <p className="text-sm text-ink-soft mb-1 m-0">
                 Email:{' '}
-                <a href="mailto:admin@optimizedperformancepeptides.com" className="text-accent-strong hover:underline font-semibold">
-                  admin@optimizedperformancepeptides.com
+                <a href="mailto:support@syngyn.co" className="text-accent-strong hover:underline font-semibold">
+                  support@syngyn.co
                 </a>
               </p>
               <p className="text-sm text-ink-soft m-0">

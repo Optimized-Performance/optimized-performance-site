@@ -2,6 +2,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useCart } from '../context/CartContext';
+import { BRAND } from '../lib/brand';
 import { Logo, Icon } from './Primitives';
 
 const NAV = [
@@ -12,6 +13,7 @@ const NAV = [
 
 export default function Header() {
   const { cartCount, setIsCartOpen } = useCart();
+  const brand = BRAND;
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
   const path = router.asPath.split('?')[0];
@@ -23,10 +25,10 @@ export default function Header() {
           <Logo size={28} />
           <span className="flex flex-col leading-none">
             <span className="font-display font-semibold text-[14px] tracking-[0.08em]">
-              OPTIMIZED PERFORMANCE
+              {brand.name.toUpperCase()}
             </span>
             <span className="font-mono text-[10px] text-ink-mute tracking-[0.12em] uppercase mt-1">
-              Research Peptides
+              {brand.tagline}
             </span>
           </span>
         </Link>

@@ -1,16 +1,14 @@
 import Head from 'next/head';
-
-const SITE_NAME = 'Optimized Performance Peptides';
-const SITE_URL = 'https://optimizedperformancepeptides.com';
-// Default description is what unflagged visitors / scrapers see. Deliberately
-// omits restricted SKU names (GLP-3, HGH 191AA) so the public-internet meta
-// description stays AUP-clean. Pages that need cohort-aware descriptions
-// (shop, homepage) pass their own `description` prop derived from the
-// resolved cohort flag.
-const DEFAULT_DESC = 'Research-grade peptides. 99% average purity, third-party tested, US owned & operated. BPC-157, TB-500, Ipamorelin, MT-2, NAD+, and more. Ships within 24 hours.';
+import { BRAND } from '../lib/brand';
 
 export default function SEO({ title, description, path = '', noindex = false }) {
-  const pageTitle = title ? `${title} | ${SITE_NAME}` : `${SITE_NAME} — Research Peptides | 99% Purity`;
+  // Brand meta from the central Syngyn config — neutral (no SKU names/"peptide").
+  // Pages may still pass a cohort-aware `description` to override the default.
+  const brand = BRAND;
+  const SITE_NAME = brand.siteName;
+  const SITE_URL = brand.siteUrl;
+  const DEFAULT_DESC = brand.metaDescription;
+  const pageTitle = title ? `${title} | ${SITE_NAME}` : `${SITE_NAME} — ${brand.tagline} | 99% Purity`;
   const pageDesc = description || DEFAULT_DESC;
   const url = `${SITE_URL}${path}`;
   // Cohort-gated views (private inquiry pages for unflagged visitors hitting

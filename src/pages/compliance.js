@@ -5,7 +5,7 @@ export default function Compliance() {
     <div className="max-w-container mx-auto px-8 pt-14 pb-20">
       <SEO
         title="Compliance & Research-Use Policy"
-        description="Optimized Performance Inc. supplies analytical-grade reference materials exclusively for in-vitro laboratory research. Research-use-only scope, qualified-buyer requirements, and prohibited uses."
+        description="Syngyn supplies analytical-grade reference materials exclusively for in-vitro laboratory research. Research-use-only scope, qualified-buyer requirements, and prohibited uses."
         path="/compliance"
       />
       <div className="pb-8 border-b border-line">
@@ -21,7 +21,7 @@ export default function Compliance() {
         <div className="card-premium p-8 md:p-12">
           <Section title="Research-Use-Only Scope">
             <p className={P}>
-              All products supplied by Optimized Performance Inc. are analytical-grade reference materials
+              All products supplied by Syngyn are analytical-grade reference materials
               intended exclusively for in-vitro research, analytical method development, identity verification,
               and laboratory evaluation. They are <strong>not</strong> intended for human or animal consumption,
               therapeutic use, clinical use, diagnostic use, dietary supplementation, dosing, injection, ingestion,
@@ -84,8 +84,8 @@ export default function Compliance() {
             <p className={P}>
               Certain materials are made available only to verified research contacts through direct inquiry and are
               not listed for general purchase. For availability of materials not shown in the catalog, contact{' '}
-              <a className={A} href="mailto:admin@optimizedperformancepeptides.com">
-                admin@optimizedperformancepeptides.com
+              <a className={A} href="mailto:support@syngyn.co">
+                support@syngyn.co
               </a>.
             </p>
           </Section>
