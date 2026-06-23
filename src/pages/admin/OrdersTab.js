@@ -533,7 +533,7 @@ export default function OrdersTab({ products = [], showSaveMsg, token }) {
         .meta-line { font-size: 11px; color: #777; }
         .qty { font-variant-numeric: tabular-nums; font-weight: 700; white-space: nowrap; }
       </style></head><body>
-      <h1>Optimized Performance — Pick List</h1>
+      <h1>Syngyn — Pick List</h1>
       <div class="meta">${pickListData.order_count} order(s) · ${pickListData.total_vials} vials total · generated ${new Date(pickListData.generated_at).toLocaleString()}</div>
       ${groups.map((g) => `
         <h2>${g.category}</h2>

@@ -50,7 +50,7 @@ export default function AffiliateLoginPage() {
             <Link href="/" className="flex items-center gap-3 text-ink no-underline">
               <Logo size={28} />
               <div>
-                <div className="font-display font-semibold text-base">Optimized Performance</div>
+                <div className="font-display font-semibold text-base">Syngyn</div>
                 <div className="opp-meta-mono">Affiliate Portal</div>
               </div>
             </Link>
@@ -97,8 +97,8 @@ export default function AffiliateLoginPage() {
 
             <p className="opp-meta-mono mt-6 text-ink-mute text-center">
               Don&apos;t have credentials? Email{' '}
-              <a className="text-accent-strong" href="mailto:admin@optimizedperformancepeptides.com">
-                admin@optimizedperformancepeptides.com
+              <a className="text-accent-strong" href="mailto:support@syngyn.co">
+                support@syngyn.co
               </a>
             </p>
           </div>

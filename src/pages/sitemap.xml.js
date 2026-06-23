@@ -1,6 +1,6 @@
 import { getVisibleCatalog } from '../lib/catalog';
 
-const SITE_URL = 'https://optimizedperformancepeptides.com';
+const SITE_URL = 'https://syngyn.co';
 
 // Public sitemap. Always omits restricted SKUs (GLP-3, HGH 191AA) — search
 // engines never see these URLs regardless of cohort gate state. Keeps the

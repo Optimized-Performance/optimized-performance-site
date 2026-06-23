@@ -5,7 +5,7 @@ import { useCart } from '../../context/CartContext'
 import SEO from '../../components/SEO'
 import { Icon } from '../../components/Primitives'
 
-const ZELLE_RECIPIENT = 'admin@optimizedperformancepeptides.com'
+const ZELLE_RECIPIENT = 'support@syngyn.co'
 
 export default function ZelleInstructions() {
   const router = useRouter()
@@ -85,7 +85,7 @@ export default function ZelleInstructions() {
 
         <p className="opp-meta-mono text-ink-mute mb-8">
           Order pending up to 72 hours. After that, unmatched orders are cancelled and any reserved inventory is released. Questions: email{' '}
-          <a href="mailto:admin@optimizedperformancepeptides.com" className="text-accent-strong hover:underline">admin@optimizedperformancepeptides.com</a>{' '}
+          <a href="mailto:support@syngyn.co" className="text-accent-strong hover:underline">support@syngyn.co</a>{' '}
           or call <a href="tel:+18312185147" className="font-mono text-accent-strong hover:underline">(831) 218-5147</a>.
         </p>
 

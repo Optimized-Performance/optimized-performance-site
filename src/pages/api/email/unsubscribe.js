@@ -11,7 +11,7 @@ function page(title, msg) {
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title>
 <style>body{font-family:system-ui,-apple-system,sans-serif;max-width:34rem;margin:4rem auto;padding:0 1.25rem;color:#1a1a1a;line-height:1.5}h1{font-size:1.25rem}a{color:#0a7d5a}</style>
 </head><body><h1>${title}</h1><p>${msg}</p>
-<p><a href="https://optimizedperformancepeptides.com">Return to Optimized Performance</a></p></body></html>`
+<p><a href="https://syngyn.co">Return to Syngyn</a></p></body></html>`
 }
 
 export default async function handler(req, res) {

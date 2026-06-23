@@ -39,10 +39,10 @@ export default function CheckoutSuccess() {
         </p>
       )}
       <p className="opp-meta-mono text-ink-mute max-w-lg mx-auto mb-2">
-        Charge will appear on your statement as <span className="font-mono text-ink">OPTIMIZED PERFORMANCE INC</span>
+        Charge will appear on your statement as <span className="font-mono text-ink">SYNGYN INC</span>
       </p>
       <p className="text-xs text-ink-mute max-w-md mx-auto mb-8">
-        Anything off with your order? Email <a href="mailto:admin@optimizedperformancepeptides.com" className="text-accent-strong hover:underline">admin@optimizedperformancepeptides.com</a> or call <a href="tel:+18312185147" className="font-mono text-accent-strong hover:underline">(831) 218-5147</a> — direct refunds are faster than disputes. See <Link href="/shipping#returns-refunds" className="text-accent-strong hover:underline">Returns &amp; Refunds</Link>.
+        Anything off with your order? Email <a href="mailto:support@syngyn.co" className="text-accent-strong hover:underline">support@syngyn.co</a> or call <a href="tel:+18312185147" className="font-mono text-accent-strong hover:underline">(831) 218-5147</a> — direct refunds are faster than disputes. See <Link href="/shipping#returns-refunds" className="text-accent-strong hover:underline">Returns &amp; Refunds</Link>.
       </p>
       <div className="flex items-center justify-center gap-4 flex-wrap">
         {orderNumber && (

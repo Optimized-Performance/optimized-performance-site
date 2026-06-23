@@ -83,7 +83,7 @@ export default function AdminPage() {
             <Logo size={36} />
           </div>
           <h2 className="font-display font-semibold tracking-display text-2xl m-0 mb-1 text-ink">Admin Access</h2>
-          <p className="opp-meta-mono uppercase m-0 mb-7">Optimized Performance Inc.</p>
+          <p className="opp-meta-mono uppercase m-0 mb-7">Syngyn</p>
           <form onSubmit={handleLogin} className="flex flex-col gap-2.5">
             <input
               type="password"
@@ -126,7 +126,7 @@ export default function AdminPage() {
             <div>
               <h1 className="font-display font-semibold tracking-display text-xl m-0">Admin Dashboard</h1>
               <p className="font-mono text-[11px] text-paper/50 tracking-wider m-0 mt-0.5">
-                Optimized Performance Inc.
+                Syngyn
               </p>
             </div>
           </div>

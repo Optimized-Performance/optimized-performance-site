@@ -12,7 +12,7 @@ const STORAGE_KEY = 'opp-launch-banner-dismissed';
 // reach a real mailbox out of the box. Swap for a Telegram invite / waitlist
 // page whenever that's live.
 const WAITLIST_URL =
-  'mailto:admin@optimizedperformancepeptides.com?subject=Waitlist%20%E2%80%94%20add%20me%20for%20launch&body=Add%20me%20to%20the%20OPP%20launch%20waitlist.';
+  'mailto:support@syngyn.co?subject=Waitlist%20%E2%80%94%20add%20me%20for%20launch&body=Add%20me%20to%20the%20OPP%20launch%20waitlist.';
 
 function daysUntilLaunch() {
   const launch = new Date(LAUNCH_YEAR, LAUNCH_MONTH_INDEX, LAUNCH_DAY, 0, 0, 0);

@@ -210,7 +210,7 @@ export default function AffiliateDashboard() {
             <Stat label="Lifetime royalty paid" value={fmtUsd(me.royalty.lifetime_paid)} tone="success" />
           </div>
           <p className="opp-meta-mono mt-3 text-ink-mute">
-            Royalty is {me.royalty.pct}% of Optimized Performance&apos;s total gross revenue across all sales and channels, processed monthly.
+            Royalty is {me.royalty.pct}% of Syngyn&apos;s total gross revenue across all sales and channels, processed monthly.
           </p>
         </div>
       )}
@@ -455,7 +455,7 @@ function Shell({ children }) {
             <Link href="/" className="flex items-center gap-3 text-ink no-underline">
               <Logo size={28} />
               <div>
-                <div className="font-display font-semibold text-base">Optimized Performance</div>
+                <div className="font-display font-semibold text-base">Syngyn</div>
                 <div className="opp-meta-mono">Affiliate Portal</div>
               </div>
             </Link>
