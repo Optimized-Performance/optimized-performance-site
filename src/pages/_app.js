@@ -24,7 +24,10 @@ const jetbrainsMono = JetBrains_Mono({
   display: 'swap',
 });
 
-const AgeGate = dynamic(() => import('../components/AgeGate'), { ssr: false });
+// SSR ON for the age gate: it must be a server-rendered "confirm on entry" gate
+// so compliance scanners (which don't execute JS) can detect it. Returning
+// visitors are hidden pre-paint via the _document inline script (.rg-verified).
+const AgeGate = dynamic(() => import('../components/AgeGate'), { ssr: true });
 const LaunchBanner = dynamic(() => import('../components/LaunchBanner'), { ssr: false });
 const MemorialDayBanner = dynamic(() => import('../components/MemorialDayBanner'), { ssr: false });
 const Glp3BogoBanner = dynamic(() => import('../components/Glp3BogoBanner'), { ssr: false });

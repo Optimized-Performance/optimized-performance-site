@@ -29,19 +29,19 @@ const ATTESTATIONS = [
 
 export default function AgeGate() {
   const brand = BRAND;
-  // Default to "verified" so SSR and first client paint match (no hydration
-  // flash); useEffect then reveals the gate only if not previously attested.
-  const [verified, setVerified] = useState(true);
+  // Default to NOT verified so the gate renders server-side — a real "confirm
+  // on entry" gate that compliance scanners (no JS) can detect. For returning
+  // visitors, an inline script in _document adds .rg-verified to <html>, which
+  // hides #research-gate pre-paint (no flash); the effect below then unmounts.
+  const [verified, setVerified] = useState(false);
   const [ready, setReady] = useState(false);
   const [checks, setChecks] = useState({});
 
   useEffect(() => {
     try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored !== 'true') setVerified(false);
+      if (localStorage.getItem(STORAGE_KEY) === 'true') setVerified(true);
     } catch {
-      // localStorage blocked (private browsing, etc.) — default to showing gate
-      setVerified(false);
+      // localStorage blocked (private browsing, etc.) — keep the gate up
     }
     setReady(true);
   }, []);
@@ -56,7 +56,7 @@ export default function AgeGate() {
     };
   }, [ready, verified]);
 
-  if (!ready || verified) return null;
+  if (verified) return null;
 
   const allChecked = ATTESTATIONS.every((a) => checks[a.id]);
 
@@ -78,6 +78,7 @@ export default function AgeGate() {
 
   return (
     <div
+      id="research-gate"
       className="fixed inset-0 z-[100] bg-paper text-ink overflow-y-auto"
       role="dialog"
       aria-modal="true"
