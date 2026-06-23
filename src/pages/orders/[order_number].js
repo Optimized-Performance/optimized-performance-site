@@ -109,7 +109,7 @@ export default function OrderLookup() {
     <div className="max-w-narrow mx-auto px-8 pt-14 pb-20">
       <SEO
         title={order ? `Order ${order.order_number}` : 'Order Lookup'}
-        description="Check the status of your Optimized Performance order."
+        description="Check the status of your Syngyn order."
         path=""
         noindex
       />
@@ -299,8 +299,8 @@ export default function OrderLookup() {
             <div className="text-center">
               <p className="text-sm text-ink-soft mb-4">
                 Something off? Email{' '}
-                <a href="mailto:admin@optimizedperformancepeptides.com" className="text-accent-strong hover:underline">
-                  admin@optimizedperformancepeptides.com
+                <a href="mailto:support@syngyn.co" className="text-accent-strong hover:underline">
+                  support@syngyn.co
                 </a>{' '}
                 or call{' '}
                 <a href="tel:+18312185147" className="text-accent-strong hover:underline font-mono">

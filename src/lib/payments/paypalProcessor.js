@@ -79,7 +79,7 @@ export async function createPaypalCheckoutSession({ orderNumber, amountCents, cu
       {
         reference_id: orderNumber,
         custom_id: orderNumber,
-        description: `Optimized Performance Inc. order ${orderNumber}`,
+        description: `Syngyn order ${orderNumber}`,
         amount: {
           currency_code: (currency || 'USD').toUpperCase(),
           value: (amountCents / 100).toFixed(2),
@@ -87,7 +87,7 @@ export async function createPaypalCheckoutSession({ orderNumber, amountCents, cu
       },
     ],
     application_context: {
-      brand_name: 'Optimized Performance',
+      brand_name: 'Syngyn',
       user_action: 'PAY_NOW',
       shipping_preference: 'NO_SHIPPING',
       return_url: returnUrl,

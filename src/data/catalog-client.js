@@ -39,7 +39,7 @@ export function shouldShowRestricted(cohortAllowed) {
 export function getPrivateInquiryUrl() {
   return (
     process.env.NEXT_PUBLIC_PRIVATE_INQUIRY_URL ||
-    'mailto:admin@optimizedperformancepeptides.com?subject=Research%20inquiry&body=I%27m%20interested%20in%20a%20research%20inquiry.'
+    'mailto:support@syngyn.co?subject=Research%20inquiry&body=I%27m%20interested%20in%20a%20research%20inquiry.'
   );
 }
 

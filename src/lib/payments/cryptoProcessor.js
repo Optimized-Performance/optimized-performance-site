@@ -24,7 +24,7 @@ async function nowpaymentsCreateInvoice({ orderNumber, amountCents, currency, re
     price_amount: Number((amountCents / 100).toFixed(2)),
     price_currency: (currency || 'USD').toLowerCase(),
     order_id: orderNumber,
-    order_description: `Optimized Performance Inc. order ${orderNumber}`,
+    order_description: `Syngyn order ${orderNumber}`,
     ipn_callback_url: callbackUrl,
     success_url: returnUrl,
     cancel_url: cancelUrl,

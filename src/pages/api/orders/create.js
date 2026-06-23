@@ -13,7 +13,7 @@ import { verifyRecoveryToken } from '../../../lib/recovery'
 import { generateOrderNumber } from '../../../lib/order-number'
 import { getCatalog } from '../../../lib/catalog'
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://optimizedperformancepeptides.com'
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://syngyn.co'
 
 // Stable fingerprint of a cart for duplicate-order detection: sorted sku:qty
 // lines + the order total. Two checkouts of the same cart at the same price

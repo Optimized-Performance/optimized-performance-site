@@ -9,7 +9,7 @@ import { RECOVERY_QUERY_PARAM } from './recovery-config'
 const NUDGE_AFTER_HOURS = 1
 const NUDGE_MAX_AGE_HOURS = 48
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://optimizedperformancepeptides.com'
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://syngyn.co'
 
 // Send the 1-hour payment-recovery email for any instant-rail order stuck in
 // 'awaiting_payment' that hasn't been nudged yet. Idempotent — nudge_sent_at is

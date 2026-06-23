@@ -8,7 +8,7 @@
 //   2. Footer — append a one-click unsubscribe link + physical postal address
 //      (CAN-SPAM requires both) + the RUO line, on every marketing email.
 //   3. Separate sending identity — sends FROM `MARKETING_FROM_EMAIL` (a distinct
-//      subdomain, e.g. news@news.optimizedperformancepeptides.com) so a
+//      subdomain, e.g. news@news.syngyn.co) so a
 //      marketing reputation hit can't drag down transactional deliverability.
 //
 // Transactional mail (lib/alerts.js) intentionally does NOT use this — receipts
@@ -18,13 +18,13 @@ import crypto from 'crypto'
 import { supabaseAdmin } from './supabase'
 import { escapeLike } from './security'
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://optimizedperformancepeptides.com'
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://syngyn.co'
 
 // Distinct marketing sender — set this to the authenticated subdomain address.
 // Falls back to the main domain so nothing breaks if unset, but DO set it
 // before any broadcast so marketing reputation stays isolated from transactional.
-const MARKETING_FROM = process.env.MARKETING_FROM_EMAIL || 'news@optimizedperformancepeptides.com'
-const MARKETING_FROM_NAME = process.env.MARKETING_FROM_NAME || 'Optimized Performance'
+const MARKETING_FROM = process.env.MARKETING_FROM_EMAIL || 'news@syngyn.co'
+const MARKETING_FROM_NAME = process.env.MARKETING_FROM_NAME || 'Syngyn'
 // CAN-SPAM requires a valid physical postal address in every marketing email.
 // Set to OPP's registered business / PO address (NOT a home address).
 const POSTAL_ADDRESS = process.env.MARKETING_POSTAL_ADDRESS || ''
@@ -107,7 +107,7 @@ function footerLines(toEmail) {
   return [
     ``,
     `—`,
-    `You're receiving this because you're an Optimized Performance customer.`,
+    `You're receiving this because you're an Syngyn customer.`,
     `Unsubscribe: ${unsubscribeUrl(toEmail)}`,
     POSTAL_ADDRESS ? POSTAL_ADDRESS : '',
     `For research use only.`,
@@ -130,7 +130,7 @@ async function sendOneMarketing({ toEmail, subject, bodyLines }) {
       body: JSON.stringify({
         personalizations: [{ to: [{ email: toEmail }] }],
         from: { email: MARKETING_FROM, name: MARKETING_FROM_NAME },
-        reply_to: { email: 'admin@optimizedperformancepeptides.com' },
+        reply_to: { email: 'support@syngyn.co' },
         subject,
         content: [{ type: 'text/plain', value }],
       }),

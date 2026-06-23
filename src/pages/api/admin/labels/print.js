@@ -47,7 +47,7 @@ const TILE_H = Math.round(LABEL_H / 2)  // 120 — 15mm
 // (drops to version 3, 29 modules, ~0.45 mm/module).
 const QR_SIZE = 104  // ~13 mm
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://optimizedperformancepeptides.com'
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://syngyn.co'
 
 async function buildLabelSvg({ qrPng }) {
   const qrDataUri = `data:image/png;base64,${qrPng.toString('base64')}`

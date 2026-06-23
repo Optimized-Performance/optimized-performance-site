@@ -738,7 +738,7 @@ export default function Checkout() {
             ) : (
               <div className="p-4 rounded-opp-lg border border-line bg-surfaceAlt text-center text-ink-soft text-sm">
                 No payment methods are currently available. Please email{' '}
-                <a href="mailto:admin@optimizedperformancepeptides.com" className="text-accent-strong hover:underline">admin@optimizedperformancepeptides.com</a> to complete your order.
+                <a href="mailto:support@syngyn.co" className="text-accent-strong hover:underline">support@syngyn.co</a> to complete your order.
               </div>
             )}
             <p className="opp-meta-mono text-center mt-4 leading-relaxed m-0">

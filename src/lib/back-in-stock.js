@@ -1,7 +1,7 @@
 import { supabaseAdmin } from './supabase'
 import { sendMarketingEmail } from './marketing-email'
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://optimizedperformancepeptides.com'
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://syngyn.co'
 
 // Notify customers who asked to be told when a product comes back. For every
 // product_notify_requests row not yet notified whose SKU now has stock, send a

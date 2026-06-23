@@ -4,7 +4,7 @@ import { signRecoveryToken } from './recovery'
 import { RECOVERY_DISCOUNT_PCT } from './recovery-config'
 import { cycleDaysFor, GRACE_DAYS } from './replenishment-config'
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://optimizedperformancepeptides.com'
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://syngyn.co'
 
 // How far back to scan completed orders to find each customer's most-recent
 // purchase of each product. Must comfortably exceed the longest cycle + grace.

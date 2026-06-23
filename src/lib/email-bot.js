@@ -30,7 +30,7 @@ async function callClaude({ system, messages, max_tokens = 1024, temperature = 0
   return { text, raw: data }
 }
 
-const CLASSIFY_SYSTEM = `You are a triage bot for Optimized Performance Inc., a research peptide company. You read incoming customer emails and classify them into one of these buckets:
+const CLASSIFY_SYSTEM = `You are a triage bot for Syngyn, a research peptide company. You read incoming customer emails and classify them into one of these buckets:
 
 - order_status: Customer asking about an existing order's status (where is my order, when will it ship, has it shipped, etc.)
 - tracking: Customer asking for the tracking number or trying to track a shipment
@@ -50,7 +50,7 @@ Output ONLY a single JSON object with these fields, no other text:
 If the email is in a language other than English, classify as best you can and note in reason.
 If you cannot classify, use "other" and explain in reason.`
 
-const REPLY_SYSTEM = `You are drafting a customer service reply for Optimized Performance Inc., a research peptide company. The brand voice is "common folk helping common folk" — plainspoken, direct, no corporate fluff. Short paragraphs.
+const REPLY_SYSTEM = `You are drafting a customer service reply for Syngyn, a research peptide company. The brand voice is "common folk helping common folk" — plainspoken, direct, no corporate fluff. Short paragraphs.
 
 Hard rules:
 - All products are research-use-only (RUO). Never imply or condone human use.

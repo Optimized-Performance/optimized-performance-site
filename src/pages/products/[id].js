@@ -17,7 +17,7 @@ import { isMemorialDaySaleActive, getSalePrice, MEMORIAL_DAY_DISCOUNT_PCT, isBog
 // supabaseAdmin it pulls) from the client bundle automatically.
 import { getCatalog } from '../../lib/catalog';
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://optimizedperformancepeptides.com';
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://syngyn.co';
 
 const LOW_STOCK_THRESHOLD = 20;
 
@@ -395,7 +395,7 @@ export default function ProductDetail({
               {product.category === 'Supplies' ? (
                 <>
                   USP Grade Sterile. Manufacturer sterility certificate available on request
-                  at <a href="mailto:admin@optimizedperformancepeptides.com" className="text-accent-strong hover:underline">admin@optimizedperformancepeptides.com</a>.
+                  at <a href="mailto:support@syngyn.co" className="text-accent-strong hover:underline">support@syngyn.co</a>.
                 </>
               ) : coaQr ? (
                 <div className="flex items-start gap-4">
@@ -412,7 +412,7 @@ export default function ProductDetail({
                       view the COA
                     </a>
                     {' '}directly. Earlier batches available on request at{' '}
-                    <a href="mailto:admin@optimizedperformancepeptides.com" className="text-accent-strong hover:underline">admin@optimizedperformancepeptides.com</a>.
+                    <a href="mailto:support@syngyn.co" className="text-accent-strong hover:underline">support@syngyn.co</a>.
                   </div>
                   <div
                     className="shrink-0 p-1.5 bg-surface border border-line rounded-opp"
@@ -424,7 +424,7 @@ export default function ProductDetail({
               ) : (
                 <>
                   Independent third-party HPLC verified. COA available per batch upon request
-                  at <a href="mailto:admin@optimizedperformancepeptides.com" className="text-accent-strong hover:underline">admin@optimizedperformancepeptides.com</a>.
+                  at <a href="mailto:support@syngyn.co" className="text-accent-strong hover:underline">support@syngyn.co</a>.
                 </>
               )}
             </ComplianceRow>

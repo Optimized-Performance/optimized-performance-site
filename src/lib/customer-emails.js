@@ -7,7 +7,7 @@
 import { renderBrandedEmail } from './email-layout'
 import { emailFooterLines } from './alerts'
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://optimizedperformancepeptides.com'
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://syngyn.co'
 
 async function send({ to, subject, text, html }) {
   const apiKey = process.env.SENDGRID_API_KEY
@@ -21,7 +21,7 @@ async function send({ to, subject, text, html }) {
       headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         personalizations: [{ to: [{ email: to }] }],
-        from: { email: process.env.FROM_EMAIL || 'orders@optimizedperformancepeptides.com' },
+        from: { email: process.env.FROM_EMAIL || 'orders@syngyn.co' },
         subject,
         content: [
           { type: 'text/plain', value: text },
@@ -52,7 +52,7 @@ export async function sendVerificationEmail(customer, token) {
     ``,
     `If you didn't create an account with us, you can ignore this email.`,
     ``,
-    `— Optimized Performance`,
+    `— Syngyn`,
   ].join('\n')
   const html = renderBrandedEmail({
     preheader: 'One click to unlock your order history.',
@@ -66,7 +66,7 @@ export async function sendVerificationEmail(customer, token) {
     note: `If you didn't create an account with us, ignore this email — nothing happens without the click.`,
     footerLines: emailFooterLines(),
   })
-  return send({ to: customer.email, subject: 'Verify your email — Optimized Performance', text, html })
+  return send({ to: customer.email, subject: 'Verify your email — Syngyn', text, html })
 }
 
 export async function sendPasswordResetEmail(customer, token) {
@@ -80,10 +80,10 @@ export async function sendPasswordResetEmail(customer, token) {
     `changes. If you didn't request this, you can ignore it — your current`,
     `password stays active.`,
     ``,
-    `— Optimized Performance`,
+    `— Syngyn`,
   ].join('\n')
   const html = renderBrandedEmail({
-    preheader: 'Reset your Optimized Performance password.',
+    preheader: 'Reset your Syngyn password.',
     eyebrow: 'Account',
     heading: 'Reset your password',
     paragraphs: [
@@ -94,5 +94,5 @@ export async function sendPasswordResetEmail(customer, token) {
     note: `Didn't request this? Ignore it — your current password stays active.`,
     footerLines: emailFooterLines(),
   })
-  return send({ to: customer.email, subject: 'Reset your password — Optimized Performance', text, html })
+  return send({ to: customer.email, subject: 'Reset your password — Syngyn', text, html })
 }

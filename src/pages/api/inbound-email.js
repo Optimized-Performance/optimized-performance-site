@@ -46,7 +46,7 @@ function isInternalSender(email) {
 // is skipped. Configurable via SUPPORT_EMAILS (comma-separated); defaults to the
 // customer-facing support + orders addresses.
 const SUPPORT_RECIPIENTS = (process.env.SUPPORT_EMAILS
-  || 'admin@optimizedperformancepeptides.com,orders@optimizedperformancepeptides.com')
+  || 'support@syngyn.co,orders@syngyn.co,admin@optimizedperformancepeptides.com,orders@optimizedperformancepeptides.com')
   .split(',').map((s) => s.trim().toLowerCase()).filter(Boolean)
 function isSupportRecipient(toRaw) {
   const t = String(toRaw || '').toLowerCase()

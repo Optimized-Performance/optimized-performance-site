@@ -4,15 +4,15 @@
 import { RECOVERY_DISCOUNT_PCT } from './recovery-config';
 import { renderBrandedEmail, emailDetailTable, escapeHtml, EMAIL_FONT } from './email-layout';
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://optimizedperformancepeptides.com';
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://syngyn.co';
 
 // Shared footer for branded customer emails. Exported for the customer
 // account emails (lib/customer-emails.js) so every customer-facing send
 // carries the identical footer.
 export function emailFooterLines() {
   return [
-    `Optimized Performance Inc.${process.env.MARKETING_POSTAL_ADDRESS ? ' &middot; ' + process.env.MARKETING_POSTAL_ADDRESS : ''}`,
-    `<a href="mailto:admin@optimizedperformancepeptides.com" style="color:#6E6D68;text-decoration:underline;">admin@optimizedperformancepeptides.com</a> &middot; (831) 218-5147`,
+    `Syngyn${process.env.MARKETING_POSTAL_ADDRESS ? ' &middot; ' + process.env.MARKETING_POSTAL_ADDRESS : ''}`,
+    `<a href="mailto:support@syngyn.co" style="color:#6E6D68;text-decoration:underline;">support@syngyn.co</a> &middot; (831) 218-5147`,
     `For research use only. Not for human consumption.`,
   ];
 }
@@ -50,7 +50,7 @@ export async function sendEmailAlert(items, level) {
       headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         personalizations: [{ to: [{ email: toEmail }] }],
-        from: { email: process.env.FROM_EMAIL || 'alerts@optimizedperformancepeptides.com' },
+        from: { email: process.env.FROM_EMAIL || 'alerts@syngyn.co' },
         subject,
         content: [{ type: 'text/plain', value: body }],
       }),
@@ -140,13 +140,13 @@ export async function sendShipmentNotification(order) {
     lookupUrl ? `Order details: ${lookupUrl}` : ``,
     ``,
     `If anything is off when it arrives — wrong item, damage, missing pieces — email`,
-    `admin@optimizedperformancepeptides.com or call (831) 218-5147 the same day.`,
+    `support@syngyn.co or call (831) 218-5147 the same day.`,
     `Direct refunds are faster than disputes; please reach out to us first.`,
     ``,
-    `Charge appears on your statement as: OPTIMIZED PERFORMANCE INC`,
+    `Charge appears on your statement as: SYNGYN INC`,
     ``,
     `For research use only.`,
-    `— Optimized Performance`,
+    `— Syngyn`,
   ].filter(Boolean).join('\n');
 
   const html = renderBrandedEmail({
@@ -159,7 +159,7 @@ export async function sendShipmentNotification(order) {
       { label: 'Tracking #', value: escapeHtml(order.tracking), strong: true },
     ]),
     cta: url ? { text: 'Track shipment', url } : (lookupUrl ? { text: 'View order', url: lookupUrl } : null),
-    note: `Anything off when it arrives — wrong item, damage, missing pieces? Email admin@optimizedperformancepeptides.com or call (831) 218-5147 the same day. Direct refunds are faster than disputes — please reach out first. Charge appears as OPTIMIZED PERFORMANCE INC.`,
+    note: `Anything off when it arrives — wrong item, damage, missing pieces? Email support@syngyn.co or call (831) 218-5147 the same day. Direct refunds are faster than disputes — please reach out first. Charge appears as SYNGYN`,
     trust: ['Tracked delivery', 'COA-verified', 'Same-day support'],
     footerLines: emailFooterLines(),
   });
@@ -170,7 +170,7 @@ export async function sendShipmentNotification(order) {
       headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         personalizations: [{ to: [{ email: order.customer_email }] }],
-        from: { email: process.env.FROM_EMAIL || 'orders@optimizedperformancepeptides.com' },
+        from: { email: process.env.FROM_EMAIL || 'orders@syngyn.co' },
         subject: `Shipped — ${order.order_number}`,
         content: [
           { type: 'text/plain', value: body },
@@ -200,11 +200,11 @@ export async function sendDeliveryFollowup(order) {
     url ? `Track: ${url}` : '',
     ``,
     `If it's already arrived, you can ignore this. If not, email`,
-    `admin@optimizedperformancepeptides.com or call (831) 218-5147 and we'll`,
+    `support@syngyn.co or call (831) 218-5147 and we'll`,
     `look into it. We'd much rather sort out a delivery issue together than`,
     `have you file a dispute with your card company.`,
     ``,
-    `— Optimized Performance`,
+    `— Syngyn`,
   ].filter(Boolean).join('\n');
 
   const html = renderBrandedEmail({
@@ -214,7 +214,7 @@ export async function sendDeliveryFollowup(order) {
     paragraphs: [`Your order <strong style="color:#F5F3EC;">${escapeHtml(order.order_number)}</strong> shipped about a week ago — if it's already here, you can ignore this.`],
     extraHtml: order.tracking ? emailDetailTable([{ label: 'Tracking #', value: escapeHtml(order.tracking), strong: true }]) : '',
     cta: url ? { text: 'Track shipment', url } : null,
-    note: `Not here yet? Email admin@optimizedperformancepeptides.com or call (831) 218-5147 and we'll look into it — we'd much rather sort out a delivery issue together than have you file a dispute.`,
+    note: `Not here yet? Email support@syngyn.co or call (831) 218-5147 and we'll look into it — we'd much rather sort out a delivery issue together than have you file a dispute.`,
     footerLines: emailFooterLines(),
   });
 
@@ -224,7 +224,7 @@ export async function sendDeliveryFollowup(order) {
       headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         personalizations: [{ to: [{ email: order.customer_email }] }],
-        from: { email: process.env.FROM_EMAIL || 'orders@optimizedperformancepeptides.com' },
+        from: { email: process.env.FROM_EMAIL || 'orders@syngyn.co' },
         subject: `Checking in on order ${order.order_number}`,
         content: [
           { type: 'text/plain', value: body },
@@ -269,7 +269,7 @@ export async function sendPaymentRecoveryNudge(order, recoverUrl) {
     `Questions or want a hand? Reply to this email or call (831) 218-5147.`,
     ``,
     `For research use only.`,
-    `— Optimized Performance`,
+    `— Syngyn`,
   ].join('\n');
 
   // Branded HTML version (matches the storefront). Plain-text above stays as the
@@ -292,8 +292,8 @@ export async function sendPaymentRecoveryNudge(order, recoverUrl) {
     trust: ['Encrypted checkout', 'Ships in 1 business day', 'COA-verified'],
     note: `Prefer not to use a card? Pay with Zelle or crypto for an additional discount. Questions? Just reply to this email or call (831) 218-5147.`,
     footerLines: [
-      `Optimized Performance Inc.${process.env.MARKETING_POSTAL_ADDRESS ? ' &middot; ' + process.env.MARKETING_POSTAL_ADDRESS : ''}`,
-      `<a href="mailto:admin@optimizedperformancepeptides.com" style="color:#6E6D68;text-decoration:underline;">admin@optimizedperformancepeptides.com</a> &middot; (831) 218-5147`,
+      `Syngyn${process.env.MARKETING_POSTAL_ADDRESS ? ' &middot; ' + process.env.MARKETING_POSTAL_ADDRESS : ''}`,
+      `<a href="mailto:support@syngyn.co" style="color:#6E6D68;text-decoration:underline;">support@syngyn.co</a> &middot; (831) 218-5147`,
       `For research use only. Not for human consumption.`,
     ],
   });
@@ -304,8 +304,8 @@ export async function sendPaymentRecoveryNudge(order, recoverUrl) {
       headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         personalizations: [{ to: [{ email: order.customer_email }] }],
-        from: { email: process.env.FROM_EMAIL || 'orders@optimizedperformancepeptides.com', name: 'Optimized Performance' },
-        reply_to: { email: 'admin@optimizedperformancepeptides.com' },
+        from: { email: process.env.FROM_EMAIL || 'orders@syngyn.co', name: 'Syngyn' },
+        reply_to: { email: 'support@syngyn.co' },
         subject: `Still want these? Here's ${RECOVERY_DISCOUNT_PCT}% off to finish up`,
         content: [
           { type: 'text/plain', value: body },
@@ -325,8 +325,8 @@ export async function sendCustomerReply({ to_email, subject, body, reply_to }) {
   if (!apiKey) throw new Error('SENDGRID_API_KEY not configured');
   if (!to_email || !subject || !body) throw new Error('to_email, subject, body required');
 
-  const fromEmail = process.env.FROM_EMAIL || 'orders@optimizedperformancepeptides.com';
-  const replyTo = reply_to || 'admin@optimizedperformancepeptides.com';
+  const fromEmail = process.env.FROM_EMAIL || 'orders@syngyn.co';
+  const replyTo = reply_to || 'support@syngyn.co';
 
   // BCC the admin mailbox on every customer reply (manual + bot auto-replies) so
   // there's a record of what went out in our OWN inbox. SendGrid sends never hit
@@ -344,7 +344,7 @@ export async function sendCustomerReply({ to_email, subject, body, reply_to }) {
     headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
       personalizations: [personalization],
-      from: { email: fromEmail, name: 'Optimized Performance' },
+      from: { email: fromEmail, name: 'Syngyn' },
       reply_to: { email: replyTo },
       subject,
       content: [{ type: 'text/plain', value: body }],
@@ -378,9 +378,9 @@ export async function sendRefundNotification(order, { amount, reason }) {
     `to your statement within 5–10 business days, depending on your bank.`,
     ``,
     `If you don't see the refund within that window, email`,
-    `admin@optimizedperformancepeptides.com with your order number and we'll look it up.`,
+    `support@syngyn.co with your order number and we'll look it up.`,
     ``,
-    `— Optimized Performance`,
+    `— Syngyn`,
   ].filter(Boolean).join('\n');
 
   const html = renderBrandedEmail({
@@ -391,7 +391,7 @@ export async function sendRefundNotification(order, { amount, reason }) {
     paragraphs: [`We've refunded order <strong style="color:#F5F3EC;">${escapeHtml(order.order_number)}</strong> to your original payment method. It typically posts within 5–10 business days, depending on your bank.`],
     highlight: { label: 'Refunded', value: `$${refundAmount}`, sub: reason ? escapeHtml(reason) : 'To your original payment method' },
     cta: lookupUrl ? { text: 'View order', url: lookupUrl } : null,
-    note: `Don't see it within that window? Email admin@optimizedperformancepeptides.com with your order number and we'll look it up.`,
+    note: `Don't see it within that window? Email support@syngyn.co with your order number and we'll look it up.`,
     footerLines: emailFooterLines(),
   });
 
@@ -401,7 +401,7 @@ export async function sendRefundNotification(order, { amount, reason }) {
       headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         personalizations: [{ to: [{ email: order.customer_email }] }],
-        from: { email: process.env.FROM_EMAIL || 'orders@optimizedperformancepeptides.com' },
+        from: { email: process.env.FROM_EMAIL || 'orders@syngyn.co' },
         subject: `Refund processed — ${order.order_number}`,
         content: [
           { type: 'text/plain', value: body },
@@ -440,7 +440,7 @@ export async function sendOrderConfirmation(order) {
     lookupUrl ? `Track this order: ${lookupUrl}` : ``,
     lookupUrl ? `` : ``,
     `For research use only.`,
-    `— Optimized Performance`,
+    `— Syngyn`,
   ].filter(Boolean).join('\n');
 
   const detailsHtml = emailDetailTable([
@@ -467,7 +467,7 @@ export async function sendOrderConfirmation(order) {
       headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         personalizations: [{ to: [{ email: order.customer_email }] }],
-        from: { email: process.env.FROM_EMAIL || 'orders@optimizedperformancepeptides.com' },
+        from: { email: process.env.FROM_EMAIL || 'orders@syngyn.co' },
         subject: `Order Confirmed — ${order.order_number}`,
         content: [
           { type: 'text/plain', value: body },
@@ -484,7 +484,7 @@ export async function sendOrderConfirmation(order) {
 // recipient + amount + memo to complete payment from their bank app.
 // Recipient is the Zelle identifier registered against BoA-1990; defaults to
 // the admin@ email so a missing env var doesn't break the flow.
-export const ZELLE_RECIPIENT = process.env.ZELLE_RECIPIENT || 'admin@optimizedperformancepeptides.com';
+export const ZELLE_RECIPIENT = process.env.ZELLE_RECIPIENT || 'support@syngyn.co';
 
 export async function sendZelleInstructions(order) {
   const apiKey = process.env.SENDGRID_API_KEY;
@@ -515,7 +515,7 @@ export async function sendZelleInstructions(order) {
     `Questions: reply to this email or call (831) 218-5147.`,
     ``,
     `For research use only.`,
-    `— Optimized Performance`,
+    `— Syngyn`,
   ].join('\n');
 
   const html = renderBrandedEmail({
@@ -524,7 +524,7 @@ export async function sendZelleInstructions(order) {
     eyebrow: 'Almost done',
     heading: 'Complete your Zelle payment',
     paragraphs: [`Your order is reserved. Send the Zelle below from your bank app — we'll ship within 1 business day of the deposit landing.`],
-    extraHtml: `<div style="text-align:center;margin:2px 0 18px;"><img src="${SITE_URL}/zelle-qr.png" alt="Scan with your bank app to pay Optimized Performance Inc by Zelle" width="220" style="width:220px;max-width:72%;height:auto;border-radius:12px;border:1px solid #24272D;background:#ffffff;padding:6px;"><div style="font-family:${EMAIL_FONT};font-size:12px;color:#6E6D68;margin-top:9px;">Scan with your bank app, or send manually below</div></div>` + emailDetailTable([
+    extraHtml: `<div style="text-align:center;margin:2px 0 18px;"><img src="${SITE_URL}/zelle-qr.png" alt="Scan with your bank app to pay Syngyn Inc by Zelle" width="220" style="width:220px;max-width:72%;height:auto;border-radius:12px;border:1px solid #24272D;background:#ffffff;padding:6px;"><div style="font-family:${EMAIL_FONT};font-size:12px;color:#6E6D68;margin-top:9px;">Scan with your bank app, or send manually below</div></div>` + emailDetailTable([
       { label: 'Send to', value: escapeHtml(ZELLE_RECIPIENT), strong: true },
       { label: 'Amount', value: `$${Number(order.total).toFixed(2)}`, strong: true, accent: true },
       { label: 'Memo (required)', value: escapeHtml(order.order_number), strong: true },
@@ -539,7 +539,7 @@ export async function sendZelleInstructions(order) {
       headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         personalizations: [{ to: [{ email: order.customer_email }] }],
-        from: { email: process.env.FROM_EMAIL || 'orders@optimizedperformancepeptides.com' },
+        from: { email: process.env.FROM_EMAIL || 'orders@syngyn.co' },
         subject: `Complete your Zelle payment — ${order.order_number}`,
         content: [
           { type: 'text/plain', value: body },
@@ -591,7 +591,7 @@ export async function sendVenmoInstructions(order) {
     `Questions: reply to this email or call (831) 218-5147.`,
     ``,
     `For research use only.`,
-    `— Optimized Performance`,
+    `— Syngyn`,
   ].join('\n');
 
   const venmoUrl = `https://venmo.com/?txn=pay&audience=private&recipients=${VENMO_BUSINESS_HANDLE}&amount=${Number(order.total).toFixed(2)}&note=${encodeURIComponent(order.order_number)}`;
@@ -618,7 +618,7 @@ export async function sendVenmoInstructions(order) {
       headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         personalizations: [{ to: [{ email: order.customer_email }] }],
-        from: { email: process.env.FROM_EMAIL || 'orders@optimizedperformancepeptides.com' },
+        from: { email: process.env.FROM_EMAIL || 'orders@syngyn.co' },
         subject: `Complete your Venmo payment — ${order.order_number}`,
         content: [
           { type: 'text/plain', value: body },

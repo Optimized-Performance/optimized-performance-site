@@ -135,8 +135,8 @@ export default function CoaPage({ error, batch, sku, lot }) {
         <p className="text-ink-soft text-sm mt-3">
           We couldn&apos;t find a batch matching <strong className="font-mono">{sku} / {lot}</strong>. If you
           scanned this from a vial label, contact{' '}
-          <a href="mailto:admin@optimizedperformancepeptides.com" className="text-accent-strong hover:underline">
-            admin@optimizedperformancepeptides.com
+          <a href="mailto:support@syngyn.co" className="text-accent-strong hover:underline">
+            support@syngyn.co
           </a>{' '}
           and include a photo of the label.
         </p>
@@ -154,8 +154,8 @@ export default function CoaPage({ error, batch, sku, lot }) {
         <p className="text-ink-soft text-sm mt-3">
           The file for lot <strong className="font-mono">{lot}</strong> is being re-uploaded. Try again in a
           few minutes, or email{' '}
-          <a href="mailto:admin@optimizedperformancepeptides.com" className="text-accent-strong hover:underline">
-            admin@optimizedperformancepeptides.com
+          <a href="mailto:support@syngyn.co" className="text-accent-strong hover:underline">
+            support@syngyn.co
           </a>.
         </p>
       </div>

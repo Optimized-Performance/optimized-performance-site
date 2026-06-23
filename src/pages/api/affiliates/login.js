@@ -48,7 +48,7 @@ export default async function handler(req, res) {
     if (error) console.error('Affiliate login lookup error:', error)
     return res.status(401).json({ error: 'Invalid email or password' })
   }
-  if (!aff.active) return res.status(403).json({ error: 'Account inactive — contact admin@optimizedperformancepeptides.com' })
+  if (!aff.active) return res.status(403).json({ error: 'Account inactive — contact support@syngyn.co' })
 
   let token
   try {

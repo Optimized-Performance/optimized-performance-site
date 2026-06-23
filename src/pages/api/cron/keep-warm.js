@@ -19,7 +19,7 @@
 
 import { isAuthorizedCron } from '../../../lib/cron-auth'
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://optimizedperformancepeptides.com'
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://syngyn.co'
 
 // Timeout-sensitive routes to keep hot. Each must support a no-op `?warm=1` GET.
 const WARM_TARGETS = ['/api/orders/create?warm=1']
