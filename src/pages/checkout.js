@@ -762,7 +762,7 @@ export default function Checkout() {
             {cartItems.map((item) => (
               <div key={item.id} className="flex gap-3 items-center">
                 <div className="w-11 h-15 bg-surfaceAlt border border-line rounded-opp flex items-center justify-center shrink-0">
-                  <Vial label={item.name} dosage={item.dosage} size={40} kit={item.isKit} sku={item.sku} />
+                  <Vial label={item.name} dosage={item.dosage} size={40} kit={item.isKit} sku={item.sku} image={item.imageUrl} />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="text-[13px] font-semibold leading-snug text-ink">
