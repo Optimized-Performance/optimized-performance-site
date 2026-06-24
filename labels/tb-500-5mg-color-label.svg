@@ -24,9 +24,9 @@
   </g>
 
   <!-- Brand text -->
-  <text x="56" y="124" text-anchor="middle" font-family="'Helvetica Neue', Arial, sans-serif" font-size="9" font-weight="700" fill="#FFFFFF" letter-spacing="1.8">OPTIMIZED</text>
-  <text x="56" y="136" text-anchor="middle" font-family="'Helvetica Neue', Arial, sans-serif" font-size="6.5" font-weight="400" fill="#90CAF9" letter-spacing="2.2">PERFORMANCE</text>
-  <text x="56" y="147" text-anchor="middle" font-family="'Helvetica Neue', Arial, sans-serif" font-size="6.5" font-weight="400" fill="#90CAF9" letter-spacing="2.2">PEPTIDES</text>
+  <text x="56" y="124" text-anchor="middle" font-family="'Helvetica Neue', Arial, sans-serif" font-size="11" font-weight="700" fill="#FFFFFF" letter-spacing="2.4">SYNGYN</text>
+  <text x="56" y="136" text-anchor="middle" font-family="'Helvetica Neue', Arial, sans-serif" font-size="6" font-weight="400" fill="#90CAF9" letter-spacing="1.8">ANALYTICAL</text>
+  <text x="56" y="146" text-anchor="middle" font-family="'Helvetica Neue', Arial, sans-serif" font-size="6" font-weight="400" fill="#90CAF9" letter-spacing="1.8">REFERENCE</text>
 
   <!-- Product name -->
   <text x="128" y="46" font-family="'Helvetica Neue', Arial, sans-serif" font-size="30" font-weight="800" fill="#FFFFFF" letter-spacing="1.5">TB-500</text>
@@ -60,6 +60,6 @@
   <text x="320" y="170" font-family="'Helvetica Neue', Arial, sans-serif" font-size="7.5" font-weight="400" fill="#7BA3C4" opacity="0.6">EXP: _______</text>
 
   <!-- Footer: website + SKU + vial -->
-  <text x="128" y="190" font-family="'Helvetica Neue', Arial, sans-serif" font-size="7" font-weight="500" fill="#90CAF9" opacity="0.75" letter-spacing="0.3">optimizedperformancepeptides.com</text>
+  <text x="128" y="190" font-family="'Helvetica Neue', Arial, sans-serif" font-size="7" font-weight="500" fill="#90CAF9" opacity="0.75" letter-spacing="0.3">syngyn.co</text>
   <text x="420" y="190" text-anchor="end" font-family="'Helvetica Neue', Arial, sans-serif" font-size="7" font-weight="400" fill="#7BA3C4" opacity="0.55">OP-TB500-5MG | 3 mL vial</text>
 </svg>

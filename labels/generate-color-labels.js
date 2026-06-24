@@ -80,9 +80,9 @@ function makeSvg({ name, desc, dosage, sku, vial = DEFAULT_VIAL }) {
   </g>
 
   <!-- Brand text -->
-  <text x="56" y="124" text-anchor="middle" font-family="'Helvetica Neue', Arial, sans-serif" font-size="9" font-weight="700" fill="#FFFFFF" letter-spacing="1.8">OPTIMIZED</text>
-  <text x="56" y="136" text-anchor="middle" font-family="'Helvetica Neue', Arial, sans-serif" font-size="6.5" font-weight="400" fill="#90CAF9" letter-spacing="2.2">PERFORMANCE</text>
-  <text x="56" y="147" text-anchor="middle" font-family="'Helvetica Neue', Arial, sans-serif" font-size="6.5" font-weight="400" fill="#90CAF9" letter-spacing="2.2">PEPTIDES</text>
+  <text x="56" y="124" text-anchor="middle" font-family="'Helvetica Neue', Arial, sans-serif" font-size="11" font-weight="700" fill="#FFFFFF" letter-spacing="2.4">SYNGYN</text>
+  <text x="56" y="136" text-anchor="middle" font-family="'Helvetica Neue', Arial, sans-serif" font-size="6" font-weight="400" fill="#90CAF9" letter-spacing="1.8">ANALYTICAL</text>
+  <text x="56" y="146" text-anchor="middle" font-family="'Helvetica Neue', Arial, sans-serif" font-size="6" font-weight="400" fill="#90CAF9" letter-spacing="1.8">REFERENCE</text>
 
   <!-- Product name -->
   <text x="128" y="46" font-family="'Helvetica Neue', Arial, sans-serif" font-size="${fontSize}" font-weight="800" fill="#FFFFFF" letter-spacing="1.5">${safeName}</text>
@@ -116,7 +116,7 @@ function makeSvg({ name, desc, dosage, sku, vial = DEFAULT_VIAL }) {
   <text x="320" y="170" font-family="'Helvetica Neue', Arial, sans-serif" font-size="7.5" font-weight="400" fill="#7BA3C4" opacity="0.6">EXP: _______</text>
 
   <!-- Footer: website + SKU + vial -->
-  <text x="128" y="190" font-family="'Helvetica Neue', Arial, sans-serif" font-size="7" font-weight="500" fill="#90CAF9" opacity="0.75" letter-spacing="0.3">optimizedperformancepeptides.com</text>
+  <text x="128" y="190" font-family="'Helvetica Neue', Arial, sans-serif" font-size="7" font-weight="500" fill="#90CAF9" opacity="0.75" letter-spacing="0.3">syngyn.co</text>
   <text x="420" y="190" text-anchor="end" font-family="'Helvetica Neue', Arial, sans-serif" font-size="7" font-weight="400" fill="#7BA3C4" opacity="0.55">${sku} | ${vial}</text>
 </svg>`;
 }
@@ -158,8 +158,8 @@ function makeTinctureSvg({ name, descriptor, concentration, totalDose, volume, s
   </g>
 
   <!-- Brand text (no "PEPTIDES", no "RESEARCH") -->
-  <text x="80" y="208" text-anchor="middle" font-family="'Helvetica Neue', Arial, sans-serif" font-size="13" font-weight="700" fill="#FFFFFF" letter-spacing="2.2">OPTIMIZED</text>
-  <text x="80" y="226" text-anchor="middle" font-family="'Helvetica Neue', Arial, sans-serif" font-size="9" font-weight="400" fill="#90CAF9" letter-spacing="2.8">PERFORMANCE</text>
+  <text x="80" y="206" text-anchor="middle" font-family="'Helvetica Neue', Arial, sans-serif" font-size="16" font-weight="700" fill="#FFFFFF" letter-spacing="2.6">SYNGYN</text>
+  <text x="80" y="224" text-anchor="middle" font-family="'Helvetica Neue', Arial, sans-serif" font-size="8" font-weight="400" fill="#90CAF9" letter-spacing="1.4">ANALYTICAL REFERENCE</text>
 
   <!-- Product name + descriptor -->
   <text x="184" y="68" font-family="'Helvetica Neue', Arial, sans-serif" font-size="${nameSize}" font-weight="800" fill="#FFFFFF" letter-spacing="1.5">${safeName}</text>
@@ -186,7 +186,7 @@ function makeTinctureSvg({ name, descriptor, concentration, totalDose, volume, s
        two-sticker labeling protocol — this Avery label is brand-only. -->
 
   <!-- Footer: website + SKU -->
-  <text x="184" y="316" font-family="'Helvetica Neue', Arial, sans-serif" font-size="11" font-weight="500" fill="#90CAF9" opacity="0.78" letter-spacing="0.4">optimizedperformancepeptides.com</text>
+  <text x="184" y="316" font-family="'Helvetica Neue', Arial, sans-serif" font-size="11" font-weight="500" fill="#90CAF9" opacity="0.78" letter-spacing="0.4">syngyn.co</text>
   <text x="636" y="316" text-anchor="end" font-family="'Helvetica Neue', Arial, sans-serif" font-size="11" font-weight="500" fill="#7BA3C4" opacity="0.72">${sku} · ${volume} Dropper Bottle</text>
 </svg>`;
 }
@@ -228,8 +228,8 @@ function makeTabletSvg({ name, descriptor, strength, count, sku, storage = 'Stor
   </g>
 
   <!-- Brand text (no "PEPTIDES") -->
-  <text x="80" y="208" text-anchor="middle" font-family="'Helvetica Neue', Arial, sans-serif" font-size="13" font-weight="700" fill="#FFFFFF" letter-spacing="2.2">OPTIMIZED</text>
-  <text x="80" y="226" text-anchor="middle" font-family="'Helvetica Neue', Arial, sans-serif" font-size="9" font-weight="400" fill="#90CAF9" letter-spacing="2.8">PERFORMANCE</text>
+  <text x="80" y="206" text-anchor="middle" font-family="'Helvetica Neue', Arial, sans-serif" font-size="16" font-weight="700" fill="#FFFFFF" letter-spacing="2.6">SYNGYN</text>
+  <text x="80" y="224" text-anchor="middle" font-family="'Helvetica Neue', Arial, sans-serif" font-size="8" font-weight="400" fill="#90CAF9" letter-spacing="1.4">ANALYTICAL REFERENCE</text>
 
   <!-- Product name + descriptor -->
   <text x="184" y="72" font-family="'Helvetica Neue', Arial, sans-serif" font-size="${nameSize}" font-weight="800" fill="#FFFFFF" letter-spacing="1.5">${safeName}</text>
@@ -253,7 +253,7 @@ function makeTabletSvg({ name, descriptor, strength, count, sku, storage = 'Stor
   <text x="184" y="268" font-family="'Helvetica Neue', Arial, sans-serif" font-size="10" font-weight="500" fill="#FF8FA3" letter-spacing="0.3">Not for human consumption. Not a drug, food, or cosmetic.</text>
 
   <!-- Footer: website + SKU + count -->
-  <text x="184" y="330" font-family="'Helvetica Neue', Arial, sans-serif" font-size="11" font-weight="500" fill="#90CAF9" opacity="0.78" letter-spacing="0.4">optimizedperformancepeptides.com</text>
+  <text x="184" y="330" font-family="'Helvetica Neue', Arial, sans-serif" font-size="11" font-weight="500" fill="#90CAF9" opacity="0.78" letter-spacing="0.4">syngyn.co</text>
   <text x="980" y="330" text-anchor="end" font-family="'Helvetica Neue', Arial, sans-serif" font-size="11" font-weight="500" fill="#7BA3C4" opacity="0.72">${sku} &#xB7; ${count}</text>
 </svg>`;
 }

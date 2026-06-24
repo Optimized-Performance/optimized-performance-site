@@ -24,8 +24,8 @@
   </g>
 
   <!-- Brand text (no "PEPTIDES", no "RESEARCH") -->
-  <text x="80" y="208" text-anchor="middle" font-family="'Helvetica Neue', Arial, sans-serif" font-size="13" font-weight="700" fill="#FFFFFF" letter-spacing="2.2">OPTIMIZED</text>
-  <text x="80" y="226" text-anchor="middle" font-family="'Helvetica Neue', Arial, sans-serif" font-size="9" font-weight="400" fill="#90CAF9" letter-spacing="2.8">PERFORMANCE</text>
+  <text x="80" y="206" text-anchor="middle" font-family="'Helvetica Neue', Arial, sans-serif" font-size="16" font-weight="700" fill="#FFFFFF" letter-spacing="2.6">SYNGYN</text>
+  <text x="80" y="224" text-anchor="middle" font-family="'Helvetica Neue', Arial, sans-serif" font-size="8" font-weight="400" fill="#90CAF9" letter-spacing="1.4">ANALYTICAL REFERENCE</text>
 
   <!-- Product name + descriptor -->
   <text x="184" y="68" font-family="'Helvetica Neue', Arial, sans-serif" font-size="48" font-weight="800" fill="#FFFFFF" letter-spacing="1.5">Tadalafil</text>
@@ -52,6 +52,6 @@
        two-sticker labeling protocol — this Avery label is brand-only. -->
 
   <!-- Footer: website + SKU -->
-  <text x="184" y="316" font-family="'Helvetica Neue', Arial, sans-serif" font-size="11" font-weight="500" fill="#90CAF9" opacity="0.78" letter-spacing="0.4">optimizedperformancepeptides.com</text>
+  <text x="184" y="316" font-family="'Helvetica Neue', Arial, sans-serif" font-size="11" font-weight="500" fill="#90CAF9" opacity="0.78" letter-spacing="0.4">syngyn.co</text>
   <text x="636" y="316" text-anchor="end" font-family="'Helvetica Neue', Arial, sans-serif" font-size="11" font-weight="500" fill="#7BA3C4" opacity="0.72">OP-TAD-20MG · 30 mL Dropper Bottle</text>
 </svg>
