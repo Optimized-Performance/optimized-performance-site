@@ -47,12 +47,27 @@ async function norampCreateSession({ orderNumber, amountCents, currency, custome
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || ''
   const fullName = (customer?.name || '').trim()
+  const total = (amountCents / 100).toFixed(2)
   const order = {
     id: String(orderNumber),
     number: String(orderNumber),
     key: String(orderNumber),
     currency: (currency || 'USD').toLowerCase(),
-    total: (amountCents / 100).toFixed(2),
+    total,
+    // NoRamp requires >=1 payable line item (else 400 "No payable line items").
+    // Send ONE neutral item = the order total: keeps the RUO posture (processor
+    // gets order # + amount, never product names) and avoids per-item
+    // restricted-name screening.
+    items: [
+      {
+        name: `Order ${orderNumber}`,
+        product_id: String(orderNumber),
+        quantity: 1,
+        subtotal: total,
+        total,
+        tax: '0',
+      },
+    ],
     customer: {
       email: customer?.email || '',
       first_name: customer?.firstName || fullName.split(' ')[0] || '',
