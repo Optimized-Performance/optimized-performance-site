@@ -16,9 +16,17 @@ function page(title, msg) {
 
 export default async function handler(req, res) {
   const token = req.query?.u
-  res.setHeader('Content-Type', 'text/html; charset=utf-8')
-
   const email = typeof token === 'string' ? verifyUnsubscribeToken(token) : null
+
+  // RFC 8058 one-click: Gmail/Apple/etc. POST here (List-Unsubscribe=One-Click)
+  // with the ?u= token in the URL. Suppress + ack 200, no HTML, never reveal
+  // token validity. (The header is set on marketing sends in marketing-email.js.)
+  if (req.method === 'POST') {
+    if (email) await suppressEmail(email, 'unsubscribe')
+    return res.status(200).end()
+  }
+
+  res.setHeader('Content-Type', 'text/html; charset=utf-8')
   if (!email) {
     return res.status(400).send(page('Invalid link', 'This unsubscribe link is invalid or malformed. If you keep getting emails, reply to any of them and we&rsquo;ll remove you manually.'))
   }

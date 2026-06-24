@@ -123,6 +123,10 @@ async function sendOneMarketing({ toEmail, subject, bodyLines }) {
   if (!POSTAL_ADDRESS) return { ok: false, reason: 'no_postal_address' }
 
   const value = [...bodyLines, ...footerLines(toEmail)].join('\n')
+  // RFC 8058 one-click unsubscribe header — REQUIRED by Gmail/Yahoo bulk-sender
+  // rules; missing it is a major spam-foldering factor for marketing mail. The
+  // endpoint accepts the provider's POST (List-Unsubscribe=One-Click).
+  const unsub = unsubscribeUrl(toEmail)
   try {
     const res = await fetch('https://api.sendgrid.com/v3/mail/send', {
       method: 'POST',
@@ -133,6 +137,14 @@ async function sendOneMarketing({ toEmail, subject, bodyLines }) {
         reply_to: { email: 'support@syngyn.co' },
         subject,
         content: [{ type: 'text/plain', value }],
+        ...(unsub
+          ? {
+              headers: {
+                'List-Unsubscribe': `<${unsub}>`,
+                'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+              },
+            }
+          : {}),
       }),
     })
     if (!res.ok) {
