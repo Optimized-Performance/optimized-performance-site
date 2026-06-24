@@ -143,9 +143,14 @@ export function CartProvider({ children }) {
     setCartItems((prev) => {
       const existing = prev.find((item) => item.id === product.id);
       if (existing) {
+        // Re-adding an item refreshes its display fields from the live product
+        // (e.g. imageUrl, name, price) and bumps quantity — so a line persisted
+        // before a field existed (like imageUrl) self-heals on the next add,
+        // instead of keeping stale data forever. isPreorder/preorderShipDate
+        // live only on the cart line, so `...item` preserves them.
         return prev.map((item) =>
           item.id === product.id
-            ? { ...item, quantity: item.quantity + 1 }
+            ? { ...item, ...product, quantity: item.quantity + 1 }
             : item
         );
       }
