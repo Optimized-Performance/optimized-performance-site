@@ -110,7 +110,7 @@ export default function CartDrawer() {
               {cartItems.map((item) => (
                 <div key={item.id} className="flex gap-3.5 py-4 border-b border-line last:border-none">
                   <div className="w-[70px] h-[90px] rounded-opp bg-surfaceAlt border border-line flex items-center justify-center shrink-0">
-                    <Vial label={item.name} dosage={item.dosage} size={64} kit={item.isKit} sku={item.sku} />
+                    <Vial label={item.name} dosage={item.dosage} size={64} kit={item.isKit} sku={item.sku} image={item.imageUrl} />
                   </div>
                   <div className="flex-1 flex flex-col gap-2.5">
                     <div className="flex justify-between items-start gap-2">

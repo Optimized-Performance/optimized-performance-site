@@ -21,7 +21,7 @@ const CART_MAX_AGE_MS = 14 * 24 * 60 * 60 * 1000; // 14 days
 // CHARGE is always recomputed server-side from the catalog by id, so a stale
 // stored display price never affects what's billed.
 const LINE_FIELDS = [
-  'id', 'name', 'sku', 'dosage', 'price', 'category', 'format', 'vialSize',
+  'id', 'name', 'sku', 'dosage', 'price', 'category', 'format', 'vialSize', 'imageUrl',
   'isKit', 'parentId', 'vialCount', 'purity', 'badge', 'durableRailsOnly', 'railPolicy', 'noCoa',
 ];
 
