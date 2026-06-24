@@ -27,6 +27,13 @@ export async function parseWebhookEvent({ rawBody, headers }) {
   return norampParseWebhook({ rawBody, headers })
 }
 
+// Poll the gateway for a session's payment status (missed-callback safety net).
+// Returns { paid, status } and never throws.
+export async function reconcileCardSession(opts) {
+  assertSupportedProcessor()
+  return norampReconcileSession(opts)
+}
+
 // ── NoRamp gateway (Whop-approved durable card rail) ──────────────────────────
 // Hosted-checkout (redirect) flow, ported 1:1 from the merchant WooCommerce
 // plugin (payment-gateway-woocommerce, scm_* fns): POST /checkout/sessions with
@@ -113,7 +120,8 @@ async function norampCreateSession({ orderNumber, amountCents, currency, custome
   if (!redirectUrl) {
     throw new Error(`[noramp] no checkout_url in response: ${text.slice(0, 400)}`)
   }
-  return { redirectUrl }
+  const sessionId = data.session_id || data.id || ''
+  return { redirectUrl, sessionId }
 }
 
 // Callback signature (verbatim from plugin scm_validate_callback_signature):
@@ -154,4 +162,44 @@ async function norampParseWebhook({ rawBody, headers }) {
   const eventId = paymentId ? `${orderNumber}-${paymentId}` : `${orderNumber}-${String(signature).slice(0, 16)}`
 
   return { verified: true, eventId, txId: paymentId, orderNumber, status }
+}
+
+// Missed-callback safety net: POST /checkout/sessions/{id}/reconcile (per the
+// merchant plugin's reconcile flow) → { payment_status }. Used by the success
+// return + the expire-awaiting cron so a dropped/late callback can't strand a
+// paid order as "awaiting payment" or get it wrongly abandoned. Never throws.
+async function norampReconcileSession({ sessionId, orderNumber, orderKey }) {
+  const token = process.env.NORAMP_MERCHANT_TOKEN
+  if (!token || !sessionId) return { paid: false, status: 'no_session' }
+
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || ''
+  try {
+    const res = await fetch(
+      `${norampBaseUrl()}/checkout/sessions/${encodeURIComponent(sessionId)}/reconcile`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        body: JSON.stringify({
+          woo_order_id: String(orderNumber || ''),
+          woo_order_key: String(orderKey || orderNumber || ''),
+          callback_url: `${siteUrl}/api/webhooks/noramp`,
+        }),
+      }
+    )
+    const text = await res.text()
+    let data
+    try { data = JSON.parse(text) } catch { data = null }
+    if (!res.ok || !data) {
+      return { paid: false, status: 'error', error: `(${res.status}) ${text.slice(0, 200)}` }
+    }
+    const status = String(data.payment_status || '')
+    const paymentId = String(data.payment_id || data.payment_intent_id || data.session_id || sessionId)
+    return { paid: status === 'paid', status: status || 'unknown', paymentId }
+  } catch (err) {
+    return { paid: false, status: 'error', error: err.message }
+  }
 }

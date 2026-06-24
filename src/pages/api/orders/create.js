@@ -520,13 +520,27 @@ export default async function handler(req, res) {
       // A large ms_total with small ms_session points at cold-start / pre-session
       // DB work (the P4 slim-down target); large ms_session is the processor.
       logMetric('order_create', { method: paymentMethod, ms_total: elapsed(), ms_session: sessionTimer(), resumed: !!resumeOrder, ok: true })
+
+      // Pull the gateway session id out of the rail's fields — it's server-only
+      // (used to reconcile a missed payment callback), never sent to the client.
+      const { card_session_id, ...clientSessionFields } = sessionFields || {}
+      // Best-effort stamp — SEPARATE non-fatal update so a missing column
+      // (migration v30 not yet run) can never break order creation.
+      if (card_session_id && order?.id) {
+        supabaseAdmin
+          .from('orders')
+          .update({ card_session_id: String(card_session_id).slice(0, 128) })
+          .eq('id', order.id)
+          .then(({ error: cErr }) => { if (cErr) console.warn('[orders/create] card_session_id stamp skipped:', cErr.message) })
+      }
+
       return res.status(200).json({
         order_number: orderNumber,
         order_id: order.id,
         total,
         shipping,
         discount,
-        ...sessionFields,
+        ...clientSessionFields,
       })
     } catch (sessionErr) {
       logMetric('order_create', { method: paymentMethod, ms_total: elapsed(), ms_session: sessionTimer(), ok: false, err: 'session_failed' })

@@ -1,6 +1,7 @@
 import { supabaseAdmin } from '../../../lib/supabase'
 import { PAYMENT_STATUS } from '../../../lib/order-status'
 import { isAuthorizedCron } from '../../../lib/cron-auth'
+import { reconcileCardOrder } from '../../../lib/payments/reconcile-card'
 
 // Expire stale awaiting_payment orders.
 //
@@ -27,6 +28,32 @@ export default async function handler(req, res) {
   const hours = Number(req.query.hours) > 0 ? Number(req.query.hours) : DEFAULT_HOURS
   const cutoff = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString()
 
+  // Before abandoning: reconcile awaiting CARD orders against the gateway. A
+  // dropped/late callback must NOT let a *paid* order get wrongly abandoned —
+  // reconcile finalizes paid ones (flipping them out of awaiting), so the bulk
+  // update below only ever touches genuinely-unpaid rows. Degrades safely if the
+  // card_session_id column doesn't exist yet (migration v30 not run).
+  let reconciled = 0
+  try {
+    const { data: cardAwaiting } = await supabaseAdmin
+      .from('orders')
+      .select('order_number')
+      .eq('payment_status', PAYMENT_STATUS.AWAITING_PAYMENT)
+      .eq('payment_method', 'card')
+      .lt('created_at', cutoff)
+      .not('card_session_id', 'is', null)
+    for (const o of cardAwaiting || []) {
+      try {
+        const r = await reconcileCardOrder(o.order_number)
+        if (r?.finalized) reconciled += 1
+      } catch (e) {
+        console.warn('[cron/expire-awaiting-payment] reconcile failed', o.order_number, e.message)
+      }
+    }
+  } catch (e) {
+    console.warn('[cron/expire-awaiting-payment] card reconcile pass skipped:', e.message)
+  }
+
   try {
     const { data, error } = await supabaseAdmin
       .from('orders')
@@ -41,6 +68,7 @@ export default async function handler(req, res) {
       ok: true,
       hours,
       cutoff,
+      reconciled_paid: reconciled,
       expired_count: (data || []).length,
       expired: (data || []).map((o) => ({
         order_number: o.order_number,

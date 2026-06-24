@@ -4,6 +4,24 @@ import Link from 'next/link'
 import { useCart } from '../../context/CartContext'
 import SEO from '../../components/SEO'
 import { Icon } from '../../components/Primitives'
+import { reconcileCardOrder } from '../../lib/payments/reconcile-card'
+
+// Reconcile on return: the customer just paid on the gateway, so if the payment
+// callback was dropped/late, poll the gateway now and finalize so the order
+// isn't left "awaiting payment" (and never gets wrongly abandoned). Server-only,
+// non-fatal — never blocks the success page. Static import (used only in gSSP,
+// so Next strips it from the client bundle; avoids the dynamic-require trap).
+export async function getServerSideProps({ query }) {
+  const orderNumber = typeof query.order === 'string' ? query.order : ''
+  if (orderNumber) {
+    try {
+      await reconcileCardOrder(orderNumber)
+    } catch (err) {
+      console.warn('[checkout/success] reconcile skipped:', err.message)
+    }
+  }
+  return { props: {} }
+}
 
 export default function CheckoutSuccess() {
   const router = useRouter()

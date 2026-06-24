@@ -42,7 +42,7 @@ const RAILS = {
     failureError: 'Payment processor unavailable. Please try again or use crypto checkout.',
     async createSession({ orderNumber, total, customer, urls }) {
       const [firstName, ...lastParts] = String(customer.name || '').trim().split(/\s+/)
-      const { redirectUrl } = await createCheckoutSession({
+      const { redirectUrl, sessionId } = await createCheckoutSession({
         orderNumber,
         amountCents: cents(total),
         currency: 'USD',
@@ -58,9 +58,10 @@ const RAILS = {
         },
         returnUrl: urls.returnUrl,
         cancelUrl: urls.cancelUrl,
-        callbackUrl: urls.bankfulCallback,
       })
-      return { redirect_url: redirectUrl }
+      // card_session_id is stamped on the order by /api/orders/create (for
+      // reconcile) and stripped from the client response there.
+      return { redirect_url: redirectUrl, card_session_id: sessionId }
     },
   },
 
