@@ -29,7 +29,7 @@
   <text x="56" y="146" text-anchor="middle" font-family="'Helvetica Neue', Arial, sans-serif" font-size="6" font-weight="400" fill="#90CAF9" letter-spacing="1.8">REFERENCE</text>
 
   <!-- Product name -->
-  <text x="128" y="46" font-family="'Helvetica Neue', Arial, sans-serif" font-size="30" font-weight="800" fill="#FFFFFF" letter-spacing="1.5">GLP-3</text>
+  <text x="128" y="46" font-family="'Helvetica Neue', Arial, sans-serif" font-size="30" font-weight="800" fill="#FFFFFF" letter-spacing="1.5">GLP-RT3</text>
 
   <!-- Cyan accent line -->
   <line x1="128" y1="54" x2="300" y2="54" stroke="#00B4D8" stroke-width="1.5" opacity="0.6"/>
@@ -61,5 +61,5 @@
 
   <!-- Footer: website + SKU + vial -->
   <text x="128" y="190" font-family="'Helvetica Neue', Arial, sans-serif" font-size="7" font-weight="500" fill="#90CAF9" opacity="0.75" letter-spacing="0.3">syngyn.co</text>
-  <text x="420" y="190" text-anchor="end" font-family="'Helvetica Neue', Arial, sans-serif" font-size="7" font-weight="400" fill="#7BA3C4" opacity="0.55">OP-GLP3-20MG | 3 mL vial</text>
+  <text x="420" y="190" text-anchor="end" font-family="'Helvetica Neue', Arial, sans-serif" font-size="7" font-weight="400" fill="#7BA3C4" opacity="0.55">OP-GLP-RT3-20MG | 3 mL vial</text>
 </svg>

@@ -6,8 +6,8 @@ const labelsDir = path.join(__dirname);
 
 const peptides = [
   { file: 'glp-1-10mg', name: 'GLP-1', desc: 'GLP-1 Receptor Agonist', dosage: '10 mg', sku: 'OP-GLP1-10MG' },
-  { file: 'glp-3-10mg', name: 'GLP-3', desc: 'Triple Agonist Peptide', dosage: '10 mg', sku: 'OP-GLP3-10MG' },
-  { file: 'glp-3-20mg', name: 'GLP-3', desc: 'Triple Agonist Peptide', dosage: '20 mg', sku: 'OP-GLP3-20MG' },
+  { file: 'glp-3-10mg', name: 'GLP-RT3', desc: 'Triple Agonist Peptide', dosage: '10 mg', sku: 'OP-GLP-RT3-10MG' },
+  { file: 'glp-3-20mg', name: 'GLP-RT3', desc: 'Triple Agonist Peptide', dosage: '20 mg', sku: 'OP-GLP-RT3-20MG' },
   { file: 'bpc-157-5mg', name: 'BPC-157', desc: 'Body Protection Compound', dosage: '5 mg', sku: 'OP-BPC-5MG' },
   { file: 'bpc-157-10mg', name: 'BPC-157', desc: 'Body Protection Compound', dosage: '10 mg', sku: 'OP-BPC-10MG' },
   { file: 'tb-500-5mg', name: 'TB-500', desc: 'Thymosin Beta-4 Fragment', dosage: '5 mg', sku: 'OP-TB500-5MG' },
