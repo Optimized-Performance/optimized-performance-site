@@ -15,7 +15,9 @@ const peptides = [
   { file: 'combo-bpc-tb-ghk', name: 'BPC+TB+GHK', desc: 'Triple Peptide Stack', dosage: '70 mg', sku: 'OP-COMBO-70MG' },
   { file: 'ipamorelin-5mg', name: 'Ipamorelin', desc: 'GH Secretagogue', dosage: '5 mg', sku: 'OP-IPA-5MG' },
   { file: 'hgh-191aa-10iu', name: 'HGH 191AA', desc: 'Somatropin 191AA', dosage: '10 IU', sku: 'OP-HGH-10IU' },
+  { file: 'hgh-191aa-24iu', name: 'HGH 191AA', desc: 'Somatropin 191AA', dosage: '24 IU', sku: 'OP-HGH-24IU' },
   { file: 'mt2-5mg', name: 'MT-2', desc: 'Melanotan II', dosage: '5 mg', sku: 'OP-MT2-5MG' },
+  { file: 'motsc-10mg', name: 'MOTS-C', desc: 'Mitochondrial-Derived Peptide', dosage: '10 mg', sku: 'OP-MOTSC-10MG' },
   { file: 'nad-500mg', name: 'NAD+', desc: 'Nicotinamide Adenine Dinucleotide', dosage: '500 mg', sku: 'OP-NAD-500MG' },
 ];
 
