@@ -3,6 +3,7 @@ import { sendEmailAlert, sendSmsAlert, sendOrderConfirmation } from '../alerts'
 import { calcCommission } from '../commission'
 import { OPEN_PAYMENT_STATES, PAYMENT_STATUS, assertPaymentTransition } from '../order-status'
 import { getCatalog } from '../catalog'
+import { reportSaleToWarpath } from '../warpath-feed'
 
 // Shared post-payment finalization for any processor webhook. Looks up the
 // pending order, marks it completed, decrements inventory (kit-aware), updates
@@ -151,6 +152,10 @@ export async function finalizePaidOrder({ orderNumber, sendConfirmation = true, 
         })
         .eq('id', aff.id)
     }
+
+    // Mirror the attributed sale to the Warpath operator dashboard (who's selling
+    // / what's selling). Fire-and-forget — never blocks or breaks finalization.
+    await reportSaleToWarpath({ order, products, commission })
   }
 
   // Manual admin orders can suppress the confirmation email (e.g. comped
