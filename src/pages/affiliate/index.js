@@ -6,6 +6,18 @@ import { Logo } from '../../components/Primitives'
 
 const TOKEN_KEY = 'opp_aff_token'
 
+// Forged Suite free tools. Each reads ?ref=CODE and carries it through to the
+// Syngyn store cards, so an affiliate sharing these gets attributed on anything
+// that converts. URLs mirror the forged-tools-hub CONFIG (single source there).
+const FORGED_APPS = [
+  { name: 'Bloodwork Analyzer', desc: 'Bloodwork triage + protocol routing', url: 'https://forgedbloodwork.com' },
+  { name: 'Stack Analyzer', desc: 'Compound stack interactions + flags', url: 'https://forged-stack-analyzer.vercel.app' },
+  { name: 'PCT Generator', desc: 'Post-cycle protocol builder', url: 'https://forged-pct-generator.vercel.app' },
+  { name: 'TRT Optimizer', desc: 'TRT dialing + ancillary planning', url: 'https://forged-trt-optimizer.vercel.app' },
+  { name: 'Peptide Designer', desc: 'Goal-based peptide reference sheet', url: 'https://forged-peptide-designer.vercel.app' },
+  { name: 'Dosing / Recon Calc', desc: 'Reconstitution + dosing calculator', url: 'https://forged-recon-calc.vercel.app' },
+]
+
 function fmtUsd(n) {
   return `$${Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
@@ -319,6 +331,36 @@ export default function AffiliateDashboard() {
             </p>
           </>
         )}
+      </div>
+
+      {/* Forged Suite tool links */}
+      <div className="card-premium p-6 mb-6">
+        <h2 className="font-display font-semibold text-lg mb-1 text-ink">Forged Suite tools — your links</h2>
+        <p className="opp-meta-mono text-ink-mute mb-4">
+          Free tools to share with your audience. Each link carries your code{multiCode ? ` (${aff.code})` : ''} — anything they buy on the store after using a tool tracks to you.
+        </p>
+        <div className="flex flex-col gap-3">
+          {FORGED_APPS.map((app) => {
+            const link = `${app.url}/?ref=${aff.code}`
+            const lbl = `forged-${app.name}`
+            return (
+              <div key={app.name} className="flex flex-col md:flex-row gap-3 md:gap-4 items-start md:items-center">
+                <div className="md:w-56 shrink-0">
+                  <div className="font-semibold text-sm text-ink">{app.name}</div>
+                  <div className="opp-meta-mono text-ink-mute mt-0.5">{app.desc}</div>
+                </div>
+                <div className="flex-1 min-w-0 w-full">
+                  <div className="flex gap-2 items-center">
+                    <input className="input-field font-mono text-sm flex-1" readOnly value={link} onFocus={(e) => e.target.select()} />
+                    <button className="btn-outline text-xs px-3 py-2" onClick={() => copy(link, lbl)}>
+                      {copied === lbl ? 'Copied' : 'Copy'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+        </div>
       </div>
 
       {/* Network section */}
