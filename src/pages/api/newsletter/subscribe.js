@@ -8,7 +8,9 @@ import { extractClientIP } from '../../../lib/fraud-checks'
 // repeated submits don't reveal whether an email is in the list (privacy +
 // avoids enumeration).
 
-const ALLOWED_SOURCES = new Set(['footer', 'home_hero', 'oos_alert'])
+// forged_tools = server-to-server bridge from the Forged suite's capture
+// endpoint (forgedbloodwork.com/api/subscribe) — one master list, source-tagged.
+const ALLOWED_SOURCES = new Set(['footer', 'home_hero', 'oos_alert', 'forged_tools'])
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end()
