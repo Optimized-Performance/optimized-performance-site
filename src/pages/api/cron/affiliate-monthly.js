@@ -162,8 +162,16 @@ export default async function handler(req, res) {
       }
     }
 
-    // 3. Royalty payouts — flat-rate affiliates
-    const flatRateAffs = (affiliates || []).filter((a) => a.is_flat_rate)
+    // 3. Royalty payouts — the 5% royalty is a bespoke Tris-only term (5/04
+    // letter), NOT a benefit of being flat-rate. `is_flat_rate` is ALSO set on
+    // Tris's recruits (so the tier ratchet can't claw back their rate) and on
+    // secondary codes — so filtering on is_flat_rate ALONE paid a 5%-of-gross
+    // royalty to every recruit + secondary code (bug, found 2026-07-03).
+    // Restrict to a TOP-LEVEL flat-rate affiliate: flat-rate AND no recruiter
+    // parent AND not a secondary code → uniquely Tris's primary code.
+    const flatRateAffs = (affiliates || []).filter(
+      (a) => a.is_flat_rate && !a.parent_affiliate_id && !a.owner_affiliate_id
+    )
     if (flatRateAffs.length > 0) {
       const oppGross = await sumGrossRevenue(period)
       const royaltyAmount = Math.round((oppGross * ROYALTY_PCT) / 100 * 100) / 100
