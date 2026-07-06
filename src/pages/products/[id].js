@@ -224,8 +224,8 @@ export default function ProductDetail({
       </nav>
 
       <div className="grid lg:grid-cols-[1.1fr_1fr] gap-12">
-        {/* Image panel */}
-        <div className="card-premium relative flex items-center justify-center min-h-[420px] p-8 opp-grid-bg">
+        {/* Image panel — pinned on desktop so it stays in view while details scroll */}
+        <div className="card-premium relative flex items-center justify-center min-h-[420px] p-8 opp-grid-bg lg:sticky lg:top-24 lg:self-start">
           <div className="absolute top-5 right-5 px-2.5 py-1 bg-surface border border-line rounded-sm opp-meta-mono">
             {product.purity ?? 99}% · HPLC
           </div>

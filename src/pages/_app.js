@@ -8,6 +8,7 @@ import { CartProvider } from '../context/CartContext';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import CartDrawer from '../components/CartDrawer';
+import MobileTabBar from '../components/MobileTabBar';
 import '../styles/globals.css';
 
 const interTight = Inter_Tight({
@@ -77,6 +78,7 @@ export default function App({ Component, pageProps }) {
             </main>
             <Footer />
             <AgeGate />
+            {!isCheckout && <MobileTabBar />}
           </>
         )}
       </div>

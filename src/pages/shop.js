@@ -98,10 +98,10 @@ export default function Shop({ inventory, visibleProducts: visibleProductsProp, 
               <button
                 key={c}
                 onClick={() => setCat(c)}
-                className={`inline-flex items-center gap-2 px-3.5 py-2 border rounded-full text-[13px] transition-all ${
+                className={`inline-flex items-center gap-2 px-4 py-2 border rounded-full text-[13px] font-medium transition-all active:scale-95 ${
                   active
-                    ? 'bg-ink text-paper border-ink'
-                    : 'text-ink-soft border-line hover:border-ink hover:text-ink'
+                    ? 'bg-accent text-paper border-accent shadow-[0_6px_18px_-8px_rgba(245,166,35,0.6)]'
+                    : 'text-ink-soft border-line hover:border-accent hover:text-ink'
                 }`}
               >
                 {c}
@@ -127,7 +127,7 @@ export default function Shop({ inventory, visibleProducts: visibleProductsProp, 
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {list.map((p) => (
           <ProductCard
             key={p.id}

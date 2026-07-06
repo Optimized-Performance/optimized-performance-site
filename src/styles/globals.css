@@ -218,3 +218,126 @@
     white-space: nowrap;
   }
 }
+
+/* ═════ iOS-app shell — ported from the Forged Coaching app (2026-07) ═════ */
+/* Native-feeling touch polish + mobile bottom tab bar + safe-area handling.
+   Mapped onto the Syngyn black/gold tokens. Bar + sheet are mobile-only. */
+
+/* No 300ms tap delay, no grey tap flash — controls feel physical */
+button, a, input, select, textarea, label, summary { touch-action: manipulation; }
+* { -webkit-tap-highlight-color: transparent; }
+.tabbar, .sheet { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+
+/* Touch devices: neutralize sticky-hover (the #1 "website" tell), replace with
+   press-down physics on the real button/card classes. */
+@media (hover: none) {
+  .btn-primary:hover { background: var(--accent); border-color: var(--accent); }
+  .btn-primary:active { transform: scale(0.97); filter: brightness(1.08); }
+  .btn-outline:active { background: rgba(245, 166, 35, 0.08); transform: scale(0.97); }
+  .card:active, .card-premium:active { transform: scale(0.995); }
+}
+
+/* Installed to Home Screen: kill rubber-band bounce + draw a blurred scrim
+   under the iOS status bar so the clock/battery float like a native nav bar. */
+@media (display-mode: standalone) {
+  html, body { overscroll-behavior-y: none; }
+  body { padding-top: env(safe-area-inset-top, 0px); }
+  body::after {
+    content: ''; position: fixed; top: 0; left: 0; right: 0; z-index: 65;
+    height: env(safe-area-inset-top, 0px);
+    background: rgba(0, 0, 0, 0.8);
+    -webkit-backdrop-filter: blur(18px) saturate(160%);
+    backdrop-filter: blur(18px) saturate(160%);
+  }
+}
+
+/* ---- Bottom tab bar (mobile only) ---- */
+.tabbar-wrap { display: none; }
+@media (max-width: 640px) {
+  .tabbar-wrap { display: block; }
+  .tabbar-spacer { height: calc(74px + env(safe-area-inset-bottom, 0px)); }
+  .tabbar {
+    position: fixed; bottom: 0; left: 0; right: 0; z-index: 60;
+    display: flex; align-items: stretch;
+    background: rgba(8, 8, 8, 0.86);
+    -webkit-backdrop-filter: blur(24px) saturate(160%);
+    backdrop-filter: blur(24px) saturate(160%);
+    border-top: 1px solid var(--border);
+    padding: 7px 4px calc(7px + env(safe-area-inset-bottom, 0px));
+  }
+  .tabbar > a, .tabbar > button {
+    flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
+    gap: 3px; padding: 3px 2px; min-height: 46px;
+    background: none; border: none; cursor: pointer; text-decoration: none;
+    color: var(--inkMute); font-family: var(--font-body); font-size: 10px; font-weight: 700; letter-spacing: 0.02em;
+    position: relative;
+  }
+  .tabbar .icon { font-size: 22px; line-height: 1; transition: transform 0.12s ease; }
+  .tabbar > a:active .icon, .tabbar > button:active .icon { transform: scale(0.85); }
+  .tabbar .active { color: var(--accent); }
+  .tabbar .badge {
+    position: absolute; top: 0; left: calc(50% + 7px);
+    background: var(--accent); color: var(--bg); border-radius: 999px;
+    font-size: 10px; font-weight: 800; line-height: 1;
+    padding: 0 5px; min-width: 16px; height: 16px;
+    display: flex; align-items: center; justify-content: center;
+  }
+}
+
+/* ---- iOS action sheet (used by tab-bar sheet items) ---- */
+.sheet-backdrop { position: fixed; inset: 0; z-index: 70; background: rgba(0, 0, 0, 0.55); animation: fade-bg 0.18s ease; }
+@keyframes fade-bg { from { opacity: 0; } to { opacity: 1; } }
+@keyframes sheet-up { from { transform: translateY(26px); opacity: 0; } to { transform: none; opacity: 1; } }
+.sheet {
+  position: fixed; left: 8px; right: 8px; z-index: 71;
+  bottom: calc(80px + env(safe-area-inset-bottom, 0px));
+  background: rgba(18, 18, 18, 0.97);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  backdrop-filter: blur(24px) saturate(160%);
+  border: 1px solid var(--border); border-radius: 18px; overflow: hidden;
+  animation: sheet-up 0.22s cubic-bezier(0.32, 0.72, 0.35, 1);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+}
+.sheet .row {
+  display: flex; align-items: center; gap: 13px; width: 100%;
+  padding: 15px 18px; background: none; border: none; border-bottom: 1px solid var(--border);
+  color: var(--ink); font-size: 15.5px; font-weight: 600; font-family: var(--font-body);
+  text-decoration: none; cursor: pointer; text-align: left;
+}
+.sheet .row:last-child { border-bottom: none; }
+.sheet .row:active { background: rgba(255, 255, 255, 0.06); }
+.sheet .row.danger { color: var(--danger); }
+.sheet .row .ric { font-size: 19px; width: 24px; text-align: center; }
+@keyframes sheet-down { to { transform: translateY(26px); opacity: 0; } }
+.sheet.closing { animation: sheet-down 0.16s ease forwards; }
+@keyframes fade-bg-out { to { opacity: 0; } }
+.sheet-backdrop.closing { animation: fade-bg-out 0.16s ease forwards; }
+
+/* Native-quality reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important; animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ═════ Modern card depth (2026 refresh) ═════ */
+/* On a pure-black theme, drop-shadows are invisible — depth comes from a subtle
+   top highlight + a lift and a gold glow on hover. Applies to the shared card
+   classes + the product grid (article.opp-card). */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+.card, .card-premium, article.opp-card {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035);
+  transition: transform 0.24s cubic-bezier(0.32, 0.72, 0.35, 1), border-color 0.24s ease, box-shadow 0.24s ease;
+}
+@media (hover: hover) {
+  .card:hover, .card-premium:hover, article.opp-card:hover {
+    transform: translateY(-3px);
+    border-color: rgba(245, 166, 35, 0.45);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 18px 44px -20px rgba(245, 166, 35, 0.28);
+  }
+}

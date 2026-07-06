@@ -46,7 +46,7 @@ export default function ProductCard({ product, qty, cohort = false }) {
   const detailHref = `/products/${product.id}`;
 
   return (
-    <article className="bg-surface border border-line rounded-opp-lg flex flex-col overflow-hidden relative transition-all duration-200 hover:-translate-y-0.5 hover:border-ink">
+    <article className="opp-card bg-surface border border-line rounded-opp-lg flex flex-col overflow-hidden relative">
       <Link
         href={detailHref}
         className="relative flex items-center justify-center min-h-[220px] px-4 py-6 border-b border-line opp-grid-bg"
