@@ -9,7 +9,7 @@ import { Vial, Icon } from '../../components/Primitives';
 import NotifyMe from '../../components/NotifyMe';
 import { supabaseAdmin } from '../../lib/supabase';
 import { getCohortFromRequest } from '../../lib/cohort-session';
-import { isMemorialDaySaleActive, getSalePrice, MEMORIAL_DAY_DISCOUNT_PCT, isBogoProduct, VOLUME_TIERS, volumeTierPct } from '../../lib/sale';
+import { isMemorialDaySaleActive, getSalePrice, MEMORIAL_DAY_DISCOUNT_PCT, isBogoProduct, VOLUME_TIERS, volumeTierPct, isVolumeEligible } from '../../lib/sale';
 // Static import (NOT require) so Next keeps lib/catalog in this page's server
 // bundle — a dynamic require() of a module with no static importer tree-shakes
 // to {} in the prod build, so getCatalog() became "t is not a function" and
@@ -35,7 +35,9 @@ export default function ProductDetail({
   const { addToCart } = useCart();
   const [qty, setQty] = useState(1);
   // Per-SKU volume break at the selected quantity (replaces the old kit SKUs).
-  const volPct = volumeTierPct(qty);
+  // HGH is excluded (supply-constrained hero) — no tiers, always full price.
+  const volEligible = isVolumeEligible(product?.id);
+  const volPct = volEligible ? volumeTierPct(qty) : 0;
   const lineBase = (product?.price || 0) * qty;
   const lineTotal = lineBase * (1 - volPct / 100);
   // Track whether the main add-to-cart CTA is on-screen; when it scrolls out of
@@ -334,7 +336,8 @@ export default function ProductDetail({
             </div>
           )}
 
-          {/* Volume / quantity-break tiers (per SKU) */}
+          {/* Volume / quantity-break tiers (per SKU) — hidden for excluded SKUs (HGH) */}
+          {volEligible && (
           <div className="mb-4 border border-line rounded-opp overflow-hidden">
             <div className="flex items-center justify-between px-4 py-2 bg-surfaceAlt">
               <span className="opp-meta-mono text-ink-mute">BUY MORE · SAVE MORE</span>
@@ -356,6 +359,7 @@ export default function ProductDetail({
               })}
             </div>
           </div>
+          )}
 
           <button
             ref={ctaRef}

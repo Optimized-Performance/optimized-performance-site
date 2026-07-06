@@ -201,6 +201,17 @@ describe('calcVolumeDiscount — per-SKU, independent lines', () => {
     ])
     expect(discount).toEqual(money(0))
   })
+  it('HGH (supply-constrained hero) is excluded from volume breaks', () => {
+    // 10 HGH kits would be 15% if eligible — excluded, so zero.
+    expect(calcVolumeDiscount([{ id: 'hgh-10iu', price: 239.95, quantity: 10 }]).discount).toEqual(money(0))
+    expect(calcVolumeDiscount([{ id: 'hgh-24iu', price: 514.95, quantity: 10 }]).discount).toEqual(money(0))
+    // A non-HGH line in the same cart still tiers normally.
+    const { discount } = calcVolumeDiscount([
+      { id: 'hgh-10iu', price: 239.95, quantity: 10 },
+      { id: 'bpc-10mg', price: 100, quantity: 10 },
+    ])
+    expect(discount).toEqual(money(150)) // only the BPC line: 15% of 1000
+  })
 })
 
 describe('computeOrderTotals — volume breaks', () => {

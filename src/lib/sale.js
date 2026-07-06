@@ -173,6 +173,17 @@ export const VOLUME_TIERS = [
   { min: 3, pct: 5 },
 ]
 
+// HGH (10iu + 24iu) is supply-constrained — demand already outruns supply — so
+// it's EXCLUDED from volume breaks: bulk buying shouldn't discount the scarce
+// hero. Excluded by product id; add ids here to exempt other SKUs later.
+export const VOLUME_EXCLUDED_IDS = new Set(['hgh-10iu', 'hgh-24iu'])
+
+// True when a product id is eligible for the volume tiers (drives the PDF/PDP
+// tier table + the discount math staying in sync).
+export function isVolumeEligible(id) {
+  return !VOLUME_EXCLUDED_IDS.has(id)
+}
+
 // Per-SKU tier percent for a given quantity (0 below the first break).
 export function volumeTierPct(quantity) {
   const qty = parseInt(quantity, 10) || 0
@@ -189,7 +200,7 @@ export function volumeTierPct(quantity) {
 export function calcVolumeDiscount(items = []) {
   let discount = 0
   for (const it of items) {
-    if (!it) continue
+    if (!it || VOLUME_EXCLUDED_IDS.has(it.id)) continue
     const qty = parseInt(it.quantity, 10) || 0
     const price = Number(it.price) || 0
     const pct = volumeTierPct(qty)
