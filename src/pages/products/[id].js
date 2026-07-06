@@ -185,9 +185,10 @@ export default function ProductDetail({
         path={`/products/${product.id}`}
       />
 
-      {/* Sticky buy bar — slides up once the main CTA scrolls out of view */}
+      {/* Sticky buy bar — mobile only (on desktop the pinned image + buy box
+          keep the CTA reachable; a full-width bottom bar reads cheap there). */}
       {status !== 'out' && (
-        <div className={`fixed left-0 right-0 bottom-0 z-40 border-t border-line bg-paper/95 backdrop-blur-md transition-transform duration-300 ${ctaVisible ? 'translate-y-full' : 'translate-y-0'}`}>
+        <div className={`lg:hidden fixed left-0 right-0 bottom-[calc(74px+env(safe-area-inset-bottom,0px))] sm:bottom-0 z-40 border-t border-line bg-paper/95 backdrop-blur-md transition-transform duration-300 ${ctaVisible ? 'translate-y-full' : 'translate-y-0'}`}>
           <div className="max-w-container mx-auto px-6 py-3 flex items-center gap-3">
             <div className="min-w-0 flex-1 hidden sm:block">
               <div className="text-[13px] font-semibold text-ink truncate">{product.name} <span className="text-ink-mute font-mono text-[11px]">{product.dosage}</span></div>
@@ -263,7 +264,7 @@ export default function ProductDetail({
           <p className="text-ink-soft leading-relaxed mb-6">{product.description}</p>
 
           {/* Spec table */}
-          <div className="border border-line rounded-opp overflow-hidden mb-6">
+          <div className="border border-line rounded-opp-lg overflow-hidden mb-6 bg-surface shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
             <SpecRow label="SKU" value={product.sku} />
             <SpecRow label="Class" value={product.category} />
             <SpecRow label="Purity" value={`${product.purity ?? 99}% — HPLC verified`} />
@@ -523,11 +524,7 @@ export default function ProductDetail({
 
 function SpecRow({ label, value, last = false }) {
   return (
-    <div
-      className={`grid grid-cols-[140px_1fr] px-4 py-3 ${
-        last ? '' : 'border-b border-line'
-      } bg-surfaceAlt/30`}
-    >
+    <div className={`grid grid-cols-[130px_1fr] gap-3 px-5 py-3 ${last ? '' : 'border-b border-line'}`}>
       <span className="opp-meta-mono text-ink-mute">{label}</span>
       <span className="font-mono text-[13px] text-ink">{value}</span>
     </div>
@@ -536,12 +533,12 @@ function SpecRow({ label, value, last = false }) {
 
 function ComplianceRow({ icon, title, children }) {
   return (
-    <div className="flex items-start gap-3 p-4 bg-surfaceAlt border border-line rounded-opp">
-      <span className="text-accent-strong mt-0.5">
+    <div className="flex items-start gap-3.5 p-4 rounded-opp-lg border border-line bg-gradient-to-b from-surfaceAlt to-surface shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+      <span className="shrink-0 grid place-items-center w-9 h-9 rounded-full text-accent bg-[rgba(245,166,35,0.10)] border border-[rgba(245,166,35,0.22)]">
         <Icon name={icon} size={16} />
       </span>
       <div className="flex-1">
-        <div className="font-mono text-[11px] font-semibold tracking-[0.14em] uppercase text-ink mb-1">
+        <div className="font-mono text-[11px] font-semibold tracking-[0.14em] uppercase text-ink mb-1.5">
           {title}
         </div>
         <div className="text-[13px] text-ink-soft leading-relaxed">{children}</div>
@@ -647,6 +644,7 @@ export async function getServerSideProps(context) {
       (p) =>
         p.category === product.category &&
         p.id !== product.id &&
+        p.published !== false &&
         !(p.restricted && !restrictedVisible)
     )
     .slice(0, 4)

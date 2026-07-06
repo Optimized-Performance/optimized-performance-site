@@ -1,16 +1,20 @@
 // OPP primitives: Logo, Vial, Icon. All use currentColor / CSS vars so they
 // adapt to the laboratory theme.
 
-export function Logo({ size = 28, full = false }) {
+export function Logo({ size = 28, full = false, className = '' }) {
   // Real Syngyn logo — gold script on transparent (public/syngyn-logo.png).
   // `size` = rendered height in px; width scales with the ~1.25:1 art.
+  // Pass a `className` with Tailwind height utils (e.g. "h-14 md:h-[68px]") for
+  // responsive sizing — inline height is skipped when the class controls it.
   // `full` retained for call-site compatibility (the PNG already carries the
   // full wordmark, so both variants render the same mark).
+  const controlsHeight = /(^|\s)h-|(^|\s)md:h-/.test(className);
   return (
     <img
       src="/syngyn-logo.png"
       alt="Syngyn"
-      style={{ height: size, width: 'auto', display: 'block' }}
+      style={controlsHeight ? { width: 'auto' } : { height: size, width: 'auto' }}
+      className={`block w-auto ${className}`}
     />
   );
 }
