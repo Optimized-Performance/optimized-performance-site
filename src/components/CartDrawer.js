@@ -2,6 +2,7 @@ import { useRouter } from 'next/router';
 import { useCart } from '../context/CartContext';
 import { Vial, Icon } from './Primitives';
 import { calcShipping, FREE_SHIPPING_THRESHOLD } from '../lib/shipping';
+import { calcVolumeDiscount } from '../lib/sale';
 import { useCohortUi } from '../lib/cohort-ui';
 
 function formatShipDate(iso) {
@@ -53,9 +54,11 @@ export default function CartDrawer() {
   };
 
   // Drawer math is "best estimate before checkout" — affiliate discount isn't
-  // applied yet, so we pass cartTotal as discountedSubtotal. Final numbers
-  // are recomputed at checkout once the affiliate code is applied.
-  const shippingBreakdown = calcShipping({ items: cartItems, discountedSubtotal: cartTotal });
+  // applied yet, so we pass the post-volume subtotal as discountedSubtotal.
+  // Final numbers are recomputed at checkout once the affiliate code is applied.
+  const { discount: volumeDiscount } = calcVolumeDiscount(cartItems);
+  const postVolume = Math.round((cartTotal - volumeDiscount) * 100) / 100;
+  const shippingBreakdown = calcShipping({ items: cartItems, discountedSubtotal: postVolume });
   // Cross-sell add-ons (BAC water) + free-shipping progress — only meaningful for
   // vial-only carts (kits always pay the cold-pack surcharge, no free-ship tier).
   // BAC cross-sell: cohort only, only when the cart holds a real peptide (not
@@ -208,6 +211,12 @@ export default function CartDrawer() {
                 <span>Subtotal</span>
                 <span>${cartTotal.toFixed(2)}</span>
               </div>
+              {volumeDiscount > 0 && (
+                <div className="flex justify-between text-[13px] font-semibold mb-1">
+                  <span className="text-accent-strong">Volume discount</span>
+                  <span className="text-accent-strong">-${volumeDiscount.toFixed(2)}</span>
+                </div>
+              )}
               <div className="flex justify-between opp-meta-mono">
                 <span>Shipping</span>
                 <span>

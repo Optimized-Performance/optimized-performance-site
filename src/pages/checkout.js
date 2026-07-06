@@ -246,6 +246,7 @@ export default function Checkout() {
     memorialDiscount,
     bogoDiscount,
     bogoFreeVials,
+    volumeDiscount,
     affiliateDiscount: discountAmount,
     recoveryDiscount,
     discountedSubtotal,
@@ -798,6 +799,12 @@ export default function Checkout() {
                   GLP-3 Buy 2 Get 1 Free ({bogoFreeVials} free)
                 </span>
                 <span className="text-accent-strong font-semibold">-${bogoDiscount.toFixed(2)}</span>
+              </div>
+            )}
+            {volumeDiscount > 0 && (
+              <div className="flex justify-between text-[13px]">
+                <span className="text-accent-strong font-semibold">Volume discount</span>
+                <span className="text-accent-strong font-semibold">-${volumeDiscount.toFixed(2)}</span>
               </div>
             )}
             {affiliateApplied && (

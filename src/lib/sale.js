@@ -154,6 +154,51 @@ export function isBogoProduct(product, now = new Date()) {
 }
 
 // ============================================================
+// Volume / quantity-break pricing — 2026-07 (replaces kit SKUs).
+// ============================================================
+// Per-SKU quantity discount: the more units of a given SKU in the cart, the
+// deeper the per-unit discount. Replaces the old fixed 10-vial "kit" SKUs with
+// a smooth tier so any quantity qualifies. Computed PER LINE ITEM (per SKU) —
+// mixing different compounds does NOT combine toward a tier (you buy 10 of ONE
+// SKU to reach 15%). STACKS with affiliate codes: the volume discount is a
+// dollar amount off the subtotal, taken before the affiliate % (which then
+// applies to the reduced subtotal). Commission is computed on the amount
+// actually paid (post-all-discount), so volume breaks reduce the commission
+// base the same way every other discount does.
+//
+// Tiers (per SKU): 1–2 = full price · 3–4 = 5% · 5–9 = 10% · 10+ = 15%.
+export const VOLUME_TIERS = [
+  { min: 10, pct: 15 },
+  { min: 5, pct: 10 },
+  { min: 3, pct: 5 },
+]
+
+// Per-SKU tier percent for a given quantity (0 below the first break).
+export function volumeTierPct(quantity) {
+  const qty = parseInt(quantity, 10) || 0
+  for (const tier of VOLUME_TIERS) {
+    if (qty >= tier.min) return tier.pct
+  }
+  return 0
+}
+
+// Total volume discount across all line items. `items` = [{ price, quantity }].
+// Each line's discount = price * qty * tierPct(qty). Callers pass server-
+// validated product prices (create.js) or cart prices (checkout.js) — never
+// client-supplied prices server-side. Zero when nothing qualifies.
+export function calcVolumeDiscount(items = []) {
+  let discount = 0
+  for (const it of items) {
+    if (!it) continue
+    const qty = parseInt(it.quantity, 10) || 0
+    const price = Number(it.price) || 0
+    const pct = volumeTierPct(qty)
+    if (pct > 0) discount += price * qty * (pct / 100)
+  }
+  return { discount: Math.round(discount * 100) / 100 }
+}
+
+// ============================================================
 // Crypto / Zelle payment-method discount — 2026.
 // ============================================================
 // 5% off when the customer pays via an un-freezable rail (crypto or Zelle), to

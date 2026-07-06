@@ -9,7 +9,7 @@ import { Vial, Icon } from '../../components/Primitives';
 import NotifyMe from '../../components/NotifyMe';
 import { supabaseAdmin } from '../../lib/supabase';
 import { getCohortFromRequest } from '../../lib/cohort-session';
-import { isMemorialDaySaleActive, getSalePrice, MEMORIAL_DAY_DISCOUNT_PCT, isBogoProduct } from '../../lib/sale';
+import { isMemorialDaySaleActive, getSalePrice, MEMORIAL_DAY_DISCOUNT_PCT, isBogoProduct, VOLUME_TIERS, volumeTierPct } from '../../lib/sale';
 // Static import (NOT require) so Next keeps lib/catalog in this page's server
 // bundle — a dynamic require() of a module with no static importer tree-shakes
 // to {} in the prod build, so getCatalog() became "t is not a function" and
@@ -34,6 +34,10 @@ export default function ProductDetail({
   const router = useRouter();
   const { addToCart } = useCart();
   const [qty, setQty] = useState(1);
+  // Per-SKU volume break at the selected quantity (replaces the old kit SKUs).
+  const volPct = volumeTierPct(qty);
+  const lineBase = (product?.price || 0) * qty;
+  const lineTotal = lineBase * (1 - volPct / 100);
   // Track whether the main add-to-cart CTA is on-screen; when it scrolls out of
   // view, reveal a sticky bottom buy-bar so the action is always one tap away
   // (esp. mobile / long pages). IntersectionObserver — no scroll-handler jank.
@@ -193,7 +197,7 @@ export default function ProductDetail({
               <button type="button" onClick={() => setQty(Math.min(stock || 99, qty + 1))} className="w-8 h-8 rounded-full border border-line text-ink-soft hover:text-ink hover:border-ink transition-colors" aria-label="Increase quantity">+</button>
             </div>
             <button type="button" onClick={handleAdd} className="btn-primary px-5 py-2.5 text-sm whitespace-nowrap shrink-0">
-              <Icon name="plus" size={14} /> {status === 'preorder' ? `Preorder · $${(product.price * qty).toFixed(2)}` : `Add · $${(product.price * qty).toFixed(2)}`}
+              <Icon name="plus" size={14} /> {status === 'preorder' ? `Preorder · $${lineTotal.toFixed(2)}` : `Add · $${lineTotal.toFixed(2)}`}{volPct > 0 && <span className="ml-1 opacity-90">(-{volPct}%)</span>}
             </button>
           </div>
         </div>
@@ -330,6 +334,29 @@ export default function ProductDetail({
             </div>
           )}
 
+          {/* Volume / quantity-break tiers (per SKU) */}
+          <div className="mb-4 border border-line rounded-opp overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-2 bg-surfaceAlt">
+              <span className="opp-meta-mono text-ink-mute">BUY MORE · SAVE MORE</span>
+              {volPct > 0 && (
+                <span className="font-mono text-[11px] font-bold text-accent">
+                  −{volPct}% · save ${(lineBase - lineTotal).toFixed(2)}
+                </span>
+              )}
+            </div>
+            <div className="grid grid-cols-3 divide-x divide-line">
+              {VOLUME_TIERS.slice().reverse().map((t) => {
+                const active = volPct === t.pct;
+                return (
+                  <div key={t.min} className={`px-3 py-2 text-center ${active ? 'bg-accent/10' : ''}`}>
+                    <div className={`font-display font-bold text-sm ${active ? 'text-accent' : 'text-ink'}`}>{t.min}+</div>
+                    <div className={`font-mono text-[11px] ${active ? 'text-accent' : 'text-ink-mute'}`}>{t.pct}% off</div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
           <button
             ref={ctaRef}
             type="button"
@@ -341,8 +368,9 @@ export default function ProductDetail({
             {status === 'out'
               ? 'Sold out'
               : status === 'preorder'
-              ? `Preorder — $${(product.price * qty).toFixed(2)}`
-              : `Add to cart — $${(product.price * qty).toFixed(2)}`}
+              ? `Preorder — $${lineTotal.toFixed(2)}`
+              : `Add to cart — $${lineTotal.toFixed(2)}`}
+            {volPct > 0 && <span className="ml-1 opacity-90">(-{volPct}%)</span>}
           </button>
 
           {/* Trust reinforcement at the decision point */}

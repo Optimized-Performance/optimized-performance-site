@@ -19,6 +19,7 @@ import {
   isMemorialDaySaleActive,
   applyMemorialDiscount,
   calcGlp3Bogo,
+  calcVolumeDiscount,
   calcAltPayDiscount,
   ALT_PAY_DISCOUNT_PCT,
   ALT_PAY_DISCOUNT_METHODS,
@@ -71,7 +72,13 @@ export function computeOrderTotals({
     items.map((it) => ({ id: it.id, price: it.price, quantity: it.quantity })),
     now
   )
-  const subtotalPostPromos = round2(subtotalPostMemorial - bogoDiscount)
+
+  // 3.5) Per-SKU volume/quantity-break discount (replaces the old kit SKUs).
+  //      Dollar discount off the subtotal, taken BEFORE the affiliate % so the
+  //      two STACK (affiliate % then applies to the volume-reduced subtotal).
+  const { discount: volumeDiscount } = calcVolumeDiscount(items)
+
+  const subtotalPostPromos = round2(subtotalPostMemorial - bogoDiscount - volumeDiscount)
 
   // 4+5) Affiliate % vs house retention % (recovery/replenishment email link).
   //    A recovery token marks a HOUSE ORDER — a reorder / abandoned-cart sale we
@@ -116,6 +123,7 @@ export function computeOrderTotals({
     memorialDiscount: round2(memorialDiscount),
     bogoDiscount: round2(bogoDiscount),
     bogoFreeVials,
+    volumeDiscount: round2(volumeDiscount),
     affiliatePct: effectiveAffiliatePct,
     affiliateDiscount,
     recoveryPct: effectiveRecoveryPct,
