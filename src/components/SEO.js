@@ -37,7 +37,7 @@ export default function SEO({ title, description, path = '', noindex = false }) 
 
       {/* Additional */}
       <meta name="robots" content={robots} />
-      <meta name="theme-color" content="#08111A" />
+      <meta name="theme-color" content="#000000" />
       <link rel="icon" href="/favicon.ico" />
     </Head>
   );

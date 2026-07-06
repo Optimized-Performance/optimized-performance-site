@@ -21,16 +21,8 @@ export default function Header() {
   return (
     <header className="sticky top-0 z-50 border-b border-line bg-paper/85 backdrop-blur-md">
       <div className="max-w-container mx-auto px-8 py-4 grid grid-cols-[1fr_auto_1fr] items-center gap-6 md:grid md:grid-cols-[1fr_auto_1fr] max-md:flex max-md:justify-between">
-        <Link href="/" className="flex items-center gap-3 text-ink">
-          <Logo size={28} />
-          <span className="flex flex-col leading-none">
-            <span className="font-display font-semibold text-[14px] tracking-[0.08em]">
-              {brand.name.toUpperCase()}
-            </span>
-            <span className="font-mono text-[10px] text-ink-mute tracking-[0.12em] uppercase mt-1">
-              {brand.tagline}
-            </span>
-          </span>
+        <Link href="/" className="flex items-center" aria-label={brand.name}>
+          <Logo size={46} />
         </Link>
 
         <nav className="hidden md:flex gap-7 justify-self-center">

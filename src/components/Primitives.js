@@ -2,34 +2,16 @@
 // adapt to the laboratory theme.
 
 export function Logo({ size = 28, full = false }) {
-  if (!full) {
-    return (
-      <svg viewBox="-50 -50 100 100" width={size} height={size} aria-hidden="true">
-        <g fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round">
-          <polygon points="0,-42 36.4,-21 36.4,21 0,42 -36.4,21 -36.4,-21" opacity="0.35" />
-          <polygon points="0,-26 22.5,-13 22.5,13 0,26 -22.5,13 -22.5,-13" opacity="0.7" />
-          <circle cx="0" cy="0" r="3" fill="currentColor" stroke="none" />
-        </g>
-      </svg>
-    );
-  }
-  // Full lockup: hex mark + "OPP" + wordmark
+  // Real Syngyn logo — gold script on transparent (public/syngyn-logo.png).
+  // `size` = rendered height in px; width scales with the ~1.25:1 art.
+  // `full` retained for call-site compatibility (the PNG already carries the
+  // full wordmark, so both variants render the same mark).
   return (
-    <svg viewBox="-70 -70 140 190" width={size * 0.93} height={size} aria-hidden="true">
-      <g fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round">
-        <polygon points="0,-42 36.4,-21 36.4,21 0,42 -36.4,21 -36.4,-21" opacity="0.35" />
-        <polygon points="0,-26 22.5,-13 22.5,13 0,26 -22.5,13 -22.5,-13" opacity="0.7" />
-        <circle cx="0" cy="0" r="3" fill="currentColor" stroke="none" />
-      </g>
-      <line x1="-45" y1="60" x2="45" y2="60" stroke="currentColor" strokeWidth="0.4" opacity="0.4" />
-      <text x="0" y="84" textAnchor="middle" fontFamily="var(--font-display)"
-            fontSize="22" fontWeight="600" letterSpacing="10" fill="currentColor">SYN</text>
-      <text x="0" y="102" textAnchor="middle" fontFamily="var(--font-mono)"
-            fontSize="5" letterSpacing="2" fill="currentColor" opacity="0.6">
-        SYNGYN
-      </text>
-      <line x1="-35" y1="108" x2="35" y2="108" stroke="currentColor" strokeWidth="0.3" opacity="0.3" />
-    </svg>
+    <img
+      src="/syngyn-logo.png"
+      alt="Syngyn"
+      style={{ height: size, width: 'auto', display: 'block' }}
+    />
   );
 }
 
@@ -79,16 +61,16 @@ function VialFallback({ label = '—', dosage = '', size = 220, purity, kit = fa
       <svg viewBox="0 0 280 300" width={size} height={(size * 300) / 280} style={{ display: 'block' }}>
         <defs>
           <linearGradient id="kitGlass" x1="0" x2="1">
-            <stop offset="0" stopColor="#2a3340" stopOpacity="0.9" />
-            <stop offset="0.35" stopColor="#e8eef5" stopOpacity="0.18" />
+            <stop offset="0" stopColor="#2e2a24" stopOpacity="0.9" />
+            <stop offset="0.35" stopColor="#f0ece2" stopOpacity="0.18" />
             <stop offset="0.5" stopColor="#ffffff" stopOpacity="0.28" />
-            <stop offset="0.65" stopColor="#e8eef5" stopOpacity="0.18" />
-            <stop offset="1" stopColor="#2a3340" stopOpacity="0.9" />
+            <stop offset="0.65" stopColor="#f0ece2" stopOpacity="0.18" />
+            <stop offset="1" stopColor="#2e2a24" stopOpacity="0.9" />
           </linearGradient>
           <linearGradient id="kitCap" x1="0" x2="1">
-            <stop offset="0" stopColor="#6a6f76" />
-            <stop offset="0.5" stopColor="#d4d8de" />
-            <stop offset="1" stopColor="#6a6f76" />
+            <stop offset="0" stopColor="#726c62" />
+            <stop offset="0.5" stopColor="#d8d4ca" />
+            <stop offset="1" stopColor="#726c62" />
           </linearGradient>
         </defs>
         <text x="16" y="22" fontSize="8" fill="var(--inkSoft)" fontFamily="var(--font-mono)" letterSpacing="1">KIT · 10 VIALS</text>
@@ -100,9 +82,9 @@ function VialFallback({ label = '—', dosage = '', size = 220, purity, kit = fa
               <g key={`${row}-${i}`}>
                 <rect x={x + 8} y={y} width="26" height="10" rx="1.5" fill="url(#kitCap)" />
                 <rect x={x + 4} y={y + 16} width="34" height="100" rx="3" fill="url(#kitGlass)" stroke="#3a4450" strokeWidth="0.5" />
-                <rect x={x + 4} y={y + 42} width="34" height="60" fill="#0D1B2A" />
+                <rect x={x + 4} y={y + 42} width="34" height="60" fill="#121212" />
                 <text x={x + 21} y={y + 68} textAnchor="middle" fontSize="5.5" fill="#FFFFFF" fontFamily="var(--font-display)" fontWeight="700">{label.split(' ')[0]}</text>
-                <text x={x + 21} y={y + 82} textAnchor="middle" fontSize="7" fill="#00B4D8" fontFamily="var(--font-display)" fontWeight="700">{dosage}</text>
+                <text x={x + 21} y={y + 82} textAnchor="middle" fontSize="7" fill="#F5A623" fontFamily="var(--font-display)" fontWeight="700">{dosage}</text>
                 <rect x={x + 6} y={y + 65} width="2" height="30" fill="#FFFFFF" opacity="0.2" />
               </g>
             );
@@ -118,21 +100,21 @@ function VialFallback({ label = '—', dosage = '', size = 220, purity, kit = fa
       <svg viewBox="0 0 100 160" width={size} height={(size * 160) / 100} style={{ display: 'block' }}>
         <defs>
           <linearGradient id="tinyGlass" x1="0" x2="1">
-            <stop offset="0" stopColor="#2a3340" stopOpacity="0.9" />
+            <stop offset="0" stopColor="#2e2a24" stopOpacity="0.9" />
             <stop offset="0.5" stopColor="#ffffff" stopOpacity="0.22" />
-            <stop offset="1" stopColor="#2a3340" stopOpacity="0.9" />
+            <stop offset="1" stopColor="#2e2a24" stopOpacity="0.9" />
           </linearGradient>
           <linearGradient id="tinyCap" x1="0" x2="1">
-            <stop offset="0" stopColor="#6a6f76" />
-            <stop offset="0.5" stopColor="#d4d8de" />
-            <stop offset="1" stopColor="#6a6f76" />
+            <stop offset="0" stopColor="#726c62" />
+            <stop offset="0.5" stopColor="#d8d4ca" />
+            <stop offset="1" stopColor="#726c62" />
           </linearGradient>
         </defs>
         <rect x="34" y="6" width="32" height="14" rx="2" fill="url(#tinyCap)" />
         <rect x="28" y="24" width="44" height="126" rx="4" fill="url(#tinyGlass)" stroke="#3a4450" strokeWidth="0.5" />
-        <rect x="28" y="50" width="44" height="74" fill="#0D1B2A" />
+        <rect x="28" y="50" width="44" height="74" fill="#121212" />
         <text x="50" y="82" textAnchor="middle" fontSize="9" fill="#FFFFFF" fontFamily="var(--font-display)" fontWeight="700">{label.split(' ')[0]}</text>
-        <text x="50" y="104" textAnchor="middle" fontSize="10" fill="#00B4D8" fontFamily="var(--font-display)" fontWeight="700">{dosage}</text>
+        <text x="50" y="104" textAnchor="middle" fontSize="10" fill="#F5A623" fontFamily="var(--font-display)" fontWeight="700">{dosage}</text>
         <rect x="30" y="78" width="3" height="40" fill="#FFFFFF" opacity="0.2" />
       </svg>
     );
@@ -147,11 +129,11 @@ function VialFallback({ label = '—', dosage = '', size = 220, purity, kit = fa
       <defs>
         <linearGradient id="glassH" x1="0" x2="1" y1="0" y2="0">
           <stop offset="0" stopColor="#1f2732" stopOpacity="0.95" />
-          <stop offset="0.08" stopColor="#2a3340" stopOpacity="0.7" />
-          <stop offset="0.3" stopColor="#c0c8d2" stopOpacity="0.18" />
+          <stop offset="0.08" stopColor="#2e2a24" stopOpacity="0.7" />
+          <stop offset="0.3" stopColor="#cac6bc" stopOpacity="0.18" />
           <stop offset="0.5" stopColor="#ffffff" stopOpacity="0.25" />
-          <stop offset="0.7" stopColor="#c0c8d2" stopOpacity="0.18" />
-          <stop offset="0.92" stopColor="#2a3340" stopOpacity="0.7" />
+          <stop offset="0.7" stopColor="#cac6bc" stopOpacity="0.18" />
+          <stop offset="0.92" stopColor="#2e2a24" stopOpacity="0.7" />
           <stop offset="1" stopColor="#1f2732" stopOpacity="0.95" />
         </linearGradient>
         <linearGradient id="cap" x1="0" x2="1">
@@ -179,7 +161,7 @@ function VialFallback({ label = '—', dosage = '', size = 220, purity, kit = fa
       <line x1="72" y1="28" x2="148" y2="28" stroke="#4a5058" strokeWidth="0.4" opacity="0.6" />
       <line x1="72" y1="50" x2="148" y2="50" stroke="#4a5058" strokeWidth="0.4" opacity="0.6" />
       {/* Cap shadow on glass neck */}
-      <rect x="74" y="55" width="72" height="3" fill="#1a1f28" opacity="0.5" />
+      <rect x="74" y="55" width="72" height="3" fill="#1c1a16" opacity="0.5" />
 
       {/* Glass body — rounded bottom */}
       <path
@@ -190,23 +172,23 @@ function VialFallback({ label = '—', dosage = '', size = 220, purity, kit = fa
       />
 
       {/* Label — dark navy */}
-      <rect x="62" y="104" width="96" height="168" fill="#0D1B2A" />
+      <rect x="62" y="104" width="96" height="168" fill="#121212" />
       {/* Label top & bottom thin accent lines */}
-      <rect x="62" y="104" width="96" height="1" fill="#00B4D8" opacity="0.4" />
-      <rect x="62" y="271" width="96" height="1" fill="#00B4D8" opacity="0.4" />
+      <rect x="62" y="104" width="96" height="1" fill="#F5A623" opacity="0.4" />
+      <rect x="62" y="271" width="96" height="1" fill="#F5A623" opacity="0.4" />
 
       {/* Hex logo watermark — vertical left edge */}
       <g transform={`translate(74 186) rotate(-90)`} opacity="0.55">
-        <g fill="none" stroke="#00B4D8" strokeWidth="1" strokeLinejoin="round">
+        <g fill="none" stroke="#F5A623" strokeWidth="1" strokeLinejoin="round">
           <polygon points="0,-14 12.1,-7 12.1,7 0,14 -12.1,7 -12.1,-7" opacity="0.55" />
           <polygon points="0,-8 7,-4 7,4 0,8 -7,4 -7,-4" opacity="0.85" />
-          <circle r="1.3" fill="#00B4D8" stroke="none" />
+          <circle r="1.3" fill="#F5A623" stroke="none" />
         </g>
       </g>
       {/* Small brand text vertical */}
       <text
         transform="translate(70 220) rotate(-90)"
-        fontSize="3.5" fill="#8a96a8"
+        fontSize="3.5" fill="#9a968c"
         fontFamily="var(--font-display)"
         letterSpacing="1.3"
       >SYNGYN</text>
@@ -221,18 +203,18 @@ function VialFallback({ label = '—', dosage = '', size = 220, purity, kit = fa
       <line x1="106" y1="143" x2="152" y2="143" stroke="#ffffff" strokeWidth="0.4" opacity="0.3" />
 
       {/* Subtitle */}
-      <text x="106" y="154" fontSize="5.5" fill="#c0c8d2"
+      <text x="106" y="154" fontSize="5.5" fill="#cac6bc"
             fontFamily="var(--font-display)" fontWeight="500">
         {subtitle}
       </text>
 
       {/* Dosage — large cyan */}
-      <text x="106" y="180" fontSize="14" fill="#00B4D8"
+      <text x="106" y="180" fontSize="14" fill="#F5A623"
             fontFamily="var(--font-display)" fontWeight="700" letterSpacing="-0.2">
         {dosage}
       </text>
       {/* Format text right of dosage */}
-      <text x="138" y="180" fontSize="4.5" fill="#8a96a8"
+      <text x="138" y="180" fontSize="4.5" fill="#9a968c"
             fontFamily="var(--font-display)" fontWeight="400">
         Lyophilized Powder
       </text>
@@ -243,13 +225,13 @@ function VialFallback({ label = '—', dosage = '', size = 220, purity, kit = fa
         Purity: &gt;{purity ? Math.floor(purity) : 99}%
       </text>
       {/* Store at right */}
-      <text x="138" y="196" fontSize="4.5" fill="#8a96a8"
+      <text x="138" y="196" fontSize="4.5" fill="#9a968c"
             fontFamily="var(--font-display)" fontWeight="400">
         Store at −20°C
       </text>
 
       {/* Thin divider */}
-      <line x1="106" y1="206" x2="152" y2="206" stroke="#00B4D8" strokeWidth="0.4" opacity="0.5" />
+      <line x1="106" y1="206" x2="152" y2="206" stroke="#F5A623" strokeWidth="0.4" opacity="0.5" />
 
       {/* RUO */}
       <text x="106" y="218" fontSize="5" fill="#FFFFFF"
@@ -258,7 +240,7 @@ function VialFallback({ label = '—', dosage = '', size = 220, purity, kit = fa
       </text>
 
       {/* Lot line */}
-      <text x="106" y="234" fontSize="4.5" fill="#8a96a8"
+      <text x="106" y="234" fontSize="4.5" fill="#9a968c"
             fontFamily="var(--font-display)" fontWeight="400">
         Lot: ___________
       </text>
@@ -267,7 +249,7 @@ function VialFallback({ label = '—', dosage = '', size = 220, purity, kit = fa
       <line x1="106" y1="252" x2="152" y2="252" stroke="#ffffff" strokeWidth="0.3" opacity="0.15" />
 
       {/* SKU footer */}
-      <text x="106" y="262" fontSize="3.8" fill="#8a96a8"
+      <text x="106" y="262" fontSize="3.8" fill="#9a968c"
             fontFamily="var(--font-mono)" letterSpacing="0.4">
         {skuLine || 'OPP'} | 2 mL vial
       </text>
@@ -278,7 +260,7 @@ function VialFallback({ label = '—', dosage = '', size = 220, purity, kit = fa
       <rect x="150" y="62" width="1.5" height="110" fill="#FFFFFF" opacity="0.18" />
 
       {/* Bottom meniscus shadow */}
-      <rect x="62" y="286" width="96" height="4" fill="#0a0f18" opacity="0.5" />
+      <rect x="62" y="286" width="96" height="4" fill="#0A0A0A" opacity="0.5" />
     </svg>
   );
 }

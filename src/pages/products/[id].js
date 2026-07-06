@@ -594,7 +594,7 @@ export async function getServerSideProps(context) {
           type: 'svg',
           errorCorrectionLevel: 'M',
           margin: 0,
-          color: { dark: '#08111A', light: '#FFFFFF' },
+          color: { dark: '#000000', light: '#FFFFFF' },
         });
         coaQr = { lotNumber: latestBatch.lot_number, path: coaPath, svg };
       }
