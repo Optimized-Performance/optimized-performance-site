@@ -555,7 +555,11 @@ export async function getServerSideProps(context) {
   const { id } = context.params;
   const product = products.find((p) => p.id === id);
 
-  if (!product) {
+  // getCatalog() includes UNPUBLISHED rows (so in-flight orders + order history
+  // still resolve prices via getProductById). But a customer-facing PDP must
+  // NOT render an unpublished/retired SKU — otherwise a retired product (e.g. a
+  // kit) stays purchasable by direct URL even after it's pulled from /shop.
+  if (!product || product.published === false) {
     return { notFound: true };
   }
 
