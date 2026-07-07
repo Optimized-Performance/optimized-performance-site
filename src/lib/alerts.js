@@ -53,6 +53,9 @@ export async function sendEmailAlert(items, level) {
         from: { email: process.env.FROM_EMAIL || 'alerts@syngyn.co' },
         subject,
         content: [{ type: 'text/plain', value: body }],
+        // Click tracking OFF — consistent with customer/marketing sends; the
+        // branded-link SSL (url####.syngyn.co) isn't provisioned.
+        tracking_settings: { click_tracking: { enable: false, enable_text: false } },
       }),
     });
   } catch (err) {

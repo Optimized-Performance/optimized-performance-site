@@ -137,6 +137,10 @@ async function sendOneMarketing({ toEmail, subject, bodyLines }) {
         reply_to: { email: 'support@syngyn.co' },
         subject,
         content: [{ type: 'text/plain', value }],
+        // Click tracking OFF — SendGrid's branded-link SSL (url####.syngyn.co)
+        // isn't provisioned, so tracked links throw a cert warning. No marketing
+        // click-analytics wanted; keep it off in code, not just the dashboard.
+        tracking_settings: { click_tracking: { enable: false, enable_text: false } },
         ...(unsub
           ? {
               headers: {

@@ -27,6 +27,11 @@ async function send({ to, subject, text, html }) {
           { type: 'text/plain', value: text },
           { type: 'text/html', value: html },
         ],
+        // Click tracking OFF: SendGrid rewrites links through url####.syngyn.co,
+        // whose branded-link SSL isn't provisioned → ERR_CERT_COMMON_NAME_INVALID
+        // on every link. Transactional mail needs no analytics; keep it off in
+        // code so a dashboard toggle can never re-break the verify/reset path.
+        tracking_settings: { click_tracking: { enable: false, enable_text: false } },
       }),
     })
     if (!res.ok) {
