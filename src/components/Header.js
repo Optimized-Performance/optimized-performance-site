@@ -20,9 +20,9 @@ export default function Header() {
 
   return (
     <header className="sticky top-0 z-50 border-b border-line bg-paper/85 backdrop-blur-md">
-      <div className="max-w-container mx-auto px-8 py-4 grid grid-cols-[1fr_auto_1fr] items-center gap-6 md:grid md:grid-cols-[1fr_auto_1fr] max-md:flex max-md:justify-between">
+      <div className="max-w-container mx-auto px-8 py-3 md:py-4 grid grid-cols-[1fr_auto_1fr] items-center gap-6 md:grid md:grid-cols-[1fr_auto_1fr] max-md:flex max-md:justify-between">
         <Link href="/" className="flex items-center" aria-label={brand.name}>
-          <Logo className="h-14 md:h-[68px]" />
+          <Logo className="h-16 md:h-[88px]" />
         </Link>
 
         <nav className="hidden md:flex gap-7 justify-self-center">
@@ -112,26 +112,6 @@ export default function Header() {
         </div>
       )}
 
-      <div className="opp-ticker" aria-hidden="true">
-        <div className="opp-ticker-track">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <span key={i}>
-              <span className="opp-ticker-item">
-                <Icon name="dot" size={8} /> ALL BATCHES THIRD-PARTY TESTED · HPLC VERIFIED
-              </span>
-              <span className="opp-ticker-item">
-                <Icon name="dot" size={8} /> LYOPHILIZED POWDER · 2ML VIAL · STORE AT −20°C
-              </span>
-              <span className="opp-ticker-item">
-                <Icon name="dot" size={8} /> ORDERS SHIP WITHIN 24H · USA DOMESTIC · DISCREET PACKAGING
-              </span>
-              <span className="opp-ticker-item">
-                <Icon name="dot" size={8} /> FOR IN-VITRO RESEARCH USE ONLY · NOT FOR HUMAN CONSUMPTION
-              </span>
-            </span>
-          ))}
-        </div>
-      </div>
     </header>
   );
 }

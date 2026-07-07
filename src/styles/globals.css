@@ -341,3 +341,12 @@ button, a, input, select, textarea, label, summary { touch-action: manipulation;
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 18px 44px -20px rgba(245, 166, 35, 0.28);
   }
 }
+
+/* ═════ Premium product stage (2026) ═════ */
+/* Replaces the busy grid-pattern backdrop behind product images with a clean
+   gold spotlight on a soft vertical gradient — reads premium, not "lab-grid". */
+.opp-product-stage {
+  background:
+    radial-gradient(120% 85% at 50% 28%, rgba(245, 166, 35, 0.08), transparent 62%),
+    linear-gradient(180deg, var(--surfaceAlt), var(--surface));
+}

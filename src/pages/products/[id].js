@@ -226,7 +226,7 @@ export default function ProductDetail({
 
       <div className="grid lg:grid-cols-[1.1fr_1fr] gap-12">
         {/* Image panel — pinned on desktop so it stays in view while details scroll */}
-        <div className="card-premium relative flex items-center justify-center min-h-[420px] p-8 opp-grid-bg lg:sticky lg:top-24 lg:self-start">
+        <div className="card-premium relative flex items-center justify-center min-h-[420px] p-8 opp-product-stage lg:sticky lg:top-24 lg:self-start">
           <div className="absolute top-5 right-5 px-2.5 py-1 bg-surface border border-line rounded-sm opp-meta-mono">
             {product.purity ?? 99}% · HPLC
           </div>
@@ -497,7 +497,7 @@ export default function ProductDetail({
                 href={`/products/${rp.id}`}
                 className="bg-surface border border-line rounded-opp-lg p-5 transition-all duration-200 hover:-translate-y-0.5 hover:border-ink flex flex-col gap-2"
               >
-                <div className="flex justify-center py-2 opp-grid-bg rounded-opp">
+                <div className="flex justify-center py-2 opp-product-stage rounded-opp">
                   <Vial label={rp.name} dosage={rp.dosage} size={80} kit={rp.isKit} sku={rp.sku} image={rp.imageUrl} />
                 </div>
                 <div className="opp-meta-mono text-ink-mute">{rp.category}</div>
