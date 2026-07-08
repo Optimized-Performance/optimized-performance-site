@@ -1,6 +1,7 @@
 import { resourcesAllowed } from '../../../lib/resources/gate'
 import { html as dosingCalculator } from '../../../lib/resources/tool-html-dosing-calculator'
 import { html as peptideDesigner } from '../../../lib/resources/tool-html-peptide-designer'
+import { html as peptideLibrary } from '../../../lib/resources/tool-html-peptide-library'
 
 // Serves the self-contained tool documents that the /resources/[tool] pages
 // iframe. STRICT cohort gate (see lib/resources/gate) — a cold visitor gets a
@@ -13,6 +14,7 @@ import { html as peptideDesigner } from '../../../lib/resources/tool-html-peptid
 const TOOL_HTML = {
   'dosing-calculator': dosingCalculator,
   'peptide-designer': peptideDesigner,
+  'peptide-library': peptideLibrary,
 }
 
 export default async function handler(req, res) {

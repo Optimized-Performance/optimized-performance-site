@@ -17,4 +17,11 @@ export const TOOLS_META = [
       'Organize your research by goal — what each compound is studied for, how it reconstitutes, and which markers the literature tracks.',
     icon: 'doc',
   },
+  {
+    slug: 'peptide-library',
+    name: 'Peptide Research Library',
+    blurb:
+      'A plain-language rundown of each compound — its class, how it works, and what researchers study it for.',
+    icon: 'search',
+  },
 ]

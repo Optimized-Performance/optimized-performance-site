@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="robots" content="noindex, nofollow" />
+<title>Syngyn Peptide Research Library</title>
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="brand">
+      <h1>SYNGYN<span class="accent">·</span>PEPTIDE</h1>
+      <span class="sub">Research Library</span>
+    </div>
+    <p class="tagline">
+      A plain-language rundown of each research compound — its class, how it works in the literature,
+      and what researchers study it for. A reference, not medical advice.
+    </p>
+    <span class="privacy-pill"><span class="dot"></span> 100% private — runs in your browser. Nothing is saved, sent, or stored.</span>
+  </header>
+
+  <section class="card">
+    <label class="step-label"><span class="step-n">🔍</span> Find a peptide</label>
+    <input type="search" id="q" class="search-input" placeholder="Search by name, class, or what it's researched for…" autocomplete="off" />
+    <div class="micro" style="margin:12px 0 8px">Filter by research area:</div>
+    <div class="chipset" id="goals"></div>
+  </section>
+
+  <div class="count" id="count"></div>
+  <div id="list"></div>
+  <div class="answer-empty hidden" id="empty">No compounds match that search.</div>
+
+  <!-- Funnel -->
+  <div class="cta-grid">
+    <div class="cta shop">
+      <h3>Research forms, lab-tested.</h3>
+      <p>Every compound here — research forms with public COAs, right here in the store.</p>
+      <a id="shopLink" href="/shop" target="_top">Browse the catalog</a>
+    </div>
+    <div class="cta dosing">
+      <h3>Reconstitute &amp; calculate your draw.</h3>
+      <p>BAC water → exact units on the pin — the Dosing Calculator.</p>
+      <a id="reconLink" href="/resources/dosing-calculator" target="_top">Open Calculator</a>
+    </div>
+    <div class="cta blueprint">
+      <h3>Read the markers that matter.</h3>
+      <p>Run bloodwork you already have through the Forged Blueprint.</p>
+      <a id="blueprintLink" href="#" target="_blank" rel="noopener">Open Blueprint</a>
+    </div>
+  </div>
+
+  <p class="disclaimer">
+    <b>Research &amp; educational reference only — not medical advice, not for human consumption.</b> This library
+    summarizes publicly available research context for the compounds listed. It does <i>not</i> recommend,
+    prescribe, endorse, or suggest any dose, protocol, or human use, and it does not diagnose or treat
+    anything. Compounds referenced are research compounds. It is not a substitute for a licensed medical
+    professional. You are solely responsible for the sourcing, legality, and handling of any compound.
+  </p>
+
+  <p class="footer-link">
+    Research peptides &amp; public COAs at <a id="oppLink" href="/shop" target="_top">Syngyn</a>.
+  </p>
+
+</div>
+
+<script src="engine.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

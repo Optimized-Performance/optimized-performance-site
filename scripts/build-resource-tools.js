@@ -40,7 +40,7 @@ function must(haystack, needle, slug) {
   if (!haystack.includes(needle)) throw new Error(`${slug}: expected to find ${needle}`)
 }
 
-for (const slug of ['dosing-calculator', 'peptide-designer']) {
+for (const slug of ['dosing-calculator', 'peptide-designer', 'peptide-library']) {
   const dir = path.join(SRC, slug)
   let html = fs.readFileSync(path.join(dir, 'index.html'), 'utf8')
   const css = fs.readFileSync(path.join(dir, 'styles.css'), 'utf8')
