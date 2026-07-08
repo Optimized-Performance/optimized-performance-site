@@ -93,7 +93,9 @@ export function estimateOrderCogs(items = []) {
 // GymThingz's /api/partner/revenue feed; these rates cover what that endpoint
 // can't know. Apparel economics, so its own numbers — tune here.
 export const GYMTHINGZ = {
-  COGS_PCT: 0.40,     // blanks + printing, % of gross — apparel estimate
+  // Real blended ratio from Matt (2026-07-07): $31,250 total inventory cost
+  // against $135,750 sell-through revenue = 23.0% of retail.
+  COGS_PCT: 0.23,     // blanks + printing, % of gross
   SHIPPING_PCT: 0.08, // outbound apparel shipping, % of gross
   OPS_PCT: 0.015,     // misc overhead, % of gross
   // Plain Stripe (clean apparel MCC) ≈ 2.9% + 30¢; Venmo business ~1.9%.
