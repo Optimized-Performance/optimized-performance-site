@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="robots" content="noindex, nofollow" />
+<title>Syngyn Peptide Protocol Designer</title>
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="brand">
+      <h1>SYNGYN<span class="accent">·</span>PEPTIDE</h1>
+      <span class="sub">Protocol Designer</span>
+    </div>
+    <p class="tagline">
+      Organize your peptide research by goal — what each compound is commonly studied for, how it's
+      reconstituted, and what markers the literature tracks. A reference organizer, not a prescription.
+    </p>
+    <span class="privacy-pill"><span class="dot"></span> 100% private — runs in your browser. Nothing is saved, sent, or stored.</span>
+  </header>
+
+  <section class="card">
+    <label class="step-label"><span class="step-n">1</span> What are you researching?</label>
+    <p class="micro">Pick one or more goals — the peptides commonly studied for each appear below.</p>
+    <div class="chipset" id="goals"></div>
+  </section>
+
+  <section class="card">
+    <label class="step-label"><span class="step-n">2</span> Build your research list</label>
+    <p class="micro">Tap the compounds you're researching to add them to your sheet.</p>
+    <div class="chipset" id="peptides"></div>
+
+    <div class="answer">
+      <div class="answer-empty" id="empty">👆 Select compounds above to build your reference sheet.</div>
+      <div id="out" class="hidden"></div>
+    </div>
+  </section>
+
+  <section class="card capture">
+    <h2>Save your research sheet</h2>
+    <p class="hint">Drop your email and we'll send your reference sheet + the Forged peptide research guide. No spam.</p>
+    <form id="leadForm" class="lead" novalidate>
+      <input type="email" id="leadEmail" placeholder="you@email.com" autocomplete="email" />
+      <button class="primary" type="submit">Send it to me</button>
+    </form>
+    <div id="leadMsg" class="parse-result"></div>
+  </section>
+
+  <div class="cta-grid">
+    <div class="cta shop">
+      <h3>Research peptides, lab-tested.</h3>
+      <p>The compounds on your list — research forms with public COAs, right here in the store.</p>
+      <a id="shopLink" href="#" target="_top">Browse</a>
+    </div>
+    <div class="cta dosing">
+      <h3>Reconstitute &amp; calculate your draw.</h3>
+      <p>BAC water → exact units on the pin — the Forged Dosing Calculator.</p>
+      <a id="reconLink" href="#" target="_top">Open Calculator</a>
+    </div>
+    <div class="cta blueprint">
+      <h3>Track the markers that matter.</h3>
+      <p>GH/metabolic peptides move glucose &amp; IGF-1 — read your panel on the Forged Blueprint.</p>
+      <a id="blueprintLink" href="#" target="_blank" rel="noopener">Open Blueprint</a>
+    </div>
+    <div class="cta">
+      <h3>Get your research dialed in by someone who's done it.</h3>
+      <p>Forged Genetics builds your approach around your data.</p>
+      <a href="tel:+15406218992">Book a Strategy Call</a>
+    </div>
+  </div>
+
+  <p class="disclaimer">
+    <b>Research &amp; educational reference only — not medical advice, not for human consumption.</b> This protocol designer organizes publicly available research context for compounds you select. It does <i>not</i> recommend,
+    prescribe, endorse, or suggest any dose, protocol, or human use, and it does not diagnose or treat anything.
+    Peptides referenced are research compounds. It is not a substitute for a licensed medical professional. Syngyn and Forged Genetics are not licensed medical providers. You are solely responsible for the sourcing,
+    legality, and handling of any compound.
+  </p>
+
+  <p class="footer-link">
+    Research peptides &amp; public COAs at <a id="oppLink" href="#" target="_top">Syngyn</a>.
+  </p>
+
+</div>
+
+<script src="engine.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

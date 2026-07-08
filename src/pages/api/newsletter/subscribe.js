@@ -10,7 +10,16 @@ import { extractClientIP } from '../../../lib/fraud-checks'
 
 // forged_tools = server-to-server bridge from the Forged suite's capture
 // endpoint (forgedbloodwork.com/api/subscribe) — one master list, source-tagged.
-const ALLOWED_SOURCES = new Set(['footer', 'home_hero', 'oos_alert', 'forged_tools'])
+// resources_* = the on-domain cohort-gated /resources tools (dosing
+// calculator + peptide designer) posting directly, no bridge needed.
+const ALLOWED_SOURCES = new Set([
+  'footer',
+  'home_hero',
+  'oos_alert',
+  'forged_tools',
+  'resources_recon',
+  'resources_designer',
+])
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end()

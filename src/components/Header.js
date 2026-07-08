@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useCart } from '../context/CartContext';
 import { BRAND } from '../lib/brand';
+import { useCohortUi } from '../lib/cohort-ui';
 import { Logo, Icon } from './Primitives';
 
 const NAV = [
@@ -17,6 +18,11 @@ export default function Header() {
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
   const path = router.asPath.split('?')[0];
+  // Cohort-only nav: /resources never appears in server-rendered HTML (cold
+  // visitors + AUP scanners see the standard nav), and mounts client-side for
+  // cohort sessions after hydration. The pages themselves are server-gated.
+  const isCohort = useCohortUi();
+  const nav = isCohort ? [...NAV, { href: '/resources', label: 'Resources' }] : NAV;
 
   return (
     <header className="sticky top-0 z-50 border-b border-line bg-paper/85 backdrop-blur-md">
@@ -26,7 +32,7 @@ export default function Header() {
         </Link>
 
         <nav className="hidden md:flex gap-7 justify-self-center">
-          {NAV.map((n) => {
+          {nav.map((n) => {
             const active = path.startsWith(n.href);
             return (
               <Link
@@ -92,7 +98,7 @@ export default function Header() {
 
       {mobileOpen && (
         <div className="md:hidden border-t border-line bg-surface px-8 py-4 flex flex-col gap-2">
-          {NAV.map((n) => (
+          {nav.map((n) => (
             <Link
               key={n.href}
               href={n.href}

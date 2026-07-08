@@ -236,7 +236,13 @@ async function applyAffiliateRef(query, res, supabaseAdmin) {
   return null
 }
 
-export async function getCohortFromRequest(context, supabaseAdmin) {
+// opts.strict — ignore the COHORT_GATE_OFF kill-switch and require a REAL
+// credential (cohort/ref/recover param or valid cookie). Used by surfaces
+// that must stay hidden from cold visitors even while the catalog gate is
+// open for conversion (e.g. /resources tools): COHORT_GATE_OFF makes
+// cohortAllowed=true for EVERYONE, which is correct for the catalog but
+// would expose members-only pages to AUP scanners.
+export async function getCohortFromRequest(context, supabaseAdmin, { strict = false } = {}) {
   const { req, res, query } = context
 
   // Master kill-switch. The cohort gate is AUP-scanner armor (hides GLP-3/HGH
@@ -246,7 +252,7 @@ export async function getCohortFromRequest(context, supabaseAdmin) {
   // unreferred buyers would cost conversion. Flip it back on (unset / !=true)
   // the moment a processor AUP inspection is imminent. Server-side env
   // (getServerSideProps), so no NEXT_PUBLIC prefix needed.
-  if (process.env.COHORT_GATE_OFF === 'true') {
+  if (!strict && process.env.COHORT_GATE_OFF === 'true') {
     // Catalog gate disabled (full catalog public for conversion), but STILL
     // honor ?ref so affiliate commission attribution works — attribution is
     // intentionally independent of the catalog-hiding switch.

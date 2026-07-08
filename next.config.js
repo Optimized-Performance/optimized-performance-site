@@ -11,11 +11,15 @@ const CSP = [
   // 'unsafe-inline'/'unsafe-eval' required by Next.js inline bootstrap + PayPal SDK
   // until a nonce pipeline is added; tighten once violations are reviewed.
   "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.paypal.com https://www.paypalobjects.com https://*.paypal.com",
-  "style-src 'self' 'unsafe-inline'",
+  // Google Fonts: used only inside the gated /api/tools/* documents (the
+  // resource-tool iframes load Inter Tight there; the store itself self-hosts
+  // via next/font).
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "img-src 'self' data: https:",
-  "font-src 'self' data:",
+  "font-src 'self' data: https://fonts.gstatic.com",
   "connect-src 'self' https://*.supabase.co https://*.paypal.com https://api.nowpayments.io https://vitals.vercel-insights.com",
-  "frame-src https://*.paypal.com https://*.nowpayments.io",
+  // 'self' — the /resources pages iframe same-origin gated tool documents.
+  "frame-src 'self' https://*.paypal.com https://*.nowpayments.io",
   "object-src 'none'",
   "base-uri 'self'",
   "form-action 'self'",
@@ -36,6 +40,16 @@ const nextConfig = {
           { key: 'Strict-Transport-Security', value: 'max-age=31536000; includeSubDomains' },
           { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
           { key: 'Content-Security-Policy-Report-Only', value: CSP },
+        ],
+      },
+      // The gated resource-tool documents are iframed by the /resources pages,
+      // so they need same-origin framing. Listed AFTER the catch-all — for a
+      // duplicate header key, the later source wins in Next.
+      {
+        source: '/api/tools/:path*',
+        headers: [
+          { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
+          { key: 'X-Robots-Tag', value: 'noindex, nofollow' },
         ],
       },
     ]

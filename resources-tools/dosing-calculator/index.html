@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="robots" content="noindex, nofollow" />
+<title>Syngyn Dosing Calculator</title>
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="brand">
+      <h1>SYNGYN<span class="accent">·</span>DOSING</h1>
+      <span class="sub">Calculator</span>
+    </div>
+    <p class="tagline">
+      Pick what you're using and it shows you exactly how much to draw on the syringe.
+      Tap your compound from the list — everything else fills in for you.
+    </p>
+    <span class="privacy-pill"><span class="dot"></span> 100% private — runs in your browser. Nothing is saved, sent, or stored.</span>
+  </header>
+
+  <!-- Mode switch -->
+  <div class="tabs" id="tabs">
+    <button class="tab on" data-mode="peptide">Peptides<small>powder + water</small></button>
+    <button class="tab" data-mode="oil">Oil-based<small>test, tren, etc.</small></button>
+  </div>
+
+  <!-- ================= PEPTIDE ================= -->
+  <section class="card mode" id="mode-peptide">
+    <label class="step-label"><span class="step-n">1</span> Which peptide are you using?</label>
+    <select id="pCompound" class="big-select"></select>
+    <div class="common hidden" id="pCommon"></div>
+
+    <div class="answer">
+      <div class="answer-empty" id="pEmpty">👆 Pick your peptide above — we'll show you exactly how much to draw.</div>
+      <div class="out hidden" id="pOut"></div>
+    </div>
+
+    <details class="adjust" id="pAdjust">
+      <summary>Change the dose, water, or how often</summary>
+      <div class="grid2">
+        <div class="field">
+          <label>Dose per shot</label>
+          <div class="combo">
+            <input type="number" step="any" inputmode="decimal" id="pDose" placeholder="250" />
+            <select id="pDoseUnit">
+              <option value="mcg">mcg</option>
+              <option value="mg">mg</option>
+              <option value="IU">IU (HGH)</option>
+            </select>
+          </div>
+          <div class="ranges" id="pDoseConv"></div>
+        </div>
+        <div class="field">
+          <label>How often?</label>
+          <select id="pFreq"></select>
+        </div>
+      </div>
+      <div class="grid2">
+        <div class="field">
+          <label>Peptide in the vial <span class="unit">mg</span> <span class="tip" title="The amount of peptide powder in the vial — printed on the label or lot sheet.">?</span></label>
+          <input type="number" step="any" inputmode="decimal" id="pVialMg" placeholder="10" />
+          <div class="presets" id="pVialPresets"></div>
+        </div>
+        <div class="field">
+          <label>Water added <span class="unit">mL</span> <span class="tip" title="Bacteriostatic (BAC) water — the sterile water you mix the powder with. More water = an easier-to-read draw.">?</span></label>
+          <input type="number" step="any" inputmode="decimal" id="pBacMl" placeholder="2" />
+          <div class="presets" id="pBacPresets"></div>
+        </div>
+      </div>
+    </details>
+  </section>
+
+  <!-- ================= OIL / GEAR ================= -->
+  <section class="card mode hidden" id="mode-oil">
+    <label class="step-label"><span class="step-n">1</span> What are you running?</label>
+    <p class="micro">Pick the name — the strength and a typical weekly dose fill in. Running a blend? Add more than one.</p>
+
+    <div class="crow-head">
+      <span>Compound</span><span>mg/mL</span><span>mg / week</span><span></span>
+    </div>
+    <div id="oCompounds"></div>
+    <button class="ghost add" id="oAdd">＋ Add another</button>
+
+    <div class="answer">
+      <div class="answer-empty" id="oEmpty">👆 Add what you're running — we'll show you exactly how much to draw.</div>
+      <div class="out hidden" id="oOut"></div>
+    </div>
+
+    <details class="adjust">
+      <summary>Change how often or syringe size</summary>
+      <div class="grid2">
+        <div class="field">
+          <label>How often?</label>
+          <select id="oFreq"></select>
+        </div>
+        <div class="field">
+          <label>Syringe</label>
+          <select id="oSyringe"></select>
+        </div>
+      </div>
+    </details>
+  </section>
+
+  <datalist id="compoundList"></datalist>
+  <datalist id="concList">
+    <option value="100"></option><option value="150"></option><option value="200"></option>
+    <option value="250"></option><option value="300"></option><option value="350"></option>
+  </datalist>
+
+  <!-- Lead capture -->
+  <section class="card capture">
+    <h2>Save your numbers</h2>
+    <p class="hint">Drop your email and we'll send the Forged dosing &amp; reconstitution cheat-sheet, plus the occasional protocol breakdown. No spam — unsubscribe anytime.</p>
+    <form id="leadForm" class="lead" novalidate>
+      <input type="email" id="leadEmail" placeholder="you@email.com" autocomplete="email" />
+      <button class="primary" type="submit">Send it to me</button>
+    </form>
+    <div id="leadMsg" class="parse-result"></div>
+  </section>
+
+  <!-- CTA -->
+  <div class="cta-grid">
+    <div class="cta">
+      <h3>Want your protocol and bloodwork dialed in by someone who's done it?</h3>
+      <p>Forged Genetics builds your run around your data — labs, dosing, check-ins.</p>
+      <a href="tel:+15406218992">Book a Strategy Call</a>
+    </div>
+    <div class="cta algorx" id="ctaAlgorx">
+      <h3>Need bloodwork drawn or a doctor?</h3>
+      <p>Order your labs and see a licensed provider online — telehealth, no clinic visit.</p>
+      <a id="algorxLink" href="#">Coming soon</a>
+    </div>
+    <div class="cta skool" id="ctaSkool">
+      <h3>Join the enhancement community</h3>
+      <p>Forged's Skool community — protocols, Q&amp;A, and the crew dialing in their runs together.</p>
+      <a id="skoolLink" href="#">Coming soon</a>
+    </div>
+    <div class="cta blueprint" id="ctaBlueprint">
+      <h3>Already have bloodwork? Read it like a pro.</h3>
+      <p>Run results you already have through the Forged Blueprint — triaged for enhanced athletes.</p>
+      <a id="blueprintLink" href="#">Coming soon</a>
+    </div>
+  </div>
+
+  <p class="disclaimer">
+    <b>Educational only — not medical advice.</b> This dosing calculator is a unit-conversion calculator. It does
+    not recommend, prescribe, or endorse any dose, compound, or protocol — every number shown is derived
+    entirely from values <i>you</i> enter. It does not diagnose or treat anything and is not a substitute
+    for a licensed medical professional. Syngyn and Forged Genetics are not licensed medical providers. You are solely responsible for the sourcing, legality, dosing, and use of any compound.
+    Confirm all math independently before acting on it.
+  </p>
+
+  <p class="footer-link">
+    Research peptides &amp; reference materials at <a id="oppLink" href="#" target="_top">Syngyn</a>.
+  </p>
+
+</div>
+
+<script src="engine.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
