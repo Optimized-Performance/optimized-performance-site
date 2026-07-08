@@ -47,14 +47,8 @@
   const VIAL_PRESETS = [2, 5, 10, 15, 30];   // mg in vial
   const BAC_PRESETS  = [1, 2, 3, 5];         // mL bac water
 
-  /* ---- syringe definitions ---- */
-  // For barrels we measure in mL; for the insulin pin we measure in U-100 units.
-  const SYRINGES = {
-    slin: { label: "Insulin U-100 (1 mL)", capMl: 1,   unit: "units", capDisp: 100 },
-    "2.5":{ label: "2.5 mL barrel",        capMl: 2.5, unit: "mL",    capDisp: 2.5 },
-    "3":  { label: "3 mL barrel",          capMl: 3,   unit: "mL",    capDisp: 3   },
-    "5":  { label: "5 mL barrel",          capMl: 5,   unit: "mL",    capDisp: 5   },
-  };
+  /* Store copy is peptide-only — the oil/gear mode (compound library, barrel
+     syringes, multi-compound draws) lives on the Forged original, not here. */
   const SEG_COLORS = ["#F5A623", "#4cc3ff", "#3ecf8e", "#f5a524", "#F07A6A", "#9b8cff"];
 
   /* ---- compound libraries ----
@@ -82,22 +76,6 @@
     { name: "IGF-1 LR3",          vialMg: 1,  bacMl: 1, dose: 50,  unit: "mcg", freq: "daily",  range: "20–100 mcg" },
     { name: "Thymosin Alpha-1",   vialMg: 5,  bacMl: 2, dose: 1.5, unit: "mg",  freq: "twice",  range: "1.5 mg" },
   ];
-  const GEAR = [
-    { name: "Testosterone Enanthate",            conc: 250, weekly: 250, freq: "twice", range: "250–500 mg/wk" },
-    { name: "Testosterone Cypionate",            conc: 250, weekly: 250, freq: "twice", range: "250–500 mg/wk" },
-    { name: "Testosterone Propionate",           conc: 100, weekly: 350, freq: "eod",   range: "300–500 mg/wk" },
-    { name: "Testosterone (TRT dose)",           conc: 200, weekly: 140, freq: "twice", range: "100–200 mg/wk" },
-    { name: "Sustanon 250",                      conc: 250, weekly: 500, freq: "twice", range: "250–500 mg/wk" },
-    { name: "Trenbolone Acetate",                conc: 100, weekly: 200, freq: "eod",   range: "200–400 mg/wk" },
-    { name: "Trenbolone Enanthate",              conc: 200, weekly: 300, freq: "twice", range: "200–400 mg/wk" },
-    { name: "Masteron Propionate",               conc: 100, weekly: 350, freq: "eod",   range: "300–500 mg/wk" },
-    { name: "Masteron Enanthate",                conc: 200, weekly: 400, freq: "twice", range: "300–500 mg/wk" },
-    { name: "Nandrolone Decanoate (Deca)",       conc: 250, weekly: 400, freq: "twice", range: "300–600 mg/wk" },
-    { name: "Nandrolone Phenylpropionate (NPP)", conc: 100, weekly: 300, freq: "eod",   range: "300–450 mg/wk" },
-    { name: "Boldenone (EQ)",                    conc: 300, weekly: 500, freq: "twice", range: "400–600 mg/wk" },
-    { name: "Primobolan (Methenolone E)",        conc: 200, weekly: 400, freq: "twice", range: "400–600 mg/wk" },
-  ];
-
   const num = (n) => (Number.isFinite(n) ? n.toLocaleString("en-US") : "—");
   const fmt = (n) => {
     if (!Number.isFinite(n)) return "—";
@@ -182,18 +160,6 @@
     });
   }
   fillFreq($("pFreq"), "eod");
-  fillFreq($("oFreq"), "eod");
-
-  /* ---- syringe select (oil) ---- */
-  (function () {
-    const sel = $("oSyringe");
-    Object.entries(SYRINGES).forEach(([k, s]) => {
-      const o = document.createElement("option");
-      o.value = k; o.textContent = s.label;
-      if (k === "3") o.selected = true;
-      sel.appendChild(o);
-    });
-  })();
 
   /* ---- preset chips (peptide) ---- */
   function chips(container, items, onPick) {
@@ -239,61 +205,6 @@
         <span class="note">Starting point, not a recommendation — open “Change the dose…” below to adjust to your own protocol.</span>`;
     });
   })();
-
-  /* ---- compound rows (oil) ---- */
-  function addCompoundRow(name, conc, weekly) {
-    const row = document.createElement("div");
-    row.className = "crow";
-    row.innerHTML = `
-      <input class="cname" list="compoundList" placeholder="e.g. Test Enanthate" value="${name || ""}" />
-      <input class="cconc" list="concList" type="number" step="any" inputmode="decimal" placeholder="250" value="${conc || ""}" />
-      <input class="cweekly" type="number" step="any" inputmode="decimal" placeholder="250" value="${weekly || ""}" />
-      <button class="crm" type="button" title="Remove">✕</button>`;
-    row.querySelector(".crm").addEventListener("click", () => {
-      const rows = $("oCompounds").querySelectorAll(".crow");
-      if (rows.length > 1) row.remove();
-      else row.querySelectorAll("input").forEach((i) => (i.value = ""));
-      calcOil();
-    });
-    $("oCompounds").appendChild(row);
-  }
-  addCompoundRow();
-  $("oAdd").addEventListener("click", () => { addCompoundRow(); });
-
-  /* ---- gear datalist + auto-fill on name match ---- */
-  (function () {
-    const dl = $("compoundList");
-    dl.innerHTML = GEAR.map((g) => `<option value="${g.name}"></option>`).join("");
-  })();
-  function findGear(name) {
-    const n = (name || "").trim().toLowerCase();
-    if (!n) return null;
-    return GEAR.find((g) => g.name.toLowerCase() === n)
-        || GEAR.find((g) => g.name.toLowerCase().includes(n) || n.includes(g.name.toLowerCase().split(" (")[0]));
-  }
-  let oFreqTouched = false;
-  $("oFreq").addEventListener("change", () => { oFreqTouched = true; });
-  $("oCompounds").addEventListener("change", (e) => {
-    if (!e.target.classList.contains("cname")) return;
-    const g = findGear(e.target.value);
-    if (!g) return;
-    const row = e.target.closest(".crow");
-    row.querySelector(".cconc").value = g.conc;
-    row.querySelector(".cweekly").value = g.weekly;
-    // set shared frequency from the first compound, unless the user picked one
-    const rows = [...$("oCompounds").querySelectorAll(".crow")];
-    if (!oFreqTouched && row === rows[0]) $("oFreq").value = g.freq;
-  });
-
-  /* ---- tab switching ---- */
-  $("tabs").addEventListener("click", (e) => {
-    const btn = e.target.closest(".tab");
-    if (!btn) return;
-    document.querySelectorAll(".tab").forEach((t) => t.classList.toggle("on", t === btn));
-    const mode = btn.dataset.mode;
-    $("mode-peptide").classList.toggle("hidden", mode !== "peptide");
-    $("mode-oil").classList.toggle("hidden", mode !== "oil");
-  });
 
   /* ---- render helpers ---- */
   function renderErrors(box, errors) {
@@ -364,88 +275,9 @@
       </details>`;
   }
 
-  /* ================= OIL / GEAR (multi-compound) ================= */
-  function readCompounds() {
-    const rows = [...$("oCompounds").querySelectorAll(".crow")];
-    return rows.map((row, i) => ({
-      name:   row.querySelector(".cname").value.trim() || `Compound ${i + 1}`,
-      conc:   parseFloat(row.querySelector(".cconc").value),
-      weekly: parseFloat(row.querySelector(".cweekly").value),
-    })).filter((c) => c.conc > 0 && c.weekly > 0);
-  }
-
-  function calcOil() {
-    const out = $("oOut"), empty = $("oEmpty");
-    const freq = $("oFreq").value;
-    const syr = SYRINGES[$("oSyringe").value];
-    const compounds = readCompounds();
-    if (!compounds.length) { out.classList.add("hidden"); empty.classList.remove("hidden"); return; }
-    empty.classList.add("hidden");
-    out.classList.remove("hidden");
-
-    // per-compound math via the tested engine
-    const items = compounds.map((c, i) => {
-      const r = E.oil({ concMgMl: c.conc, weeklyMg: c.weekly, frequency: freq });
-      return { ...c, ...r, color: SEG_COLORS[i % SEG_COLORS.length] };
-    });
-
-    const totalMl = E.round(items.reduce((s, it) => s + it.mlPerInjection, 0), 3);
-    const totalMg = E.round(items.reduce((s, it) => s + it.mgPerInjection, 0), 1);
-    const totalUnits = E.round(totalMl * 100, 1);
-    const injPerWeek = items[0].injPerWeek;
-    const freqLabel = items[0].inputs.frequency;
-    const multi = items.length > 1;
-
-    const isSlin = syr.unit === "units";
-    const segments = items.map((it) => ({
-      value: isSlin ? it.mlPerInjection * 100 : it.mlPerInjection,
-      color: it.color, label: it.name,
-    }));
-    const headlineVal = isSlin ? totalUnits : totalMl;
-    const headlineUnit = isSlin ? "units" : "mL";
-    const altTxt = isSlin ? `${num(totalMl)} mL` : `${num(totalUnits)} units`;
-    const svg = syringeSVG(syr.capDisp, syr.unit, segments);
-
-    const over = totalMl > syr.capMl + 1e-9;
-    const warnings = [];
-    if (over) warnings.push(`Total draw is ${fmt(totalMl)} mL — more than this ${syr.label} holds (${fmt(syr.capMl)} mL). Use a larger barrel or split the shot.`);
-    if (isSlin && totalUnits > 100) warnings.push("Over 100 units won't fit an insulin pin — pick a barrel syringe under “Change… syringe size”.");
-
-    const legend = multi ? `<div class="legend">${items.map((it) => `
-      <div class="li"><span class="sw" style="background:${it.color}"></span>
-        <span class="ln">${it.name}</span>
-        <span class="lv">${fmt(isSlin ? it.mlPerInjection * 100 : it.mlPerInjection)} ${headlineUnit}</span>
-      </div>`).join("")}</div>` : "";
-
-    const rowsTable = items.map((it) => `
-      <div class="stat"><div class="n">${fmt(it.mgPerInjection)}<span class="u">mg</span></div>
-        <div class="l">${it.name} / shot</div></div>`).join("");
-
-    out.innerHTML = `
-      <div class="headline">
-        <div class="big">${num(headlineVal)}<span class="uu">${headlineUnit}</span></div>
-        <div class="cap">Draw to <b>${num(headlineVal)} ${headlineUnit}</b> on your ${syr.label}.
-          <br/><span class="muted">${multi ? "Your full shot — draw each colour in order, up to the arrow." : "That's your full shot."}</span></div>
-      </div>
-      <div class="syringe">${svg}</div>
-      <div class="syr-cap">Fill the syringe to the arrow.</div>
-      ${legend}
-      ${warnsHtml(warnings)}
-      <details class="math">
-        <summary>Show the math</summary>
-        <div class="stats">
-          ${rowsTable}
-          <div class="stat hl"><div class="n">${num(injPerWeek)}<span class="u">/wk</span></div><div class="l">Injections</div></div>
-        </div>
-        <p class="recap">Each injection = ${num(totalMl)} mL (${altTxt}) · ${num(totalMg)} mg total.
-        Split <b>${freqLabel.toLowerCase()}</b> (${num(injPerWeek)}×/week).</p>
-      </details>`;
-  }
-
-  /* ---- live auto-calc: recompute on any change in each mode ---- */
+  /* ---- live auto-calc: recompute on any change ---- */
   ["input", "change"].forEach((ev) => {
     $("mode-peptide").addEventListener(ev, calcPeptide);
-    $("mode-oil").addEventListener(ev, calcOil);
   });
 
   /* ---- funnel: wire CTA links from CONFIG ---- */

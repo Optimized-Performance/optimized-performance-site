@@ -7,7 +7,7 @@ export const TOOLS_META = [
     slug: 'dosing-calculator',
     name: 'Dosing & Reconstitution Calculator',
     blurb:
-      'Pick a compound, get the exact draw — BAC water math, insulin-pin units, and multi-compound oil draws with a visual syringe.',
+      'Pick your peptide, get the exact draw — BAC water math and insulin-pin units with a visual syringe.',
     icon: 'beaker',
   },
   {

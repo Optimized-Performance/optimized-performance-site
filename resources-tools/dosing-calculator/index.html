@@ -22,13 +22,9 @@
     <span class="privacy-pill"><span class="dot"></span> 100% private — runs in your browser. Nothing is saved, sent, or stored.</span>
   </header>
 
-  <!-- Mode switch -->
-  <div class="tabs" id="tabs">
-    <button class="tab on" data-mode="peptide">Peptides<small>powder + water</small></button>
-    <button class="tab" data-mode="oil">Oil-based<small>test, tren, etc.</small></button>
-  </div>
-
   <!-- ================= PEPTIDE ================= -->
+  <!-- Store copy is peptide-only: the oil/gear mode lives on the Forged
+       original and is deliberately removed here. -->
   <section class="card mode" id="mode-peptide">
     <label class="step-label"><span class="step-n">1</span> Which peptide are you using?</label>
     <select id="pCompound" class="big-select"></select>
@@ -74,47 +70,10 @@
     </details>
   </section>
 
-  <!-- ================= OIL / GEAR ================= -->
-  <section class="card mode hidden" id="mode-oil">
-    <label class="step-label"><span class="step-n">1</span> What are you running?</label>
-    <p class="micro">Pick the name — the strength and a typical weekly dose fill in. Running a blend? Add more than one.</p>
-
-    <div class="crow-head">
-      <span>Compound</span><span>mg/mL</span><span>mg / week</span><span></span>
-    </div>
-    <div id="oCompounds"></div>
-    <button class="ghost add" id="oAdd">＋ Add another</button>
-
-    <div class="answer">
-      <div class="answer-empty" id="oEmpty">👆 Add what you're running — we'll show you exactly how much to draw.</div>
-      <div class="out hidden" id="oOut"></div>
-    </div>
-
-    <details class="adjust">
-      <summary>Change how often or syringe size</summary>
-      <div class="grid2">
-        <div class="field">
-          <label>How often?</label>
-          <select id="oFreq"></select>
-        </div>
-        <div class="field">
-          <label>Syringe</label>
-          <select id="oSyringe"></select>
-        </div>
-      </div>
-    </details>
-  </section>
-
-  <datalist id="compoundList"></datalist>
-  <datalist id="concList">
-    <option value="100"></option><option value="150"></option><option value="200"></option>
-    <option value="250"></option><option value="300"></option><option value="350"></option>
-  </datalist>
-
   <!-- Lead capture -->
   <section class="card capture">
     <h2>Save your numbers</h2>
-    <p class="hint">Drop your email and we'll send the Forged dosing &amp; reconstitution cheat-sheet, plus the occasional protocol breakdown. No spam — unsubscribe anytime.</p>
+    <p class="hint">Drop your email and we'll send the dosing &amp; reconstitution cheat-sheet, plus the occasional research breakdown. No spam — unsubscribe anytime.</p>
     <form id="leadForm" class="lead" novalidate>
       <input type="email" id="leadEmail" placeholder="you@email.com" autocomplete="email" />
       <button class="primary" type="submit">Send it to me</button>
