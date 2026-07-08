@@ -74,6 +74,39 @@ export async function sendVerificationEmail(customer, token) {
   return send({ to: customer.email, subject: 'Verify your email — Syngyn', text, html })
 }
 
+// Invoice for an added balance after an admin edits an order upward (e.g. a
+// customer calls to add an item). Sends the customer a card pay-link for just
+// the difference. payUrl is a NoRamp hosted-checkout URL scoped to the balance.
+export async function sendBalanceDueEmail(order, { balance, payUrl }) {
+  const amt = `$${Number(balance || 0).toFixed(2)}`
+  const num = order.order_number
+  const text = [
+    `We've updated order ${num} at your request.`,
+    ``,
+    `There's a remaining balance of ${amt} for the added item(s).`,
+    ``,
+    `Pay the balance securely here: ${payUrl}`,
+    ``,
+    `Your order ships once the balance is received.`,
+    ``,
+    `— Syngyn`,
+  ].join('\n')
+  const html = renderBrandedEmail({
+    preheader: `Balance due on order ${num}: ${amt}.`,
+    eyebrow: `Order ${num}`,
+    heading: 'Balance due on your updated order',
+    paragraphs: [
+      `We've updated your order at your request. There's a remaining balance of <strong>${amt}</strong> for the added item(s).`,
+      `Click below to pay it securely — your order ships once the balance is received.`,
+    ],
+    cta: { text: `Pay ${amt}`, url: payUrl },
+    ctaSub: 'Secure checkout · charge appears as SYNGYN.',
+    note: `Questions? Just reply to this email.`,
+    footerLines: emailFooterLines(),
+  })
+  return send({ to: order.customer_email, subject: `Balance due on order ${num} — Syngyn`, text, html })
+}
+
 export async function sendPasswordResetEmail(customer, token) {
   const url = `${SITE_URL}/account/reset?token=${encodeURIComponent(token)}`
   const text = [

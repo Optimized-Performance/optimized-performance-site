@@ -140,6 +140,14 @@ export default function OrdersTab({ products = [], showSaveMsg, token }) {
   const [manualSubmitting, setManualSubmitting] = useState(false);
   const [manualForm, setManualForm] = useState(MANUAL_FORM_BLANK);
 
+  // Order editing (add/remove items → recompute → invoice the balance or comp).
+  const [editOrder, setEditOrder] = useState(null);      // the order being edited (null = closed)
+  const [editLines, setEditLines] = useState([]);        // [{ id, sku, name, price, quantity, comp }]
+  const [editChargeMethod, setEditChargeMethod] = useState('card');
+  const [editSendInvoice, setEditSendInvoice] = useState(true);
+  const [editSubmitting, setEditSubmitting] = useState(false);
+  const [editAddSku, setEditAddSku] = useState('');
+
   useEffect(() => {
     fetchOrders();
   }, []);
@@ -165,6 +173,97 @@ export default function OrdersTab({ products = [], showSaveMsg, token }) {
   }
   function removeManualLine(idx) {
     setManualForm((f) => ({ ...f, lines: f.lines.filter((_, i) => i !== idx) }));
+  }
+
+  // ── order editing ──────────────────────────────────────────────────────────
+  function openEdit(order) {
+    setEditOrder(order);
+    setEditLines(
+      (order.items || []).map((it) => ({
+        id: it.id,
+        sku: it.sku,
+        name: it.name,
+        price: Number(it.price) || 0,
+        quantity: Number(it.quantity) || 1,
+        comp: !!it.comp,
+      }))
+    );
+    setEditChargeMethod('card');
+    setEditSendInvoice(true);
+    setEditAddSku('');
+  }
+  function setEditLine(idx, field, value) {
+    setEditLines((lines) => lines.map((l, i) => (i === idx ? { ...l, [field]: value } : l)));
+  }
+  function removeEditLine(idx) {
+    setEditLines((lines) => lines.filter((_, i) => i !== idx));
+  }
+  function addEditLine() {
+    const p = products.find((x) => x.id === editAddSku);
+    if (!p) return;
+    setEditLines((lines) => {
+      const existing = lines.findIndex((l) => l.id === p.id);
+      if (existing >= 0) return lines.map((l, i) => (i === existing ? { ...l, quantity: l.quantity + 1 } : l));
+      return [...lines, { id: p.id, sku: p.sku, name: p.dosage ? `${p.name} ${p.dosage}` : p.name, price: Number(p.price) || 0, quantity: 1, comp: false }];
+    });
+    setEditAddSku('');
+  }
+  // Client-side ITEMS subtotal estimate for the modal only (non-comp lines).
+  // The authoritative total, discounts, shipping + balance are computed
+  // server-side on save — this is just a sanity preview.
+  const editSubtotalEst = editLines.reduce((s, l) => s + (l.comp ? 0 : (Number(l.price) || 0) * (parseInt(l.quantity, 10) || 0)), 0);
+  const editPaid = editOrder ? (Number(editOrder.amount_paid || 0) || Number(editOrder.total || 0)) : 0;
+  const editBalanceEst = Math.max(0, editSubtotalEst - editPaid);
+
+  async function submitEdit() {
+    if (!editOrder || editSubmitting) return;
+    const items = editLines
+      .filter((l) => (l.id || l.sku) && (parseInt(l.quantity, 10) || 0) > 0)
+      .map((l) => ({ id: l.id, sku: l.sku, quantity: parseInt(l.quantity, 10), comp: !!l.comp }));
+    if (items.length === 0) {
+      showSaveMsg('An order needs at least one item. To empty it, refund/cancel instead.');
+      return;
+    }
+    setEditSubmitting(true);
+    try {
+      const res = await fetch('/api/admin/orders/edit', {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ id: editOrder.id, items, chargeMethod: editChargeMethod, sendInvoice: editSendInvoice }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        showSaveMsg(`Edit failed: ${data.error || res.status}`);
+        setEditSubmitting(false);
+        return;
+      }
+      await fetchOrders();
+      showSaveMsg(data.message || 'Order updated.');
+      setEditOrder(null);
+    } catch (e) {
+      showSaveMsg(`Edit failed: ${e.message}`);
+    }
+    setEditSubmitting(false);
+  }
+
+  async function markBalancePaid(order) {
+    if (!window.confirm(`Confirm you've received the outstanding balance for ${order.order_number} (Zelle/Venmo/cash)? This settles it back to Paid.`)) return;
+    try {
+      const res = await fetch('/api/admin/orders/mark-balance-paid', {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ id: order.id }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        showSaveMsg(`Failed: ${data.error || res.status}`);
+        return;
+      }
+      await fetchOrders();
+      showSaveMsg(data.message || 'Balance settled.');
+    } catch (e) {
+      showSaveMsg(`Failed: ${e.message}`);
+    }
   }
 
   async function submitManualOrder() {
@@ -997,7 +1096,9 @@ export default function OrdersTab({ products = [], showSaveMsg, token }) {
                                 ? 'Abandoned'
                                 : order.payment_status === 'awaiting_payment'
                                   ? 'Awaiting'
-                                  : 'Pending'}
+                                  : order.payment_status === 'balance_due'
+                                    ? 'Balance due'
+                                    : 'Pending'}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-center">
@@ -1052,7 +1153,25 @@ export default function OrdersTab({ products = [], showSaveMsg, token }) {
                               Refund
                             </button>
                           )}
-                          {status !== 'cancelled' && order.payment_status !== 'completed' && (
+                          {status !== 'cancelled' && ['completed', 'balance_due', 'pending'].includes(order.payment_status) && (
+                            <button
+                              className="text-[11px] px-2.5 py-1 rounded-opp border border-line text-ink-soft hover:text-ink hover:bg-surfaceAlt font-semibold"
+                              onClick={() => openEdit(order)}
+                              title="Edit this order's items. Adds/removes recompute the total server-side; a positive difference invoices the customer for the balance (or comp it free)."
+                            >
+                              Edit
+                            </button>
+                          )}
+                          {order.payment_status === 'balance_due' && (
+                            <button
+                              className="text-[11px] px-2.5 py-1 rounded-opp border border-warning bg-warning text-surface hover:bg-warning/90 font-semibold"
+                              onClick={() => markBalancePaid(order)}
+                              title="Settle the outstanding balance after confirming an off-platform (Zelle/Venmo/cash) payment. Card balances settle automatically via the payment webhook."
+                            >
+                              Mark Balance Paid
+                            </button>
+                          )}
+                          {status !== 'cancelled' && order.payment_status !== 'completed' && order.payment_status !== 'balance_due' && (
                             <button
                               className="text-[11px] px-2.5 py-1 rounded-opp border border-line text-danger hover:bg-surfaceAlt"
                               onClick={() => cancelOrder(order.id)}
@@ -1504,6 +1623,112 @@ export default function OrdersTab({ products = [], showSaveMsg, token }) {
                 disabled={manualSubmitting}
               >
                 {manualSubmitting ? 'Creating…' : 'Create + finalize order'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {editOrder && (
+        <div
+          className="fixed inset-0 bg-black/60 z-50 flex items-start justify-center overflow-y-auto py-10"
+          onClick={() => !editSubmitting && setEditOrder(null)}
+        >
+          <div
+            className="bg-surface border border-line rounded-opp-lg w-full max-w-lg mx-4 p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="font-display font-semibold text-lg text-ink m-0">Edit order {editOrder.order_number}</h3>
+              <button className="text-ink-mute hover:text-ink text-xl leading-none" onClick={() => setEditOrder(null)}>×</button>
+            </div>
+            <p className="text-[12px] text-ink-mute mb-4">
+              {editOrder.customer_name} · {editOrder.customer_email} · collected ${editPaid.toFixed(2)}
+            </p>
+
+            {/* Line items */}
+            <div className="flex flex-col gap-2 mb-3">
+              {editLines.map((l, i) => (
+                <div key={i} className="flex items-center gap-2 bg-surfaceAlt rounded-opp px-3 py-2">
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[13px] text-ink truncate">{l.name}</div>
+                    <div className="opp-meta-mono text-ink-mute">{l.comp ? 'FREE (comp)' : `$${(Number(l.price) || 0).toFixed(2)} ea`}</div>
+                  </div>
+                  <input
+                    type="number" min="1" value={l.quantity}
+                    onChange={(e) => setEditLine(i, 'quantity', Math.max(1, parseInt(e.target.value, 10) || 1))}
+                    className="w-14 bg-surface border border-line rounded-opp px-2 py-1 text-[13px] text-ink text-center"
+                  />
+                  <label className="flex items-center gap-1 text-[11px] text-ink-soft cursor-pointer" title="Comp this line — free, but still ships + decrements stock">
+                    <input type="checkbox" checked={l.comp} onChange={(e) => setEditLine(i, 'comp', e.target.checked)} />
+                    Free
+                  </label>
+                  <button className="text-danger hover:text-danger/80 text-lg leading-none px-1" onClick={() => removeEditLine(i)} title="Remove line">×</button>
+                </div>
+              ))}
+            </div>
+
+            {/* Add item */}
+            <div className="flex gap-2 mb-4">
+              <select
+                value={editAddSku} onChange={(e) => setEditAddSku(e.target.value)}
+                className="flex-1 bg-surface border border-line rounded-opp px-3 py-2 text-[13px] text-ink"
+              >
+                <option value="">+ Add item…</option>
+                {products.map((p) => (
+                  <option key={p.id} value={p.id}>{p.dosage ? `${p.name} ${p.dosage}` : p.name} — ${Number(p.price || 0).toFixed(2)}</option>
+                ))}
+              </select>
+              <button className="btn-outline text-xs px-4 py-2" disabled={!editAddSku} onClick={addEditLine}>Add</button>
+            </div>
+
+            {/* Estimate */}
+            <div className="bg-surfaceAlt rounded-opp px-3 py-3 mb-4 text-[13px]">
+              <div className="flex justify-between text-ink-soft"><span>Items subtotal (est.)</span><span className="font-mono">${editSubtotalEst.toFixed(2)}</span></div>
+              <div className="flex justify-between text-ink-soft"><span>Already collected</span><span className="font-mono">${editPaid.toFixed(2)}</span></div>
+              <div className="flex justify-between text-ink font-semibold mt-1 pt-1 border-t border-line">
+                <span>{editBalanceEst > 0 ? 'Balance due (est.)' : 'Balance'}</span>
+                <span className="font-mono">${editBalanceEst.toFixed(2)}</span>
+              </div>
+              <p className="opp-meta-mono text-ink-mute mt-2 leading-relaxed">
+                Estimate only — final total (discounts, shipping) + exact balance compute server-side on save. Comp lines still ship + decrement stock.
+              </p>
+            </div>
+
+            {/* How to collect the balance */}
+            {editBalanceEst > 0 && (
+              <div className="mb-4">
+                <label className="block opp-meta-mono uppercase text-ink-mute mb-1">Collect balance via</label>
+                <div className="flex gap-2 items-center flex-wrap">
+                  <select
+                    value={editChargeMethod} onChange={(e) => setEditChargeMethod(e.target.value)}
+                    className="bg-surface border border-line rounded-opp px-3 py-2 text-[13px] text-ink"
+                  >
+                    <option value="card">Card — email a pay-link</option>
+                    <option value="zelle">Zelle (manual)</option>
+                    <option value="venmo">Venmo (manual)</option>
+                    <option value="crypto">Crypto (manual)</option>
+                    <option value="cash">Cash (manual)</option>
+                    <option value="other">Other (manual)</option>
+                  </select>
+                  {editChargeMethod === 'card' && (
+                    <label className="flex items-center gap-1.5 text-[12px] text-ink-soft cursor-pointer">
+                      <input type="checkbox" checked={editSendInvoice} onChange={(e) => setEditSendInvoice(e.target.checked)} />
+                      Email the invoice now
+                    </label>
+                  )}
+                </div>
+                <p className="opp-meta-mono text-ink-mute mt-1.5 leading-relaxed">
+                  {editChargeMethod === 'card'
+                    ? 'Order flips to “Balance due”; customer gets a card link for the difference. Settles automatically when paid.'
+                    : 'Order flips to “Balance due”; collect off-platform, then click “Mark Balance Paid” on the order.'}
+                </p>
+              </div>
+            )}
+
+            <div className="flex justify-end gap-2">
+              <button className="btn-outline text-xs px-4 py-2" onClick={() => setEditOrder(null)} disabled={editSubmitting}>Cancel</button>
+              <button className="btn-primary text-xs px-5 py-2" onClick={submitEdit} disabled={editSubmitting}>
+                {editSubmitting ? 'Saving…' : editBalanceEst > 0 ? 'Save + invoice balance' : 'Save changes'}
               </button>
             </div>
           </div>

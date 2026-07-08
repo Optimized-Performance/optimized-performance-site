@@ -21,6 +21,7 @@ export const PAYMENT_STATUS = {
   AWAITING_PAYMENT: 'awaiting_payment', // instant rail (paypal/card/crypto), pre-capture
   PENDING: 'pending',                   // human-review rails (zelle/venmo) or fraud-flagged
   COMPLETED: 'completed',               // paid + finalized (inventory/affiliate/email fired)
+  BALANCE_DUE: 'balance_due',           // completed order edited upward — awaiting the added balance (v31)
   ABANDONED: 'abandoned',               // instant-rail order never captured (cron-expired)
   REFUNDED: 'refunded',                 // fully refunded (fulfillment_status also -> cancelled)
 }
@@ -37,7 +38,10 @@ export const OPEN_PAYMENT_STATES = [PAYMENT_STATUS.AWAITING_PAYMENT, PAYMENT_STA
 const PAYMENT_TRANSITIONS = {
   [PAYMENT_STATUS.AWAITING_PAYMENT]: [PAYMENT_STATUS.COMPLETED, PAYMENT_STATUS.ABANDONED, PAYMENT_STATUS.REFUNDED],
   [PAYMENT_STATUS.PENDING]: [PAYMENT_STATUS.COMPLETED, PAYMENT_STATUS.ABANDONED, PAYMENT_STATUS.REFUNDED],
-  [PAYMENT_STATUS.COMPLETED]: [PAYMENT_STATUS.REFUNDED],
+  // A completed order can be edited upward -> balance_due (v31), or refunded.
+  [PAYMENT_STATUS.COMPLETED]: [PAYMENT_STATUS.REFUNDED, PAYMENT_STATUS.BALANCE_DUE],
+  // balance_due settles back to completed once the added balance is paid, or is refunded.
+  [PAYMENT_STATUS.BALANCE_DUE]: [PAYMENT_STATUS.COMPLETED, PAYMENT_STATUS.REFUNDED],
   [PAYMENT_STATUS.ABANDONED]: [], // terminal
   [PAYMENT_STATUS.REFUNDED]: [],  // terminal
 }

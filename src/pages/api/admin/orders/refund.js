@@ -51,11 +51,17 @@ export default async function handler(req, res) {
 
     const orderTotal = Number(order.total || 0)
     const alreadyRefunded = Number(order.refund_amount || 0)
+    // Cap refunds against what was actually COLLECTED, not the order total — a
+    // balance_due order (edited upward, balance unpaid) has collected less than
+    // its total, and you can't refund money you never took. For a normal
+    // completed order amount_paid === total, so this is unchanged. Fall back to
+    // total for any pre-v31 order that never got an amount_paid written.
+    const collected = Number(order.amount_paid || 0) || orderTotal
 
-    // Default to refunding the OUTSTANDING balance (total minus anything already
-    // refunded), not the full total — so the default on a partially-refunded
-    // order doesn't try to over-refund. Admin can pass a smaller amount.
-    const outstanding = Math.max(0, orderTotal - alreadyRefunded)
+    // Default to refunding the OUTSTANDING collected balance (collected minus
+    // anything already refunded), not the full total — so the default on a
+    // partially-refunded order doesn't try to over-refund. Admin can pass less.
+    const outstanding = Math.max(0, collected - alreadyRefunded)
     const refundAmount = Number(amount ?? outstanding ?? 0)
     if (!Number.isFinite(refundAmount) || refundAmount <= 0) {
       return res.status(400).json({ error: 'Invalid refund amount' })
@@ -64,9 +70,9 @@ export default async function handler(req, res) {
     // checked one refund against order.total, so two partial refunds could each
     // pass yet together exceed what the customer paid. Accumulate and cap.
     const cumulativeRefunded = alreadyRefunded + refundAmount
-    if (cumulativeRefunded > orderTotal + 0.01) {
+    if (cumulativeRefunded > collected + 0.01) {
       return res.status(400).json({
-        error: `Refund exceeds order total. Already refunded $${alreadyRefunded.toFixed(2)} of $${orderTotal.toFixed(2)}; max additional $${outstanding.toFixed(2)}.`,
+        error: `Refund exceeds amount collected. Already refunded $${alreadyRefunded.toFixed(2)} of $${collected.toFixed(2)} collected; max additional $${outstanding.toFixed(2)}.`,
       })
     }
 
@@ -79,7 +85,7 @@ export default async function handler(req, res) {
     // fulfillment. A refund that brings the CUMULATIVE total up to the order
     // total flips payment_status to 'refunded' and fulfillment_status to
     // 'cancelled'.
-    const isFullRefund = cumulativeRefunded >= orderTotal - 0.01
+    const isFullRefund = cumulativeRefunded >= collected - 0.01
 
     const update = {
       refunded_at: nowIso,

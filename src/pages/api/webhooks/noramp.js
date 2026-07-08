@@ -1,6 +1,8 @@
 import { supabaseAdmin } from '../../../lib/supabase'
 import { parseWebhookEvent } from '../../../lib/payments/cardProcessor'
 import { finalizePaidOrder } from '../../../lib/payments/finalizeOrder'
+import { applyBalancePayment } from '../../../lib/payments/balancePayment'
+import { PAYMENT_STATUS } from '../../../lib/order-status'
 
 // NoRamp (Whop-approved card rail) callback. Raw body required for the
 // X-Platform-Signature HMAC verification (see cardProcessor norampParseWebhook).
@@ -53,6 +55,26 @@ export default async function handler(req, res) {
     if (replayError && replayError.code === '23505') {
       console.warn('[noramp-webhook] Replay detected, ignoring:', eventId)
       return res.status(200).json({ received: true, action: 'replay_ignored' })
+    }
+
+    // Route by state: a balance_due order is settling an added balance from an
+    // admin edit (money only — the edit already decremented inventory + credited
+    // the affiliate for the added items). Anything else is a normal first
+    // capture → full finalize (inventory/affiliate/confirmation).
+    const { data: existing } = await supabaseAdmin
+      .from('orders').select('payment_status').eq('order_number', orderNumber).maybeSingle()
+
+    if (existing?.payment_status === PAYMENT_STATUS.BALANCE_DUE) {
+      const bal = await applyBalancePayment({ orderNumber, paidAmount: event.amount ?? null })
+      if (!bal.ok) {
+        console.error('[noramp-webhook] Balance payment failed:', bal.reason, bal.error)
+        return res.status(500).json({ error: bal.error?.message || bal.reason })
+      }
+      return res.status(200).json({
+        received: true,
+        action: bal.covered ? 'balance_settled' : 'balance_partial',
+        order_number: orderNumber,
+      })
     }
 
     const result = await finalizePaidOrder({ orderNumber })

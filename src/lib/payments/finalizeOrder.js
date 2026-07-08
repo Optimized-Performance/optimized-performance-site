@@ -54,7 +54,14 @@ export async function finalizePaidOrder({ orderNumber, sendConfirmation = true, 
   // here; the assert catches future filter/logic drift loudly rather than
   // silently writing an illegal transition.
   assertPaymentTransition(order.payment_status, PAYMENT_STATUS.COMPLETED)
-  const completedUpdate = { payment_status: PAYMENT_STATUS.COMPLETED, updated_at: new Date().toISOString() }
+  // amount_paid (v31) = money collected. A first capture pays the full total, so
+  // set it here — order editing / balance-due math reads amount_paid as the
+  // source of truth for "what's been collected" (see orders/edit + refund).
+  const completedUpdate = {
+    payment_status: PAYMENT_STATUS.COMPLETED,
+    amount_paid: Number(order.total || 0),
+    updated_at: new Date().toISOString(),
+  }
 
   // On a captured-amount shortfall, complete the order (so a real payment is
   // never false-blocked over a units/currency quirk) but FLAG it so it surfaces
