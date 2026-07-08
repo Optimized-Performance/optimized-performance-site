@@ -46,6 +46,8 @@ const PEPTIDES = [
     researched: 'Triple-agonist research compound; glucose/metabolic literature.', monitor: ['Fasting Glucose', 'HbA1c'] },
   { id: 'motsc', name: 'MOTS-C', goals: ['metabolic', 'longevity'], form: 'lyophilized',
     researched: 'Mitochondrial-derived peptide studied in metabolic/longevity models.', monitor: [] },
+  { id: 'nad', name: 'NAD+', goals: ['metabolic', 'longevity'], form: 'lyophilized',
+    researched: 'Cellular coenzyme studied in mitochondrial-energy and longevity research models.', monitor: [] },
   // Longevity / cognitive / other
   { id: 'epitalon', name: 'Epitalon', goals: ['longevity'], form: 'lyophilized',
     researched: 'Studied in telomere/longevity research models.', monitor: [] },
@@ -55,6 +57,8 @@ const PEPTIDES = [
     researched: 'Delta-sleep-inducing peptide studied in sleep research.', monitor: [] },
   { id: 'pt141', name: 'PT-141 (Bremelanotide)', goals: ['libido'], form: 'lyophilized',
     researched: 'Melanocortin-agonist studied for libido/arousal models.', monitor: [] },
+  { id: 'mt2', name: 'Melanotan II (MT-2)', goals: ['libido', 'skin'], form: 'lyophilized',
+    researched: 'Melanocortin-agonist studied for pigmentation and libido/arousal models.', monitor: [] },
 ]
 
 const GOALS = [
