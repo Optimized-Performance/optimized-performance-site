@@ -16,8 +16,9 @@ export const SHIPPING_PCT = 0.05
 export const COMMISSION_PCT = 0.05
 // % of gross — misc operating overhead. SOB ~1.5%.
 export const OPS_PCT = 0.015
-// blended income-tax rate on pre-tax net profit. SOB planning figure ~35%.
-export const TAX_PCT = 0.35
+// blended income-tax reserve on pre-tax net profit. S-corp pass-through —
+// covers the owners' combined effective fed + state + SE rate (per Jason).
+export const TAX_PCT = 0.30
 // equal owners splitting distributable profit — Matt / Tris 50/50.
 export const OWNER_COUNT = 2
 
@@ -131,6 +132,7 @@ export function computeTakeHome(revenue, railMix = [], opts = {}) {
     perPartner: r2(perPartner),
     ownerCount: OWNER_COUNT,
     marginPct: gross ? r2((afterTax / gross) * 100) : 0,
+    preTaxMarginPct: gross ? r2((preTaxNet / gross) * 100) : 0,
     rates: { cogs: COGS_PCT, shipping: SHIPPING_PCT, commission: COMMISSION_PCT, ops: OPS_PCT, tax: TAX_PCT },
   }
 }

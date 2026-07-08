@@ -263,14 +263,14 @@ function TakeHome({ t, days }) {
     { label: 'Processing fees · by rail', val: -t.deductions.processing },
     { label: `Affiliate commissions · ${rate(t.rates.commission)}`, val: -t.deductions.commissions },
     { label: `Operating overhead · ${rate(t.rates.ops)}`, val: -t.deductions.ops },
-    { label: 'Pre-tax net', val: t.preTaxNet, strong: true },
+    { label: `Pre-tax net · ${fmtPct(t.preTaxMarginPct)} margin`, val: t.preTaxNet, strong: true },
     { label: `Estimated tax · ${rate(t.rates.tax)}`, val: -t.tax },
     { label: 'After-tax profit', val: t.afterTax, strong: true, total: true },
   ];
   return (
     <Panel title="Take-home estimate — after restocks & taxes">
       <div className="grid grid-cols-2 gap-3 mb-4">
-        <Kpi label="After-tax profit" value={fmtMoney(t.afterTax)} d={null} sub={`${fmtPct(t.marginPct)} net margin · last ${days}d`} />
+        <Kpi label="After-tax profit" value={fmtMoney(t.afterTax)} d={null} sub={`${fmtPct(t.marginPct)} after-tax · ${fmtPct(t.preTaxMarginPct)} pre-tax`} />
         <div className="card-premium p-4" style={{ borderColor: C.gold }}>
           <div className="opp-meta-mono uppercase text-ink-mute">Take-home / partner</div>
           <div className="font-display font-semibold tracking-display text-2xl mt-1 leading-none" style={{ color: C.gold }}>{fmtMoney(t.perPartner)}</div>
