@@ -1,0 +1,136 @@
+// Owner take-home estimate model.
+//
+// This is a PLANNING ESTIMATE, not accounting. It applies the SOB §3 blended
+// margin assumptions to actual paid revenue to show roughly what lands in each
+// owner's pocket after restocks and taxes. Two inputs use REAL data — processing
+// fees (from the actual rail mix) and restock/COGS (from the vendor price list,
+// per SKU) — everything else is a tunable % of gross. Adjust the rates + the
+// cost map here; they flow straight to the Analytics "Take-home estimate" panel.
+
+// % of gross revenue — restock / cost of goods FALLBACK for any SKU not in the
+// PRODUCT_COST map below (new/unmapped SKUs). Mapped SKUs use real vendor cost.
+export const COGS_PCT = 0.10
+// % of gross — outbound shipping (pass-through-ish). SOB ~5%.
+export const SHIPPING_PCT = 0.05
+// % of gross — blended affiliate commission to non-owner coaches. SOB ~5%.
+export const COMMISSION_PCT = 0.05
+// % of gross — misc operating overhead. SOB ~1.5%.
+export const OPS_PCT = 0.015
+// blended income-tax rate on pre-tax net profit. SOB planning figure ~35%.
+export const TAX_PCT = 0.35
+// equal owners splitting distributable profit — Matt / Tris 50/50.
+export const OWNER_COUNT = 2
+
+// Processing fee per rail = fraction of THAT rail's revenue.
+// NoRamp card = 10% all-in; crypto ~1%; Venmo business ~1.9%; Zelle free.
+export const RAIL_FEE_PCT = {
+  noramp: 0.10, card: 0.10,
+  nowpayments: 0.01, crypto: 0.01,
+  venmo: 0.019,
+  zelle: 0,
+  paypal: 0.0349, // dead rail — retained for historical windows
+}
+export const RAIL_FEE_DEFAULT = 0.03
+
+// Per-UNIT-AS-SOLD vendor cost (USD), keyed by product id (matches order-item
+// id/sku). Single-vial SKUs = vendor box price / 10; kit SKUs (incl. HGH, sold
+// as a 10-vial kit) = one full vendor box. Source: business-context/Vendor
+// price list.pdf (prices are per box of 10 vials). ESTIMATE — edit when vendor
+// prices move. Any SKU missing here falls back to COGS_PCT of its line revenue.
+export const PRODUCT_COST = {
+  // GLP-3 = Retatrutide (RT10 $54/box, RT20 $90/box)
+  'glp3-10mg': 5.40, 'glp3-10mg-kit': 54,
+  'glp3-20mg': 9.00, 'glp3-20mg-kit': 90,
+  // GLP-1 = Semaglutide (SM10 $32/box)
+  'glp1-10mg': 3.20, 'glp1-10mg-kit': 32,
+  // BPC-157 (BC5 $27, BC10 $45)
+  'bpc-5mg': 2.70, 'bpc-5mg-kit': 27,
+  'bpc-10mg': 4.50, 'bpc-10mg-kit': 45,
+  // TB-500 (BT5 $54, BT10 $99)
+  'tb500-5mg': 5.40, 'tb500-5mg-kit': 54,
+  'tb500-10mg': 9.90, 'tb500-10mg-kit': 99,
+  // Combo BPC+TB+GHK-Cu (BBG70 $170/box)
+  'combo-70mg': 17.00, 'combo-70mg-kit': 170,
+  // Ipamorelin (IP5 $26/box)
+  'ipa-5mg': 2.60, 'ipa-5mg-kit': 26,
+  // MT-2 (ML5 $22/box)
+  'mt2-5mg': 2.20, 'mt2-5mg-kit': 22,
+  // MOTS-C (MS10 $47/box)
+  'motsc-10mg': 4.70, 'motsc-10mg-kit': 47,
+  // NAD+ (NJ500 $54/box)
+  'nad-500mg': 5.40, 'nad-500mg-kit': 54,
+  // HGH 191AA — sold as a 10-vial kit; cost = one box (H10 $35, H24 $85)
+  'hgh-10iu': 35, 'hgh-24iu': 85,
+  // Tadalafil oral solution — in-house fill; rough per-bottle est (confirm)
+  'tadalafil-20mg': 3.00,
+  // Bac water: BA10 $8/vial (single); Hospira 30ml domestic ~$18 est (confirm)
+  'bac-water-10ml': 8.00, 'bac-water-30ml-hospira': 18.00,
+}
+
+const r2 = (n) => Math.round((Number(n) || 0) * 100) / 100
+
+// Sum estimated COGS across order items. Known ids use PRODUCT_COST (real vendor
+// cost); unmapped ids fall back to COGS_PCT of their line revenue so the estimate
+// never silently under-counts. coveredRev = revenue whose COGS came from the map.
+export function estimateOrderCogs(items = []) {
+  let cogs = 0
+  let coveredRev = 0
+  let totalRev = 0
+  for (const it of Array.isArray(items) ? items : []) {
+    const qty = Number(it.quantity) || 1
+    const line = (Number(it.price) || 0) * qty
+    totalRev += line
+    const unit = PRODUCT_COST[it.id] ?? PRODUCT_COST[it.sku]
+    if (unit != null) { cogs += unit * qty; coveredRev += line }
+    else { cogs += line * COGS_PCT }
+  }
+  return { cogs: r2(cogs), coveredRev: r2(coveredRev), totalRev: r2(totalRev) }
+}
+
+// revenue: gross paid revenue for the window.
+// railMix: [{ method, revenue }] from the analytics rail-mix aggregation.
+// opts.cogs: real per-SKU COGS total (from estimateOrderCogs). If omitted, COGS
+//   falls back to a flat COGS_PCT of gross.
+// opts.cogsCoverage: 0..1, share of item revenue costed from the vendor map
+//   (for the panel to note how "real" the restock figure is).
+export function computeTakeHome(revenue, railMix = [], opts = {}) {
+  const gross = Number(revenue) || 0
+
+  // Processing from the ACTUAL rail mix, not a flat guess.
+  let processing = 0
+  for (const r of railMix) {
+    const rate = RAIL_FEE_PCT[String(r.method || '').toLowerCase()] ?? RAIL_FEE_DEFAULT
+    processing += (Number(r.revenue) || 0) * rate
+  }
+
+  const hasRealCogs = typeof opts.cogs === 'number'
+  const cogs = hasRealCogs ? opts.cogs : gross * COGS_PCT
+  const shipping = gross * SHIPPING_PCT
+  const commissions = gross * COMMISSION_PCT
+  const ops = gross * OPS_PCT
+
+  const preTaxNet = gross - processing - cogs - shipping - commissions - ops
+  const tax = Math.max(0, preTaxNet) * TAX_PCT
+  const afterTax = preTaxNet - tax
+  const perPartner = afterTax / OWNER_COUNT
+
+  return {
+    gross: r2(gross),
+    deductions: {
+      cogs: r2(cogs),
+      shipping: r2(shipping),
+      processing: r2(processing),
+      commissions: r2(commissions),
+      ops: r2(ops),
+    },
+    cogsBasis: hasRealCogs ? 'vendor' : 'flat',
+    cogsCoverage: typeof opts.cogsCoverage === 'number' ? r2(opts.cogsCoverage * 100) : null,
+    preTaxNet: r2(preTaxNet),
+    tax: r2(tax),
+    afterTax: r2(afterTax),
+    perPartner: r2(perPartner),
+    ownerCount: OWNER_COUNT,
+    marginPct: gross ? r2((afterTax / gross) * 100) : 0,
+    rates: { cogs: COGS_PCT, shipping: SHIPPING_PCT, commission: COMMISSION_PCT, ops: OPS_PCT, tax: TAX_PCT },
+  }
+}

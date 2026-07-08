@@ -95,6 +95,9 @@ export default function AnalyticsTab({ token }) {
             <Kpi label="Repeat rate" value={fmtPct(k.repeat_rate.value)} d={null} sub={`${data.refunds.count} refunds · ${fmtPct(data.refunds.rate)}`} />
           </div>
 
+          {/* TAKE-HOME ESTIMATE — after restocks + taxes, split per owner */}
+          {data.takehome && <TakeHome t={data.takehome} days={days} />}
+
           {/* HOUSE ORDERS — the margin lever */}
           {data.house && (
             <Panel title="House orders — commission-free reorders we recaptured">
@@ -245,6 +248,56 @@ function Kpi({ label, value, d, sub }) {
         <div className="opp-meta-mono mt-1.5 text-ink-mute">{sub || '—'}</div>
       )}
     </div>
+  );
+}
+
+function TakeHome({ t, days }) {
+  const rate = (r) => `${+(r * 100).toFixed(1)}%`;
+  const cogsLabel = t.cogsBasis === 'vendor'
+    ? `Restock / COGS · vendor cost${t.cogsCoverage != null && t.cogsCoverage < 99 ? ` (${t.cogsCoverage}% mapped)` : ''}`
+    : `Restock / COGS · ${rate(t.rates.cogs)}`;
+  const lines = [
+    { label: 'Gross revenue', val: t.gross, strong: true },
+    { label: cogsLabel, val: -t.deductions.cogs },
+    { label: `Shipping · ${rate(t.rates.shipping)}`, val: -t.deductions.shipping },
+    { label: 'Processing fees · by rail', val: -t.deductions.processing },
+    { label: `Affiliate commissions · ${rate(t.rates.commission)}`, val: -t.deductions.commissions },
+    { label: `Operating overhead · ${rate(t.rates.ops)}`, val: -t.deductions.ops },
+    { label: 'Pre-tax net', val: t.preTaxNet, strong: true },
+    { label: `Estimated tax · ${rate(t.rates.tax)}`, val: -t.tax },
+    { label: 'After-tax profit', val: t.afterTax, strong: true, total: true },
+  ];
+  return (
+    <Panel title="Take-home estimate — after restocks & taxes">
+      <div className="grid grid-cols-2 gap-3 mb-4">
+        <Kpi label="After-tax profit" value={fmtMoney(t.afterTax)} d={null} sub={`${fmtPct(t.marginPct)} net margin · last ${days}d`} />
+        <div className="card-premium p-4" style={{ borderColor: C.gold }}>
+          <div className="opp-meta-mono uppercase text-ink-mute">Take-home / partner</div>
+          <div className="font-display font-semibold tracking-display text-2xl mt-1 leading-none" style={{ color: C.gold }}>{fmtMoney(t.perPartner)}</div>
+          <div className="opp-meta-mono mt-1.5 text-ink-mute">Matt / Tris 50/50 ({t.ownerCount}-way)</div>
+        </div>
+      </div>
+      <div className="border border-line rounded-opp overflow-hidden">
+        <table className="w-full text-[13px]">
+          <tbody>
+            {lines.map((l, i) => {
+              const neg = l.val < 0;
+              return (
+                <tr key={i} className={`border-t border-line first:border-t-0 ${l.total ? 'bg-surfaceAlt' : ''}`}>
+                  <td className={`px-4 py-2.5 text-left ${l.strong ? 'text-ink font-semibold' : 'text-ink-soft'}`}>{l.label}</td>
+                  <td className={`px-4 py-2.5 text-right font-mono ${l.total ? 'text-ink font-semibold' : neg ? 'text-danger' : 'text-ink'}`}>
+                    {neg ? '−' : ''}{fmtMoney(Math.abs(l.val))}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <p className="opp-meta-mono text-ink-mute mt-4 pt-3 border-t border-line leading-relaxed">
+        Planning estimate on the last {days}d of <strong className="text-ink-soft">paid Syngyn orders</strong>. Restock/COGS uses real per-SKU vendor cost; processing fees use the actual rail mix; shipping, commissions, overhead &amp; tax ({rate(t.rates.tax)}) are tunable assumptions (SOB margin model) in <span className="text-ink-soft">takehome-config.js</span>. Not accounting.
+      </p>
+    </Panel>
   );
 }
 

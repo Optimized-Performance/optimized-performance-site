@@ -10,6 +10,7 @@ import { supabaseAdmin } from '../../../lib/supabase'
 import { validateSessionToken } from '../../../lib/session'
 import { validateOrigin, rateLimit } from '../../../lib/security'
 import { getCatalog } from '../../../lib/catalog'
+import { computeTakeHome, estimateOrderCogs } from '../../../lib/takehome-config'
 
 export const config = { maxDuration: 30 }
 
@@ -273,6 +274,23 @@ export default async function handler(req, res) {
       .map((method) => ({ method, count: railCount.get(method) || 0, revenue: round2(railRev.get(method) || 0) }))
       .sort((a, b) => b.revenue - a.revenue)
 
+    // take-home estimate — real per-SKU restock cost (vendor price list) + taxes
+    // deducted, split per owner. Processing is rail-aware (uses the mix above);
+    // shipping/commission/ops/tax are tunable %s in takehome-config.js.
+    let cogsEst = 0
+    let cogsCoveredRev = 0
+    let cogsItemRev = 0
+    for (const o of paidOrders) {
+      const c = estimateOrderCogs(o.items)
+      cogsEst += c.cogs
+      cogsCoveredRev += c.coveredRev
+      cogsItemRev += c.totalRev
+    }
+    const takehome = computeTakeHome(cur.revenue, rail_mix, {
+      cogs: round2(cogsEst),
+      cogsCoverage: cogsItemRev ? cogsCoveredRev / cogsItemRev : 0,
+    })
+
     // top customers by spend (current window) — admin-only tool, email is fine
     const spendByEmail = new Map()
     for (const o of paidOrders) {
@@ -309,6 +327,7 @@ export default async function handler(req, res) {
         returning_orders: returningOrders,
       },
       refunds: { count: refundedCount, rate: refund_rate },
+      takehome,
       truncated,
     })
   } catch (err) {
