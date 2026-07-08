@@ -46,6 +46,21 @@ const peptides = [
   { file: 'mt2-5mg', name: 'MT-2', desc: 'Melanotan II', dosage: '5 mg', sku: 'OP-MT2-5MG' },
   { file: 'motsc-10mg', name: 'MOTS-C', desc: 'Mitochondrial-Derived Peptide', dosage: '10 mg', sku: 'OP-MOTSC-10MG' },
   { file: 'nad-500mg', name: 'NAD+', desc: 'Nicotinamide Adenine Dinucleotide', dosage: '500 mg', sku: 'OP-NAD-500MG' },
+  // ── 2026-07 expansion: 14 new peptide SKUs ──────────────────────────────────
+  { file: 'pt-141-10mg', name: 'PT-141', desc: 'Melanocortin Receptor Agonist', dosage: '10 mg', sku: 'OP-PT141-10MG' },
+  { file: 'dsip-10mg', name: 'DSIP', desc: 'Delta Sleep-Inducing Peptide', dosage: '10 mg', sku: 'OP-DSIP-10MG' },
+  { file: 'selank-10mg', name: 'Selank', desc: 'Anxiolytic Peptide (Tuftsin Analog)', dosage: '10 mg', sku: 'OP-SELANK-10MG' },
+  { file: 'epithalon-10mg', name: 'Epithalon', desc: 'Telomerase-Activating Peptide', dosage: '10 mg', sku: 'OP-EPI-10MG' },
+  { file: 'semax-10mg', name: 'Semax', desc: 'Nootropic Peptide (ACTH Fragment)', dosage: '10 mg', sku: 'OP-SEMAX-10MG' },
+  { file: 'ss-31-10mg', name: 'SS-31', desc: 'Mitochondria-Targeted Peptide', dosage: '10 mg', sku: 'OP-SS31-10MG' },
+  { file: 'cjc-1295-dac-2mg', name: 'CJC-1295 DAC', desc: 'GHRH Analog', dosage: '2 mg', sku: 'OP-CJC-DAC-2MG' },
+  { file: 'tesamorelin-5mg', name: 'Tesamorelin', desc: 'GHRH Analog', dosage: '5 mg', sku: 'OP-TESA-5MG' },
+  { file: 'ghk-cu-50mg', name: 'GHK-Cu', desc: 'Copper Tripeptide', dosage: '50 mg', sku: 'OP-GHKCU-50MG' },
+  { file: 'kpv-10mg', name: 'KPV', desc: 'Anti-Inflammatory Tripeptide', dosage: '10 mg', sku: 'OP-KPV-10MG' },
+  { file: 'adamax-5mg', name: 'Adamax', desc: 'Semax-Family Nootropic', dosage: '5 mg', sku: 'OP-ADAMAX-5MG' },
+  { file: 'klow-80mg', name: 'KLOW', desc: 'BPC+TB+GHK-Cu+KPV Stack', dosage: '80 mg', sku: 'OP-KLOW-80MG' },
+  { file: 'sermorelin-5mg', name: 'Sermorelin', desc: 'GHRH Analog', dosage: '5 mg', sku: 'OP-SERM-5MG' },
+  { file: 'igf-1-lr3-1mg', name: 'IGF-1 LR3', desc: 'Insulin-Like Growth Factor', dosage: '1 mg', sku: 'OP-IGF1LR3-1MG' },
 ];
 
 const DEFAULT_VIAL = '3 mL vial';
