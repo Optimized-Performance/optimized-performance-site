@@ -23,7 +23,7 @@ function emptyForm() {
     category: 'Peptides', format: 'Lyophilized Powder', vialSize: '',
     stock: '', inStock: true, isKit: false, parentId: '', vialCount: '',
     badge: '', visibilityTier: 'account_gated', railPolicy: 'all',
-    hasCoa: true, published: false, imageUrl: '',
+    hasCoa: true, published: false, imageUrl: '', preorderShipDate: '',
   };
 }
 
@@ -91,6 +91,7 @@ export default function ProductsTab({ token, showSaveMsg }) {
       badge: typeof p.badge === 'string' ? p.badge : (p.badge ? JSON.stringify(p.badge) : ''),
       visibilityTier: p.visibilityTier || 'public', railPolicy: p.railPolicy || 'all',
       hasCoa: !p.noCoa, published: !!p.published, imageUrl: p.imageUrl || '',
+      preorderShipDate: p.preorderShipDate || '',
     });
     setEditingId(p.id);
   }
@@ -113,6 +114,7 @@ export default function ProductsTab({ token, showSaveMsg }) {
       visibilityTier: form.visibilityTier, railPolicy: form.railPolicy,
       hasCoa: form.hasCoa, published: form.published,
       imageUrl: form.imageUrl || null,
+      preorderShipDate: form.preorderShipDate || null,
     };
     try {
       const res = await fetch('/api/admin/products', {
@@ -190,6 +192,7 @@ export default function ProductsTab({ token, showSaveMsg }) {
             <Field label="Vial / size"><input className="input-field" value={form.vialSize} onChange={(e) => set('vialSize', e.target.value)} /></Field>
             <Field label="Badge"><input className="input-field" value={form.badge} onChange={(e) => set('badge', e.target.value)} placeholder="e.g. HERO / NEW" /></Field>
             <Field label="Stock"><input className="input-field" type="number" value={form.stock} onChange={(e) => set('stock', e.target.value)} placeholder="(blank = derive from kit)" /></Field>
+            <Field label="Preorder ship date"><input className="input-field" type="date" value={form.preorderShipDate} onChange={(e) => set('preorderShipDate', e.target.value)} title="Shown on preorder items (stock 0) as 'ships ~DATE'. Leave blank for 'ship date TBD'." /></Field>
             <Field label="Parent ID (kits)"><input className="input-field" value={form.parentId} onChange={(e) => set('parentId', e.target.value)} /></Field>
             <Field label="Vials per kit"><input className="input-field" type="number" value={form.vialCount} onChange={(e) => set('vialCount', e.target.value)} /></Field>
             <Field label="Visibility tier">
