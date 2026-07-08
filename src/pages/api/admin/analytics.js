@@ -10,7 +10,7 @@ import { supabaseAdmin } from '../../../lib/supabase'
 import { validateSessionToken } from '../../../lib/session'
 import { validateOrigin, rateLimit } from '../../../lib/security'
 import { getCatalog } from '../../../lib/catalog'
-import { computeTakeHome, estimateOrderCogs } from '../../../lib/takehome-config'
+import { computeTakeHome, estimateOrderCogs, computeGymthingzNet } from '../../../lib/takehome-config'
 
 export const config = { maxDuration: 30 }
 
@@ -30,6 +30,29 @@ function buildProductLabel(productsData) {
 
 function requireAuth(req) {
   return validateSessionToken(req.headers['x-admin-token'])
+}
+
+// GymThingz revenue summary for the same window (server-to-server, shared
+// secret; both stores are Matt/Tris 50/50). Any failure — env unset, endpoint
+// down, timeout — returns null and the take-home panel degrades to
+// Syngyn-only rather than breaking analytics.
+async function fetchGymthingzSummary(days) {
+  const secret = process.env.GYMTHINGZ_REVENUE_SECRET
+  if (!secret) return null
+  const base = process.env.GYMTHINGZ_REVENUE_URL || 'https://www.gymthingz.com'
+  try {
+    const ctrl = new AbortController()
+    const timer = setTimeout(() => ctrl.abort(), 4000)
+    const res = await fetch(`${base}/api/partner/revenue?days=${days}`, {
+      headers: { 'x-partner-secret': secret },
+      signal: ctrl.signal,
+    })
+    clearTimeout(timer)
+    if (!res.ok) return null
+    return await res.json()
+  } catch {
+    return null
+  }
 }
 function addTo(map, key, n = 1) { map.set(key, (map.get(key) || 0) + n) }
 function addSession(map, key, sid) {
@@ -94,8 +117,9 @@ export default async function handler(req, res) {
     const priorStartIso = priorStart.toISOString()
 
     // Fetch 2× the range so we can compute the prior-period deltas + detect
-    // returning customers, then split locally at curStart.
-    const [{ data: events }, { data: orders }] = await Promise.all([
+    // returning customers, then split locally at curStart. The GymThingz
+    // summary rides the same Promise.all so it adds no wall-clock.
+    const [{ data: events }, { data: orders }, gtSummary] = await Promise.all([
       supabaseAdmin
         .from('events')
         .select('session_id, event_type, product_id, ref, created_at')
@@ -106,6 +130,7 @@ export default async function handler(req, res) {
         .select('session_id, customer_email, affiliate_code, payment_status, payment_method, total, items, recovery_discount, created_at')
         .gte('created_at', priorStartIso)
         .limit(ORDER_CAP),
+      fetchGymthingzSummary(days),
     ])
 
     const allEv = events || []
@@ -286,9 +311,12 @@ export default async function handler(req, res) {
       cogsCoveredRev += c.coveredRev
       cogsItemRev += c.totalRev
     }
+    const ventures = []
+    if (gtSummary && Number.isFinite(Number(gtSummary.gross))) ventures.push(computeGymthingzNet(gtSummary))
     const takehome = computeTakeHome(cur.revenue, rail_mix, {
       cogs: round2(cogsEst),
       cogsCoverage: cogsItemRev ? cogsCoveredRev / cogsItemRev : 0,
+      ventures,
     })
 
     // top customers by spend (current window) — admin-only tool, email is fine

@@ -88,12 +88,52 @@ export function estimateOrderCogs(items = []) {
   return { cogs: r2(cogs), coveredRev: r2(coveredRev), totalRev: r2(totalRev) }
 }
 
+// ─── GymThingz (apparel venture, same Matt/Tris 50/50) ─────────────────────
+// Facts (gross, rail mix, real accrued affiliate commission) come from
+// GymThingz's /api/partner/revenue feed; these rates cover what that endpoint
+// can't know. Apparel economics, so its own numbers — tune here.
+export const GYMTHINGZ = {
+  COGS_PCT: 0.40,     // blanks + printing, % of gross — apparel estimate
+  SHIPPING_PCT: 0.08, // outbound apparel shipping, % of gross
+  OPS_PCT: 0.015,     // misc overhead, % of gross
+  // Plain Stripe (clean apparel MCC) ≈ 2.9% + 30¢; Venmo business ~1.9%.
+  RAIL_FEE_PCT: { stripe: 0.03, venmo: 0.019 },
+  RAIL_FEE_DEFAULT: 0.03,
+}
+
+// GymThingz venture net from the partner-revenue summary. Commission is the
+// REAL accrued affiliate $ (not a % guess); processing uses its actual rail
+// mix. Returns a venture object computeTakeHome rolls into the combined pot.
+export function computeGymthingzNet(sum) {
+  const gross = Number(sum?.gross) || 0
+  let processing = 0
+  for (const r of Array.isArray(sum?.rail_mix) ? sum.rail_mix : []) {
+    const rate = GYMTHINGZ.RAIL_FEE_PCT[String(r.method || '').toLowerCase()] ?? GYMTHINGZ.RAIL_FEE_DEFAULT
+    processing += (Number(r.revenue) || 0) * rate
+  }
+  const cogs = gross * GYMTHINGZ.COGS_PCT
+  const shipping = gross * GYMTHINGZ.SHIPPING_PCT
+  const ops = gross * GYMTHINGZ.OPS_PCT
+  const commissions = Number(sum?.affiliate_commission) || 0
+  const preTaxNet = gross - processing - cogs - shipping - commissions - ops
+  return {
+    name: 'GymThingz',
+    gross: r2(gross),
+    orders: Number(sum?.orders) || 0,
+    deductions: { cogs: r2(cogs), shipping: r2(shipping), processing: r2(processing), commissions: r2(commissions), ops: r2(ops) },
+    preTaxNet: r2(preTaxNet),
+  }
+}
+
 // revenue: gross paid revenue for the window.
 // railMix: [{ method, revenue }] from the analytics rail-mix aggregation.
 // opts.cogs: real per-SKU COGS total (from estimateOrderCogs). If omitted, COGS
 //   falls back to a flat COGS_PCT of gross.
 // opts.cogsCoverage: 0..1, share of item revenue costed from the vendor map
 //   (for the panel to note how "real" the restock figure is).
+// opts.ventures: [{ name, gross, preTaxNet, ... }] — other 50/50 ventures
+//   (e.g. computeGymthingzNet). Tax and the owner split apply to the COMBINED
+//   pre-tax net, so a venture running negative offsets correctly.
 export function computeTakeHome(revenue, railMix = [], opts = {}) {
   const gross = Number(revenue) || 0
 
@@ -111,8 +151,14 @@ export function computeTakeHome(revenue, railMix = [], opts = {}) {
   const ops = gross * OPS_PCT
 
   const preTaxNet = gross - processing - cogs - shipping - commissions - ops
-  const tax = Math.max(0, preTaxNet) * TAX_PCT
-  const afterTax = preTaxNet - tax
+
+  // Roll other ventures into the pot BEFORE tax and the split. With no
+  // ventures this collapses exactly to the old Syngyn-only math.
+  const ventures = Array.isArray(opts.ventures) ? opts.ventures.filter(Boolean) : []
+  const combinedPreTax = preTaxNet + ventures.reduce((s, v) => s + (Number(v.preTaxNet) || 0), 0)
+  const combinedGross = gross + ventures.reduce((s, v) => s + (Number(v.gross) || 0), 0)
+  const tax = Math.max(0, combinedPreTax) * TAX_PCT
+  const afterTax = combinedPreTax - tax
   const perPartner = afterTax / OWNER_COUNT
 
   return {
@@ -126,13 +172,17 @@ export function computeTakeHome(revenue, railMix = [], opts = {}) {
     },
     cogsBasis: hasRealCogs ? 'vendor' : 'flat',
     cogsCoverage: typeof opts.cogsCoverage === 'number' ? r2(opts.cogsCoverage * 100) : null,
-    preTaxNet: r2(preTaxNet),
+    preTaxNet: r2(preTaxNet), // Syngyn-only detail line
+    ventures,
+    combinedGross: r2(combinedGross),
+    combinedPreTax: r2(combinedPreTax),
     tax: r2(tax),
     afterTax: r2(afterTax),
     perPartner: r2(perPartner),
     ownerCount: OWNER_COUNT,
-    marginPct: gross ? r2((afterTax / gross) * 100) : 0,
-    preTaxMarginPct: gross ? r2((preTaxNet / gross) * 100) : 0,
+    marginPct: combinedGross ? r2((afterTax / combinedGross) * 100) : 0,
+    preTaxMarginPct: gross ? r2((preTaxNet / gross) * 100) : 0, // Syngyn-only
+    combinedPreTaxMarginPct: combinedGross ? r2((combinedPreTax / combinedGross) * 100) : 0,
     rates: { cogs: COGS_PCT, shipping: SHIPPING_PCT, commission: COMMISSION_PCT, ops: OPS_PCT, tax: TAX_PCT },
   }
 }

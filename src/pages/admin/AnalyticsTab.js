@@ -256,25 +256,33 @@ function TakeHome({ t, days }) {
   const cogsLabel = t.cogsBasis === 'vendor'
     ? `Restock / COGS · vendor cost${t.cogsCoverage != null && t.cogsCoverage < 99 ? ` (${t.cogsCoverage}% mapped)` : ''}`
     : `Restock / COGS · ${rate(t.rates.cogs)}`;
+  // Other 50/50 ventures (GymThingz) join the pot before tax and the split.
+  const ventures = Array.isArray(t.ventures) ? t.ventures : [];
+  const multi = ventures.length > 0;
   const lines = [
-    { label: 'Gross revenue', val: t.gross, strong: true },
+    { label: multi ? 'Syngyn gross revenue' : 'Gross revenue', val: t.gross, strong: true },
     { label: cogsLabel, val: -t.deductions.cogs },
     { label: `Shipping · ${rate(t.rates.shipping)}`, val: -t.deductions.shipping },
     { label: 'Processing fees · by rail', val: -t.deductions.processing },
     { label: `Affiliate commissions · ${rate(t.rates.commission)}`, val: -t.deductions.commissions },
     { label: `Operating overhead · ${rate(t.rates.ops)}`, val: -t.deductions.ops },
-    { label: `Pre-tax net · ${fmtPct(t.preTaxMarginPct)} margin`, val: t.preTaxNet, strong: true },
+    { label: `${multi ? 'Syngyn pre-tax net' : 'Pre-tax net'} · ${fmtPct(t.preTaxMarginPct)} margin`, val: t.preTaxNet, strong: true },
+    ...ventures.map((v) => ({
+      label: `${v.name} net · on ${fmtMoney(v.gross)} gross, ${v.orders} order${v.orders === 1 ? '' : 's'}`,
+      val: v.preTaxNet, strong: true,
+    })),
+    ...(multi ? [{ label: `Combined pre-tax net · ${fmtPct(t.combinedPreTaxMarginPct)} margin`, val: t.combinedPreTax, strong: true }] : []),
     { label: `Estimated tax · ${rate(t.rates.tax)}`, val: -t.tax },
     { label: 'After-tax profit', val: t.afterTax, strong: true, total: true },
   ];
   return (
     <Panel title="Take-home estimate — after restocks & taxes">
       <div className="grid grid-cols-2 gap-3 mb-4">
-        <Kpi label="After-tax profit" value={fmtMoney(t.afterTax)} d={null} sub={`${fmtPct(t.marginPct)} after-tax · ${fmtPct(t.preTaxMarginPct)} pre-tax`} />
+        <Kpi label="After-tax profit" value={fmtMoney(t.afterTax)} d={null} sub={`${fmtPct(t.marginPct)} after-tax · ${fmtPct(multi ? t.combinedPreTaxMarginPct : t.preTaxMarginPct)} pre-tax`} />
         <div className="card-premium p-4" style={{ borderColor: C.gold }}>
           <div className="opp-meta-mono uppercase text-ink-mute">Take-home / partner</div>
           <div className="font-display font-semibold tracking-display text-2xl mt-1 leading-none" style={{ color: C.gold }}>{fmtMoney(t.perPartner)}</div>
-          <div className="opp-meta-mono mt-1.5 text-ink-mute">Matt / Tris 50/50 ({t.ownerCount}-way)</div>
+          <div className="opp-meta-mono mt-1.5 text-ink-mute">Matt / Tris 50/50 ({t.ownerCount}-way){multi ? ` · incl. ${ventures.map((v) => v.name).join(' + ')}` : ''}</div>
         </div>
       </div>
       <div className="border border-line rounded-opp overflow-hidden">
@@ -295,7 +303,7 @@ function TakeHome({ t, days }) {
         </table>
       </div>
       <p className="opp-meta-mono text-ink-mute mt-4 pt-3 border-t border-line leading-relaxed">
-        Planning estimate on the last {days}d of <strong className="text-ink-soft">paid Syngyn orders</strong>. Restock/COGS uses real per-SKU vendor cost; processing fees use the actual rail mix; shipping, commissions, overhead &amp; tax ({rate(t.rates.tax)}) are tunable assumptions (SOB margin model) in <span className="text-ink-soft">takehome-config.js</span>. Not accounting.
+        Planning estimate on the last {days}d of <strong className="text-ink-soft">paid Syngyn orders</strong>{multi ? <> + <strong className="text-ink-soft">paid GymThingz orders</strong> (live feed; real commission $ + rail mix, apparel COGS/shipping rates)</> : ''}. Restock/COGS uses real per-SKU vendor cost; processing fees use the actual rail mix; shipping, commissions, overhead &amp; tax ({rate(t.rates.tax)}) are tunable assumptions (SOB margin model) in <span className="text-ink-soft">takehome-config.js</span>. Tax + the 50/50 split apply to the combined pot. Not accounting.
       </p>
     </Panel>
   );
