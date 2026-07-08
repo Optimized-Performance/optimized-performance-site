@@ -26,6 +26,8 @@ const PEPTIDES = [
     researched: 'Studied for anti-inflammatory / gut models.', monitor: [] },
   { id: 'glow', name: 'Glow (BPC + TB-500 + GHK-Cu)', code: 'Glow', goals: ['recovery', 'skin'], form: 'lyophilized',
     researched: 'Combination blend studied across the recovery/skin literature.', monitor: [] },
+  { id: 'klow', name: 'Klow (BPC + TB-500 + GHK-Cu + KPV)', code: 'Klow', goals: ['recovery', 'gut', 'skin'], form: 'lyophilized',
+    researched: 'Combination blend (Glow + KPV) studied across recovery, gut and skin research.', monitor: [] },
   // GH secretagogues
   { id: 'ipamorelin', name: 'Ipamorelin', goals: ['gh'], form: 'lyophilized',
     researched: 'Selective GH-secretagogue research compound.', monitor: ['Fasting Glucose', 'Fasting Insulin', 'IGF-1'] },
@@ -48,6 +50,8 @@ const PEPTIDES = [
     researched: 'Mitochondrial-derived peptide studied in metabolic/longevity models.', monitor: [] },
   { id: 'nad', name: 'NAD+', goals: ['metabolic', 'longevity'], form: 'lyophilized',
     researched: 'Cellular coenzyme studied in mitochondrial-energy and longevity research models.', monitor: [] },
+  { id: 'ss31', name: 'SS-31 (Elamipretide)', goals: ['longevity', 'metabolic'], form: 'lyophilized',
+    researched: 'Mitochondria-targeted peptide studied in cellular-energy and longevity models.', monitor: [] },
   // Longevity / cognitive / other
   { id: 'epitalon', name: 'Epitalon', goals: ['longevity'], form: 'lyophilized',
     researched: 'Studied in telomere/longevity research models.', monitor: [] },
@@ -55,6 +59,10 @@ const PEPTIDES = [
     researched: 'Studied in anxiolytic/cognitive research models.', monitor: [] },
   { id: 'dsip', name: 'DSIP', goals: ['cognitive'], form: 'lyophilized',
     researched: 'Delta-sleep-inducing peptide studied in sleep research.', monitor: [] },
+  { id: 'semax', name: 'Semax', goals: ['cognitive'], form: 'lyophilized',
+    researched: 'Nootropic research peptide studied in cognitive/neuroprotective models.', monitor: [] },
+  { id: 'adamax', name: 'Adamax', goals: ['cognitive'], form: 'lyophilized',
+    researched: 'Nootropic research peptide studied in cognitive models.', monitor: [] },
   { id: 'pt141', name: 'PT-141 (Bremelanotide)', goals: ['libido'], form: 'lyophilized',
     researched: 'Melanocortin-agonist studied for libido/arousal models.', monitor: [] },
   { id: 'mt2', name: 'Melanotan II (MT-2)', goals: ['libido', 'skin'], form: 'lyophilized',
