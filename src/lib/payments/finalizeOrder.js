@@ -1,5 +1,5 @@
 import { supabaseAdmin } from '../supabase'
-import { sendEmailAlert, sendSmsAlert, sendOrderConfirmation } from '../alerts'
+import { sendEmailAlert, sendSmsAlert, sendOrderConfirmation, sendOrderCompletedOwnerAlert } from '../alerts'
 import { calcCommission } from '../commission'
 import { OPEN_PAYMENT_STATES, PAYMENT_STATUS, assertPaymentTransition } from '../order-status'
 import { getCatalog } from '../catalog'
@@ -171,6 +171,11 @@ export async function finalizePaidOrder({ orderNumber, sendConfirmation = true, 
   if (sendConfirmation) {
     await sendOrderConfirmation(order)
   }
+
+  // Internal owner alert on every completed sale (Matt + Tris). Fires regardless
+  // of the customer-facing sendConfirmation flag (owners want comped/manual sales
+  // too). Self-contained + never throws, so it can't break finalization.
+  await sendOrderCompletedOwnerAlert(order)
 
   const criticalItems = lowStockItems.filter((i) => i.level === 'critical')
   const reorderItems = lowStockItems.filter((i) => i.level === 'reorder')

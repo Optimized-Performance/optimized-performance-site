@@ -483,6 +483,76 @@ export async function sendOrderConfirmation(order) {
   }
 }
 
+// Internal owner alert — fires on every completed sale (from finalizeOrder).
+// Recipients come from ORDER_ALERT_TO (comma-separated: Matt + Tris), falling
+// back to ALERT_EMAIL so a missing env var still reaches at least the operator.
+// Fire-and-forget: never throws, never blocks finalization.
+export async function sendOrderCompletedOwnerAlert(order) {
+  const apiKey = process.env.SENDGRID_API_KEY;
+  const recipients = (process.env.ORDER_ALERT_TO || process.env.ALERT_EMAIL || '')
+    .split(',').map((s) => s.trim()).filter(Boolean);
+  if (!apiKey || recipients.length === 0) {
+    console.log('[alerts] Owner sale alert skipped (not configured) — order:', order.order_number);
+    return;
+  }
+
+  const total = Number(order.total || 0).toFixed(2);
+  const items = Array.isArray(order.items) ? order.items : [];
+  const itemLines = items.map((i) => `• ${i.name || i.sku} x${i.quantity} — $${((Number(i.price) || 0) * (Number(i.quantity) || 0)).toFixed(2)}`).join('\n');
+  const rail = order.payment_method || 'unknown';
+  const ref = order.affiliate_code ? order.affiliate_code : 'DIRECT';
+
+  const body = [
+    `New completed sale — $${total}`,
+    ``,
+    `Order #: ${order.order_number}`,
+    `Customer: ${order.customer_name || ''} (${order.customer_email || ''})`,
+    `Rail: ${rail} · Ref: ${ref}`,
+    ``,
+    itemLines,
+    ``,
+    `Total: $${total}`,
+    `Ship to: ${order.shipping_address || ''}, ${order.city || ''}, ${order.state || ''} ${order.zip || ''}`,
+  ].join('\n');
+
+  const detailsHtml = emailDetailTable([
+    ...items.map((i) => ({
+      label: `${escapeHtml(i.name || i.sku)} <span style="color:#6E6D68;">&times;${i.quantity}</span>`,
+      value: `$${((Number(i.price) || 0) * (Number(i.quantity) || 0)).toFixed(2)}`,
+    })),
+    { label: 'Total', value: `$${total}`, strong: true, accent: true },
+    { label: 'Rail', value: escapeHtml(rail) },
+    { label: 'Ref', value: escapeHtml(ref) },
+  ]) + `<div style="font-family:${EMAIL_FONT};font-size:13px;color:#6E6D68;line-height:1.5;">${escapeHtml(order.customer_name || '')} &middot; ${escapeHtml(order.customer_email || '')}<br/>Ship to: ${escapeHtml(order.shipping_address || '')}, ${escapeHtml(order.city || '')}, ${escapeHtml(order.state || '')} ${escapeHtml(order.zip || '')}</div>`;
+  const html = renderBrandedEmail({
+    preheader: `New sale ${order.order_number} — $${total}`,
+    eyebrow: 'Internal · New sale',
+    heading: `New sale — $${total}`,
+    paragraphs: [`Order <strong style="color:#F5F3EC;">${escapeHtml(order.order_number)}</strong> just completed.`],
+    extraHtml: detailsHtml,
+    footerLines: emailFooterLines(),
+  });
+
+  try {
+    await fetch('https://api.sendgrid.com/v3/mail/send', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        personalizations: [{ to: recipients.map((email) => ({ email })) }],
+        from: { email: process.env.FROM_EMAIL || 'orders@syngyn.co', name: 'Syngyn Sales' },
+        subject: `New sale — ${order.order_number} — $${total}`,
+        content: [
+          { type: 'text/plain', value: body },
+          { type: 'text/html', value: html },
+        ],
+        tracking_settings: { click_tracking: { enable: false, enable_text: false } },
+      }),
+    });
+  } catch (err) {
+    console.error('[alerts] Owner sale alert failed:', err.message);
+  }
+}
+
 // Sent at order creation when paymentMethod === 'zelle'. Customer needs the
 // recipient + amount + memo to complete payment from their bank app.
 // Recipient is the Zelle identifier registered against BoA-1990; defaults to
