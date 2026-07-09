@@ -13,13 +13,16 @@
 // paragraphs / extraHtml / footerLines may contain trusted inline HTML (we
 // control them); eyebrow / heading / cta.text / highlight.* are escaped.
 
+// Syngyn black & gold (matches the storefront + label rebrand). Gold #F5A623,
+// black bg, warm-tan/gray secondary text. Buttons = gold with BLACK text.
 const C = {
-  bg: '#08090C', card: '#121418', cardTop: '#16191F', border: '#24272D',
-  ink: '#F5F3EC', soft: '#B6B4AC', mute: '#6E6D68',
-  accent: '#2BC9DE', accentDeep: '#0E7C8B', accentDark: '#06222A',
-  hiBg: '#0C1E22', hiBorder: '#1D525C', hiSoft: '#7FD6E2',
+  bg: '#000000', card: '#0A0A0B', cardTop: '#000000', border: '#2A2620',
+  ink: '#F5F3EC', soft: '#C7B291', mute: '#8A8272',
+  accent: '#F5A623', accentDeep: '#A66A12', accentDark: '#000000', accentBright: '#FCD667',
+  hiBg: '#17110A', hiBorder: '#6B4A12', hiSoft: '#FCD667',
 };
 const FONT = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://syngyn.co';
 
 function esc(s) {
   return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -81,8 +84,8 @@ export function renderBrandedEmail({
   // Bulletproof-ish gradient button (solid bgcolor fallback for Outlook).
   const ctaBlock = cta && cta.url
     ? `<table role="presentation" align="${ta === 'center' ? 'center' : 'left'}" cellpadding="0" cellspacing="0" border="0" style="margin:4px 0 0;">
-         <tr><td align="center" style="border-radius:12px;background-color:${C.accent};background-image:linear-gradient(135deg,${C.accent},${C.accentDeep});box-shadow:0 2px 14px rgba(43,201,222,0.25);">
-           <a href="${cta.url}" target="_blank" style="display:inline-block;padding:16px 46px;font-family:${FONT};font-size:16px;font-weight:700;color:${C.accentDark};text-decoration:none;border-radius:12px;letter-spacing:0.3px;">${esc(cta.text)} &rarr;</a>
+         <tr><td align="center" style="border-radius:12px;background-color:${C.accent};background-image:linear-gradient(135deg,${C.accentBright},${C.accent});box-shadow:0 2px 14px rgba(245,166,35,0.3);">
+           <a href="${cta.url}" target="_blank" style="display:inline-block;padding:16px 46px;font-family:${FONT};font-size:16px;font-weight:800;color:${C.accentDark};text-decoration:none;border-radius:12px;letter-spacing:0.3px;">${esc(cta.text)} &rarr;</a>
          </td></tr>
        </table>`
     : '';
@@ -107,9 +110,9 @@ export function renderBrandedEmail({
       <!-- accent band -->
       <tr><td style="height:4px;font-size:0;line-height:0;background-color:${C.accent};background-image:linear-gradient(90deg,${C.accentDeep},${C.accent},${C.accentDeep});">&nbsp;</td></tr>
       <!-- header -->
-      <tr><td style="background-color:${C.cardTop};padding:30px 40px 26px;text-align:center;border-bottom:1px solid ${C.border};">
-        <div style="font-family:${FONT};font-size:15px;font-weight:800;letter-spacing:4px;color:${C.ink};">SYNGYN</div>
-        <div style="font-family:${FONT};font-size:10px;font-weight:600;letter-spacing:3px;color:${C.mute};margin-top:7px;text-transform:uppercase;">Analytical Reference Materials</div>
+      <tr><td style="background-color:${C.cardTop};padding:28px 40px 24px;text-align:center;border-bottom:1px solid ${C.border};">
+        <img src="${SITE_URL}/syngyn-logo.png" alt="Syngyn" width="180" style="width:180px;max-width:62%;height:auto;display:inline-block;border:0;outline:none;text-decoration:none;" />
+        <div style="font-family:${FONT};font-size:10px;font-weight:600;letter-spacing:3px;color:${C.mute};margin-top:10px;text-transform:uppercase;">Analytical Reference Materials</div>
       </td></tr>
       <!-- body -->
       <tr><td style="padding:34px 40px 30px;font-family:${FONT};text-align:${ta};">
