@@ -15,7 +15,7 @@ const RAILS = [
   { v: 'p2p_crypto', l: 'Venmo + Zelle + crypto (off card/PayPal)' },
   { v: 'zelle_crypto', l: 'Zelle + crypto only' },
 ];
-const CATEGORIES = ['GLPs', 'Peptides', 'GH Peptides', 'Combos', 'Tinctures', 'Supplements', 'Supplies'];
+const CATEGORIES = ['GLPs', 'Peptides', 'GH Peptides', 'Combos', 'Tinctures', 'Ancillaries', 'Supplements', 'Supplies'];
 
 function emptyForm() {
   return {

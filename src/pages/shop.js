@@ -9,7 +9,7 @@ import { hasGatedAccess } from '../lib/gated-access';
 import SEO from '../components/SEO';
 import { Icon } from '../components/Primitives';
 
-const ALL_CATEGORIES = ['All', 'GLPs', 'Peptides', 'GH Peptides', 'Combos', 'Tinctures', 'Supplements', 'Supplies'];
+const ALL_CATEGORIES = ['All', 'GLPs', 'Peptides', 'GH Peptides', 'Combos', 'Tinctures', 'Ancillaries', 'Supplements', 'Supplies'];
 
 export default function Shop({ inventory, visibleProducts: visibleProductsProp, cohortAllowed }) {
   const router = useRouter();
