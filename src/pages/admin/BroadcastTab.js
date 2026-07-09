@@ -26,6 +26,7 @@ export default function BroadcastTab({ showSaveMsg, token }) {
   const [sending, setSending] = useState(false);
   const [testEmail, setTestEmail] = useState('');
   const [testing, setTesting] = useState(false);
+  const [previewing, setPreviewing] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -65,6 +66,23 @@ export default function BroadcastTab({ showSaveMsg, token }) {
       showSaveMsg && showSaveMsg(`Failed: ${err.message}`);
     }
     setTesting(false);
+  }
+
+  async function handlePreviewAll() {
+    if (!testEmail.trim() || !testEmail.includes('@')) { showSaveMsg && showSaveMsg('Enter an email address above first'); return; }
+    setPreviewing(true);
+    try {
+      const res = await fetch('/api/admin/email/preview', {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ toEmail: testEmail.trim() }),
+      });
+      const d = await res.json();
+      showSaveMsg && showSaveMsg(res.ok ? `Sent ${d.count} preview emails to ${d.to}${d.failed?.length ? ` (${d.failed.length} failed)` : ''}` : `Failed: ${d.error || 'error'}`);
+    } catch (err) {
+      showSaveMsg && showSaveMsg(`Failed: ${err.message}`);
+    }
+    setPreviewing(false);
   }
 
   async function handleSend() {
@@ -159,6 +177,9 @@ export default function BroadcastTab({ showSaveMsg, token }) {
           />
           <button onClick={handleTest} disabled={testing || sending} className="btn-outline px-5 whitespace-nowrap">
             {testing ? 'Sending…' : 'Send test'}
+          </button>
+          <button onClick={handlePreviewAll} disabled={previewing || sending} className="btn-outline px-5 whitespace-nowrap" title="Send yourself a branded sample of every automated customer email (confirmation, shipping, refund, verification, etc.) — for QA, uses fake order data.">
+            {previewing ? 'Sending…' : 'Preview all automated'}
           </button>
         </div>
 
