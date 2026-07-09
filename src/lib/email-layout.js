@@ -58,14 +58,14 @@ export function emailProductGrid(products = [], { ctaText = 'Shop now' } = {}) {
   const list = (Array.isArray(products) ? products : []).filter((p) => p && p.url)
   if (!list.length) return ''
   const card = (p) => {
-    if (!p) return `<td width="50%" style="padding:8px;">&nbsp;</td>`
+    if (!p) return `<td width="50%" bgcolor="${C.card}" style="padding:8px;background-color:${C.card};">&nbsp;</td>`
     const priceLine = p.compareAt && Number(p.compareAt) > Number(p.price)
       ? `<span style="color:${C.accentBright};font-weight:700;">$${Number(p.price).toFixed(2)}</span> <span style="color:${C.mute};text-decoration:line-through;font-size:13px;">$${Number(p.compareAt).toFixed(2)}</span>`
       : `<span style="color:${C.ink};font-weight:700;">$${Number(p.price).toFixed(2)}</span>`
     const img = p.imageUrl
       ? `<img src="${p.imageUrl}" alt="${esc(p.name)}" width="100%" style="width:100%;max-width:252px;height:auto;display:block;border-radius:10px;border:1px solid ${C.border};" />`
       : `<div style="height:180px;background:${C.card};border:1px solid ${C.border};border-radius:10px;"></div>`
-    return `<td width="50%" valign="top" style="padding:8px;">
+    return `<td width="50%" valign="top" bgcolor="${C.card}" style="padding:8px;background-color:${C.card};">
       <a href="${p.url}" target="_blank" style="text-decoration:none;">${img}</a>
       <div style="font-family:${FONT};font-size:15px;font-weight:700;color:${C.ink};margin:12px 0 3px;">${esc(p.name)}${p.dosage ? ` <span style="color:${C.accent};font-size:12px;">${esc(p.dosage)}</span>` : ''}</div>
       <div style="font-family:${FONT};font-size:15px;margin:0 0 10px;">${priceLine}</div>
@@ -127,7 +127,7 @@ export function renderBrandedEmail({
 
   // Trust row — equal columns, hairline top border.
   const trustHtml = trust && trust.length
-    ? `<tr><td style="padding:0 28px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-top:1px solid ${C.border};"><tr>
+    ? `<tr><td bgcolor="${C.card}" style="padding:0 28px;background-color:${C.card};"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-top:1px solid ${C.border};"><tr>
          ${trust.map((t) => `<td align="center" style="padding:16px 6px;font-family:${FONT};font-size:10px;font-weight:600;letter-spacing:1.2px;text-transform:uppercase;color:${C.mute};line-height:1.4;">${esc(t)}</td>`).join('')}
        </tr></table></td></tr>`
     : '';
@@ -138,12 +138,12 @@ export function renderBrandedEmail({
   return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="dark light"><meta name="supported-color-schemes" content="dark light"></head>
 <body style="margin:0;padding:0;background:${C.bg};-webkit-text-size-adjust:100%;">
 <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:${C.bg};font-size:1px;line-height:1px;">${esc(preheader)}</div>
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${C.bg};">
-  <tr><td align="center" style="padding:36px 16px;">
-    <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px;max-width:100%;background:${C.card};border:1px solid ${C.border};border-radius:18px;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,0.5);">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${C.bg}" style="background:${C.bg};background-color:${C.bg};">
+  <tr><td align="center" bgcolor="${C.bg}" style="padding:36px 16px;background-color:${C.bg};">
+    <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" bgcolor="${C.card}" style="width:600px;max-width:100%;background:${C.card};background-color:${C.card};border:1px solid ${C.border};border-radius:18px;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,0.5);">
       ${hero
         ? // Full-bleed hero (carries its own branding) — replaces band + logo.
-          `<tr><td style="font-size:0;line-height:0;"><img src="${hero}" alt="Syngyn" width="600" style="width:100%;max-width:600px;height:auto;display:block;border:0;outline:none;text-decoration:none;" /></td></tr>`
+          `<tr><td bgcolor="${C.card}" style="font-size:0;line-height:0;background-color:${C.card};"><img src="${hero}" alt="Syngyn" width="600" style="width:100%;max-width:600px;height:auto;display:block;border:0;outline:none;text-decoration:none;" /></td></tr>`
         : // Default: gold accent band + logo header.
           `<tr><td style="height:4px;font-size:0;line-height:0;background-color:${C.accent};background-image:linear-gradient(90deg,${C.accentDeep},${C.accent},${C.accentDeep});">&nbsp;</td></tr>
       <tr><td style="background-color:${C.cardTop};padding:28px 40px 24px;text-align:center;border-bottom:1px solid ${C.border};">
@@ -151,7 +151,7 @@ export function renderBrandedEmail({
         <div style="font-family:${FONT};font-size:10px;font-weight:600;letter-spacing:3px;color:${C.mute};margin-top:10px;text-transform:uppercase;">Analytical Reference Materials</div>
       </td></tr>`}
       <!-- body -->
-      <tr><td style="padding:34px 40px 30px;font-family:${FONT};text-align:${ta};">
+      <tr><td bgcolor="${C.card}" style="padding:34px 40px 30px;background-color:${C.card};font-family:${FONT};text-align:${ta};">
         ${eyebrowHtml}
         ${headingHtml}
         ${para}
@@ -163,7 +163,7 @@ export function renderBrandedEmail({
       </td></tr>
       ${trustHtml}
       <!-- footer -->
-      <tr><td style="padding:22px 40px 30px;border-top:1px solid ${C.border};background-color:${C.cardTop};font-family:${FONT};font-size:12px;line-height:1.65;color:${C.mute};text-align:center;">
+      <tr><td bgcolor="${C.cardTop}" style="padding:22px 40px 30px;border-top:1px solid ${C.border};background-color:${C.cardTop};font-family:${FONT};font-size:12px;line-height:1.65;color:${C.mute};text-align:center;">
         ${footer}
       </td></tr>
     </table>
