@@ -429,6 +429,13 @@ export async function sendOrderConfirmation(order) {
   ).join('\n');
 
   const lookupUrl = orderLookupUrl(order);
+
+  // Rebrand transition notice — products ship with the pre-rebrand logo/labels
+  // while stock catches up. Default ON; set REBRAND_NOTICE=false in the env to
+  // drop it once the new labels are on everything.
+  const showRebrandNotice = process.env.REBRAND_NOTICE !== 'false';
+  const rebrandNotice = `Heads-up during our rebrand: your order may arrive with our previous (pre-Syngyn) logo and labels while we transition our packaging. The product inside is exactly the same, COA-verified — thanks for bearing with us through this transition.`;
+
   const body = [
     `Thank you for your order!`,
     ``,
@@ -440,6 +447,8 @@ export async function sendOrderConfirmation(order) {
     ``,
     `Shipping to: ${order.shipping_address}, ${order.city}, ${order.state} ${order.zip}`,
     ``,
+    showRebrandNotice ? rebrandNotice : ``,
+    showRebrandNotice ? `` : ``,
     lookupUrl ? `Track this order: ${lookupUrl}` : ``,
     lookupUrl ? `` : ``,
     `For research use only.`,
@@ -457,7 +466,10 @@ export async function sendOrderConfirmation(order) {
     preheader: `Order ${order.order_number} confirmed — thank you!`,
     eyebrow: 'Order confirmed',
     heading: 'Thank you for your order',
-    paragraphs: [`We've got it — order <strong style="color:#F5F3EC;">${escapeHtml(order.order_number)}</strong> is confirmed, and we'll ship within 1 business day.`],
+    paragraphs: [
+      `We've got it — order <strong style="color:#F5F3EC;">${escapeHtml(order.order_number)}</strong> is confirmed, and we'll ship within 1 business day.`,
+      ...(showRebrandNotice ? [rebrandNotice] : []),
+    ],
     extraHtml: detailsHtml,
     cta: lookupUrl ? { text: 'Track your order', url: lookupUrl } : null,
     trust: ['Ships in 1 business day', 'COA-verified', 'Encrypted checkout'],
