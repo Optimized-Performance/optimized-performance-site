@@ -86,6 +86,11 @@ export function renderBrandedEmail({
 } = {}) {
   const ta = align === 'center' ? 'center' : 'left';
 
+  // Default brand hero header: any email without an explicit heroImageUrl falls
+  // back to EMAIL_HERO_URL, so the designed banner heads every automated email.
+  // Broadcasts still override per-send. Unset → the gold logo header (safe).
+  const hero = heroImageUrl || process.env.EMAIL_HERO_URL || '';
+
   const eyebrowHtml = eyebrow
     ? `<div style="font-family:${FONT};font-size:11px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;color:${C.accent};margin:0 0 12px;">${esc(eyebrow)}</div>`
     : '';
@@ -136,9 +141,9 @@ export function renderBrandedEmail({
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${C.bg};">
   <tr><td align="center" style="padding:36px 16px;">
     <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px;max-width:100%;background:${C.card};border:1px solid ${C.border};border-radius:18px;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,0.5);">
-      ${heroImageUrl
+      ${hero
         ? // Full-bleed hero (carries its own branding) — replaces band + logo.
-          `<tr><td style="font-size:0;line-height:0;"><img src="${heroImageUrl}" alt="Syngyn" width="600" style="width:100%;max-width:600px;height:auto;display:block;border:0;outline:none;text-decoration:none;" /></td></tr>`
+          `<tr><td style="font-size:0;line-height:0;"><img src="${hero}" alt="Syngyn" width="600" style="width:100%;max-width:600px;height:auto;display:block;border:0;outline:none;text-decoration:none;" /></td></tr>`
         : // Default: gold accent band + logo header.
           `<tr><td style="height:4px;font-size:0;line-height:0;background-color:${C.accent};background-image:linear-gradient(90deg,${C.accentDeep},${C.accent},${C.accentDeep});">&nbsp;</td></tr>
       <tr><td style="background-color:${C.cardTop};padding:28px 40px 24px;text-align:center;border-bottom:1px solid ${C.border};">
