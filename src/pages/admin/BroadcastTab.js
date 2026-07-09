@@ -28,7 +28,31 @@ export default function BroadcastTab({ products = [], showSaveMsg, token }) {
   const [testing, setTesting] = useState(false);
   const [previewing, setPreviewing] = useState(false);
   const [heroImageUrl, setHeroImageUrl] = useState('');
+  const [uploadingHero, setUploadingHero] = useState(false);
   const [productIds, setProductIds] = useState(() => []);
+
+  async function handleHeroFile(file) {
+    if (!file) return;
+    if (!/^image\/(png|jpe?g|webp)$/i.test(file.type)) { showSaveMsg && showSaveMsg('Hero must be PNG, JPEG, or WebP'); return; }
+    setUploadingHero(true);
+    try {
+      const dataUrl = await new Promise((resolve, reject) => {
+        const r = new FileReader();
+        r.onload = () => resolve(r.result);
+        r.onerror = reject;
+        r.readAsDataURL(file);
+      });
+      const res = await fetch('/api/admin/upload-image', {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ dataUrl, productId: 'broadcast-hero' }),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (res.ok && d.url) { setHeroImageUrl(d.url); showSaveMsg && showSaveMsg('Hero uploaded'); }
+      else showSaveMsg && showSaveMsg(d.error || 'Hero upload failed');
+    } catch { showSaveMsg && showSaveMsg('Hero upload failed'); }
+    setUploadingHero(false);
+  }
 
   function toggleProduct(id) {
     setProductIds((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]));
@@ -172,15 +196,28 @@ export default function BroadcastTab({ products = [], showSaveMsg, token }) {
           />
         </label>
 
-        <label className="block mb-4">
-          <span className="font-mono text-[10px] font-medium tracking-[0.14em] uppercase text-ink-mute">Hero image URL (optional)</span>
-          <input
-            className="input-field mt-1.5"
-            value={heroImageUrl}
-            onChange={(e) => setHeroImageUrl(e.target.value)}
-            placeholder="https://syngyn.co/…  — a designed banner, shown full-width at the top (replaces the logo header)"
-          />
-        </label>
+        <div className="mb-4">
+          <span className="font-mono text-[10px] font-medium tracking-[0.14em] uppercase text-ink-mute">Hero image (optional)</span>
+          <div className="flex items-center gap-2 mt-1.5">
+            <input
+              className="input-field flex-1"
+              value={heroImageUrl}
+              onChange={(e) => setHeroImageUrl(e.target.value)}
+              placeholder="Paste a banner URL, or upload → (shown full-width at top, replaces the logo header)"
+            />
+            <label className={`btn-outline px-4 py-2 whitespace-nowrap cursor-pointer ${uploadingHero ? 'opacity-60 pointer-events-none' : ''}`}>
+              {uploadingHero ? 'Uploading…' : 'Upload'}
+              <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(e) => handleHeroFile(e.target.files?.[0])} />
+            </label>
+            {heroImageUrl && (
+              <button type="button" className="text-danger text-[13px] hover:underline" onClick={() => setHeroImageUrl('')}>Clear</button>
+            )}
+          </div>
+          {heroImageUrl && (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img src={heroImageUrl} alt="hero preview" className="mt-2 rounded-opp border border-line max-h-32" />
+          )}
+        </div>
 
         <div className="mb-5">
           <span className="font-mono text-[10px] font-medium tracking-[0.14em] uppercase text-ink-mute">Feature products (optional)</span>
