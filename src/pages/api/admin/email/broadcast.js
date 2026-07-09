@@ -9,14 +9,37 @@ import { supabaseAdmin } from '../../../../lib/supabase'
 import { validateSessionToken } from '../../../../lib/session'
 import { validateOrigin, rateLimit } from '../../../../lib/security'
 import { sendMarketingBatch, sendMarketingTest } from '../../../../lib/marketing-email'
+import { emailProductGrid } from '../../../../lib/email-layout'
+import { getCatalog } from '../../../../lib/catalog'
 
 export const config = { maxDuration: 60 } // batch send can take a bit
 
 const SEGMENTS = ['purchasers', 'newsletter', 'all']
 const MAX_RECIPIENTS = 10000
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://syngyn.co'
 
 function requireAuth(req) {
   return validateSessionToken(req.headers['x-admin-token'])
+}
+
+// Build the product-showcase grid HTML from selected SKU ids. Links land on the
+// PDP with ?cohort=social so gated products are viewable from the email.
+async function buildProductGrid(productIds) {
+  const ids = Array.isArray(productIds) ? productIds.filter(Boolean).slice(0, 12) : []
+  if (!ids.length) return ''
+  const catalog = await getCatalog()
+  const byId = new Map(catalog.map((p) => [p.id, p]))
+  const products = ids
+    .map((id) => byId.get(id))
+    .filter(Boolean)
+    .map((p) => ({
+      name: p.name,
+      dosage: p.dosage,
+      price: p.price,
+      imageUrl: p.imageUrl || null,
+      url: `${SITE_URL}/products/${encodeURIComponent(p.id)}?cohort=social`,
+    }))
+  return emailProductGrid(products, { ctaText: 'Shop now' })
 }
 
 // Distinct completed-order customer emails.
@@ -79,7 +102,7 @@ export default async function handler(req, res) {
     }
 
     if (req.method === 'POST') {
-      const { subject, body, segment, test, testEmail } = req.body || {}
+      const { subject, body, segment, test, testEmail, heroImageUrl, productIds } = req.body || {}
       if (!subject || typeof subject !== 'string' || subject.trim().length < 3) {
         return res.status(400).json({ error: 'Subject is required.' })
       }
@@ -87,12 +110,15 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: 'Body is required (at least a sentence).' })
       }
 
+      const hero = typeof heroImageUrl === 'string' && heroImageUrl.trim() ? heroImageUrl.trim() : ''
+      const productGrid = await buildProductGrid(productIds)
+
       // Test send — one branded copy to the admin's address; no segment, no
       // suppression, not logged. Lets the admin eyeball the render before a blast.
       if (test) {
         const to = String(testEmail || '').trim()
         if (!to || !to.includes('@')) return res.status(400).json({ error: 'Enter a valid test email address.' })
-        const r = await sendMarketingTest({ toEmail: to, subject: subject.trim(), bodyLines: String(body).split('\n') })
+        const r = await sendMarketingTest({ toEmail: to, subject: subject.trim(), bodyLines: String(body).split('\n'), heroImageUrl: hero, extraHtml: productGrid })
         if (!r.ok) {
           return res.status(400).json({ error: `Test send failed: ${r.reason}${r.reason === 'no_postal_address' ? ' — set MARKETING_POSTAL_ADDRESS.' : ''}` })
         }
@@ -115,6 +141,8 @@ export default async function handler(req, res) {
         subject: subject.trim(),
         bodyLines,
         branded: true, // render the Syngyn branded HTML shell (not plain text)
+        heroImageUrl: hero,
+        extraHtml: productGrid,
       })
 
       if (!result.ok) {

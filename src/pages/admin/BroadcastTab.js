@@ -10,7 +10,7 @@ const SEGMENT_LABELS = {
   all: 'Everyone (deduped)',
 };
 
-export default function BroadcastTab({ showSaveMsg, token }) {
+export default function BroadcastTab({ products = [], showSaveMsg, token }) {
   const authHeaders = useCallback(
     () => ({ 'Content-Type': 'application/json', 'x-admin-token': token || '' }),
     [token]
@@ -27,6 +27,12 @@ export default function BroadcastTab({ showSaveMsg, token }) {
   const [testEmail, setTestEmail] = useState('');
   const [testing, setTesting] = useState(false);
   const [previewing, setPreviewing] = useState(false);
+  const [heroImageUrl, setHeroImageUrl] = useState('');
+  const [productIds, setProductIds] = useState(() => []);
+
+  function toggleProduct(id) {
+    setProductIds((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]));
+  }
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -58,7 +64,7 @@ export default function BroadcastTab({ showSaveMsg, token }) {
       const res = await fetch('/api/admin/email/broadcast', {
         method: 'POST',
         headers: authHeaders(),
-        body: JSON.stringify({ subject: subject.trim(), body, test: true, testEmail: testEmail.trim() }),
+        body: JSON.stringify({ subject: subject.trim(), body, test: true, testEmail: testEmail.trim(), heroImageUrl: heroImageUrl.trim(), productIds }),
       });
       const d = await res.json();
       showSaveMsg && showSaveMsg(res.ok ? `Test sent to ${d.to}` : `Failed: ${d.error || 'send error'}`);
@@ -104,7 +110,7 @@ export default function BroadcastTab({ showSaveMsg, token }) {
       const res = await fetch('/api/admin/email/broadcast', {
         method: 'POST',
         headers: authHeaders(),
-        body: JSON.stringify({ subject: subject.trim(), body, segment }),
+        body: JSON.stringify({ subject: subject.trim(), body, segment, heroImageUrl: heroImageUrl.trim(), productIds }),
       });
       const d = await res.json();
       if (!res.ok) {
@@ -165,6 +171,31 @@ export default function BroadcastTab({ showSaveMsg, token }) {
             placeholder={'Plain text. Line breaks are preserved.\n\nPaste links as full URLs — they send as-is.\nThe unsubscribe + address footer is added automatically.'}
           />
         </label>
+
+        <label className="block mb-4">
+          <span className="font-mono text-[10px] font-medium tracking-[0.14em] uppercase text-ink-mute">Hero image URL (optional)</span>
+          <input
+            className="input-field mt-1.5"
+            value={heroImageUrl}
+            onChange={(e) => setHeroImageUrl(e.target.value)}
+            placeholder="https://syngyn.co/…  — a designed banner, shown full-width at the top (replaces the logo header)"
+          />
+        </label>
+
+        <div className="mb-5">
+          <span className="font-mono text-[10px] font-medium tracking-[0.14em] uppercase text-ink-mute">Feature products (optional)</span>
+          <div className="mt-1.5 max-h-48 overflow-y-auto border border-line rounded-opp p-2 grid grid-cols-1 sm:grid-cols-2 gap-0.5">
+            {products.filter((p) => p.published !== false && !p.isKit).map((p) => (
+              <label key={p.id} className="flex items-center gap-2 text-[13px] text-ink-soft px-2 py-1 hover:bg-surfaceAlt rounded cursor-pointer">
+                <input type="checkbox" checked={productIds.includes(p.id)} onChange={() => toggleProduct(p.id)} />
+                <span className="truncate">{p.name}{p.dosage ? ` ${p.dosage}` : ''} — ${Number(p.price || 0).toFixed(2)}</span>
+              </label>
+            ))}
+          </div>
+          {productIds.length > 0 && (
+            <p className="opp-meta-mono text-ink-mute mt-1.5">{productIds.length} selected — render as a Shop-now grid below your message.</p>
+          )}
+        </div>
 
         {/* Test send — preview the branded render in your own inbox first */}
         <div className="flex items-center gap-2 mb-4 pb-4 border-b border-line">

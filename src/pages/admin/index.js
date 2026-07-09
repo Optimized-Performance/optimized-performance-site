@@ -179,7 +179,7 @@ export default function AdminPage() {
         {activeTab === 'rails' && <RailsTab showSaveMsg={showSaveMsg} token={token} />}
         {activeTab === 'funnel' && <FunnelTab token={token} />}
         {activeTab === 'analytics' && <AnalyticsTab token={token} />}
-        {activeTab === 'broadcast' && <BroadcastTab showSaveMsg={showSaveMsg} token={token} />}
+        {activeTab === 'broadcast' && <BroadcastTab products={catalog} showSaveMsg={showSaveMsg} token={token} />}
         {activeTab === 'inbox' && <InboxTab showSaveMsg={showSaveMsg} token={token} />}
       </div>
     </div>

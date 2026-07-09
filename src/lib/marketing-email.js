@@ -140,7 +140,7 @@ function bodyToParagraphs(bodyLines) {
 
 // Raw send — footer + SendGrid, NO suppression check (callers gate that). Never
 // throws; returns a result so batch sends keep going.
-async function sendOneMarketing({ toEmail, subject, bodyLines, branded = false, heading = '' }) {
+async function sendOneMarketing({ toEmail, subject, bodyLines, branded = false, heading = '', heroImageUrl = '', extraHtml = '' }) {
   const apiKey = process.env.SENDGRID_API_KEY
   if (!apiKey) return { ok: false, reason: 'sendgrid_not_configured' }
   if (!toEmail) return { ok: false, reason: 'no_recipient' }
@@ -154,9 +154,11 @@ async function sendOneMarketing({ toEmail, subject, bodyLines, branded = false, 
   if (branded) {
     const html = renderBrandedEmail({
       preheader: subject,
-      eyebrow: 'Syngyn',
-      heading: heading || subject,
+      eyebrow: heroImageUrl ? '' : 'Syngyn',
+      heading: heroImageUrl ? '' : (heading || subject),
       paragraphs: bodyToParagraphs(bodyLines),
+      heroImageUrl,
+      extraHtml,
       footerLines: htmlFooterLines(toEmail),
     })
     content.push({ type: 'text/html', value: html })
@@ -210,9 +212,9 @@ export async function sendMarketingEmail({ toEmail, subject, bodyLines }) {
 // Send a single BRANDED test copy to a chosen address (admin preview). Bypasses
 // the suppression check on purpose — the admin wants to see the render even if
 // their own address is unsubscribed. Never logged to broadcast history.
-export async function sendMarketingTest({ toEmail, subject, bodyLines }) {
+export async function sendMarketingTest({ toEmail, subject, bodyLines, heroImageUrl = '', extraHtml = '' }) {
   if (!toEmail) return { ok: false, reason: 'no_recipient' }
-  return sendOneMarketing({ toEmail, subject, bodyLines, branded: true })
+  return sendOneMarketing({ toEmail, subject, bodyLines, branded: true, heroImageUrl, extraHtml })
 }
 
 // Load the whole suppression list as a lowercased Set — one query for a batch
@@ -229,7 +231,7 @@ async function getSuppressedSet() {
 // suppressions once, dedupes, then sends with bounded concurrency so a few
 // hundred recipients finish well inside the function timeout. Each recipient
 // still gets their own unsubscribe footer. Returns counts.
-export async function sendMarketingBatch({ recipients, subject, bodyLines, branded = false, heading = '', concurrency = 12 }) {
+export async function sendMarketingBatch({ recipients, subject, bodyLines, branded = false, heading = '', heroImageUrl = '', extraHtml = '', concurrency = 12 }) {
   if (!POSTAL_ADDRESS) return { ok: false, reason: 'no_postal_address' }
   const suppressed = await getSuppressedSet()
 
@@ -252,7 +254,7 @@ export async function sendMarketingBatch({ recipients, subject, bodyLines, brand
   async function worker() {
     while (idx < queue.length) {
       const email = queue[idx++]
-      const r = await sendOneMarketing({ toEmail: email, subject, bodyLines, branded, heading })
+      const r = await sendOneMarketing({ toEmail: email, subject, bodyLines, branded, heading, heroImageUrl, extraHtml })
       if (r.ok) sent += 1
       else failed += 1
     }
