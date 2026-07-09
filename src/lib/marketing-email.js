@@ -207,6 +207,14 @@ export async function sendMarketingEmail({ toEmail, subject, bodyLines }) {
   return sendOneMarketing({ toEmail, subject, bodyLines })
 }
 
+// Send a single BRANDED test copy to a chosen address (admin preview). Bypasses
+// the suppression check on purpose — the admin wants to see the render even if
+// their own address is unsubscribed. Never logged to broadcast history.
+export async function sendMarketingTest({ toEmail, subject, bodyLines }) {
+  if (!toEmail) return { ok: false, reason: 'no_recipient' }
+  return sendOneMarketing({ toEmail, subject, bodyLines, branded: true })
+}
+
 // Load the whole suppression list as a lowercased Set — one query for a batch
 // instead of two per recipient.
 async function getSuppressedSet() {

@@ -24,6 +24,8 @@ export default function BroadcastTab({ showSaveMsg, token }) {
   const [body, setBody] = useState('');
   const [segment, setSegment] = useState('purchasers');
   const [sending, setSending] = useState(false);
+  const [testEmail, setTestEmail] = useState('');
+  const [testing, setTesting] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -45,6 +47,25 @@ export default function BroadcastTab({ showSaveMsg, token }) {
   }, [load]);
 
   const recipientCount = segments ? segments[segment] ?? 0 : 0;
+
+  async function handleTest() {
+    if (!subject.trim() || subject.trim().length < 3) { showSaveMsg && showSaveMsg('Subject too short'); return; }
+    if (!body.trim() || body.trim().length < 10) { showSaveMsg && showSaveMsg('Body too short'); return; }
+    if (!testEmail.trim() || !testEmail.includes('@')) { showSaveMsg && showSaveMsg('Enter a test email address'); return; }
+    setTesting(true);
+    try {
+      const res = await fetch('/api/admin/email/broadcast', {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ subject: subject.trim(), body, test: true, testEmail: testEmail.trim() }),
+      });
+      const d = await res.json();
+      showSaveMsg && showSaveMsg(res.ok ? `Test sent to ${d.to}` : `Failed: ${d.error || 'send error'}`);
+    } catch (err) {
+      showSaveMsg && showSaveMsg(`Failed: ${err.message}`);
+    }
+    setTesting(false);
+  }
 
   async function handleSend() {
     if (!subject.trim() || subject.trim().length < 3) {
@@ -127,11 +148,25 @@ export default function BroadcastTab({ showSaveMsg, token }) {
           />
         </label>
 
+        {/* Test send — preview the branded render in your own inbox first */}
+        <div className="flex items-center gap-2 mb-4 pb-4 border-b border-line">
+          <input
+            type="email"
+            className="input-field flex-1"
+            value={testEmail}
+            onChange={(e) => setTestEmail(e.target.value)}
+            placeholder="your@email.com — send yourself a test first"
+          />
+          <button onClick={handleTest} disabled={testing || sending} className="btn-outline px-5 whitespace-nowrap">
+            {testing ? 'Sending…' : 'Send test'}
+          </button>
+        </div>
+
         <div className="flex items-center justify-between gap-4">
           <span className="text-[13px] text-ink-soft">
             {loading ? 'Loading audience…' : `${recipientCount} recipients in this segment`}
           </span>
-          <button onClick={handleSend} disabled={sending || loading} className="btn-primary px-6">
+          <button onClick={handleSend} disabled={sending || loading || testing} className="btn-primary px-6">
             {sending ? 'Sending…' : `Send to ${recipientCount}`}
           </button>
         </div>

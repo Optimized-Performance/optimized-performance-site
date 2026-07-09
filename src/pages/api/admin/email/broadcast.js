@@ -8,7 +8,7 @@
 import { supabaseAdmin } from '../../../../lib/supabase'
 import { validateSessionToken } from '../../../../lib/session'
 import { validateOrigin, rateLimit } from '../../../../lib/security'
-import { sendMarketingBatch } from '../../../../lib/marketing-email'
+import { sendMarketingBatch, sendMarketingTest } from '../../../../lib/marketing-email'
 
 export const config = { maxDuration: 60 } // batch send can take a bit
 
@@ -79,13 +79,26 @@ export default async function handler(req, res) {
     }
 
     if (req.method === 'POST') {
-      const { subject, body, segment } = req.body || {}
+      const { subject, body, segment, test, testEmail } = req.body || {}
       if (!subject || typeof subject !== 'string' || subject.trim().length < 3) {
         return res.status(400).json({ error: 'Subject is required.' })
       }
       if (!body || typeof body !== 'string' || body.trim().length < 10) {
         return res.status(400).json({ error: 'Body is required (at least a sentence).' })
       }
+
+      // Test send — one branded copy to the admin's address; no segment, no
+      // suppression, not logged. Lets the admin eyeball the render before a blast.
+      if (test) {
+        const to = String(testEmail || '').trim()
+        if (!to || !to.includes('@')) return res.status(400).json({ error: 'Enter a valid test email address.' })
+        const r = await sendMarketingTest({ toEmail: to, subject: subject.trim(), bodyLines: String(body).split('\n') })
+        if (!r.ok) {
+          return res.status(400).json({ error: `Test send failed: ${r.reason}${r.reason === 'no_postal_address' ? ' — set MARKETING_POSTAL_ADDRESS.' : ''}` })
+        }
+        return res.status(200).json({ ok: true, test: true, to })
+      }
+
       if (!SEGMENTS.includes(segment)) {
         return res.status(400).json({ error: 'Invalid segment.' })
       }
