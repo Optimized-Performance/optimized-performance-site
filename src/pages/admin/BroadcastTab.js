@@ -214,7 +214,6 @@ export default function BroadcastTab({ products = [], showSaveMsg, token }) {
             )}
           </div>
           {heroImageUrl && (
-            /* eslint-disable-next-line @next/next/no-img-element */
             <img src={heroImageUrl} alt="hero preview" className="mt-2 rounded-opp border border-line max-h-32" />
           )}
         </div>
