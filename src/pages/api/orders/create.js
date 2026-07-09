@@ -219,6 +219,26 @@ export default async function handler(req, res) {
       validatedCommissionPct = 0
     }
 
+    // Per-account VIP discount (v32): a permanent discount tied to the customer's
+    // VERIFIED, LOGGED-IN account — no code, so it can't be shared. Only fires for
+    // an authenticated customer session, so a guest can't trigger it. It's the
+    // store's own perk: best-of vs any affiliate code, and it pays NO commission /
+    // carries no attribution (rides the affiliate-discount slot with the code
+    // stripped). Skipped when a recovery token already made this a house order.
+    if (!recovery.valid) {
+      const customerId = getCustomerIdFromReq(req)
+      if (customerId) {
+        const { data: cust } = await supabaseAdmin
+          .from('customers').select('discount_pct').eq('id', customerId).maybeSingle()
+        const acctPct = Number(cust?.discount_pct || 0)
+        if (acctPct > 0 && acctPct > validatedDiscountPct) {
+          validatedDiscountPct = acctPct
+          validatedAffiliateCode = null
+          validatedCommissionPct = 0
+        }
+      }
+    }
+
     // Single source of truth for the discount-stacking sequence (sale → BOGO →
     // affiliate → recovery → alt-pay), shipping, and the per-rail total. The
     // client checkout calls this SAME function, so totals cannot drift; server

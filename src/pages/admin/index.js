@@ -4,6 +4,7 @@ import ProductsTab from './ProductsTab';
 import SupplyTab from './SupplyTab';
 import BatchesTab from './BatchesTab';
 import OrdersTab from './OrdersTab';
+import CustomersTab from './CustomersTab';
 import AffiliatesTab from './AffiliatesTab';
 import PayoutsTab from './PayoutsTab';
 import ChargebacksTab from './ChargebacksTab';
@@ -103,6 +104,7 @@ export default function AdminPage() {
 
   const tabs = [
     { id: 'orders', label: 'Orders' },
+    { id: 'customers', label: 'Customers' },
     { id: 'inventory', label: 'Inventory' },
     { id: 'products', label: 'Products' },
     { id: 'supply', label: 'Supply Tracker' },
@@ -166,6 +168,7 @@ export default function AdminPage() {
         </div>
 
         {activeTab === 'orders' && <OrdersTab products={catalog} showSaveMsg={showSaveMsg} token={token} />}
+        {activeTab === 'customers' && <CustomersTab token={token} showSaveMsg={showSaveMsg} />}
         {activeTab === 'inventory' && <InventoryTab products={catalog} showSaveMsg={showSaveMsg} token={token} />}
         {activeTab === 'products' && <ProductsTab token={token} showSaveMsg={showSaveMsg} />}
         {activeTab === 'supply' && <SupplyTab products={catalog} token={token} />}
