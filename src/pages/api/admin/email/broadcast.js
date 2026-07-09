@@ -101,6 +101,7 @@ export default async function handler(req, res) {
         recipients: emails.map((email) => ({ email })),
         subject: subject.trim(),
         bodyLines,
+        branded: true, // render the Syngyn branded HTML shell (not plain text)
       })
 
       if (!result.ok) {

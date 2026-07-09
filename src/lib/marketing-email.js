@@ -17,6 +17,7 @@
 import crypto from 'crypto'
 import { supabaseAdmin } from './supabase'
 import { escapeLike } from './security'
+import { renderBrandedEmail, escapeHtml } from './email-layout'
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://syngyn.co'
 
@@ -107,22 +108,59 @@ function footerLines(toEmail) {
   return [
     ``,
     `—`,
-    `You're receiving this because you're an Syngyn customer.`,
+    `You're receiving this because you're a Syngyn customer.`,
     `Unsubscribe: ${unsubscribeUrl(toEmail)}`,
     POSTAL_ADDRESS ? POSTAL_ADDRESS : '',
     `For research use only.`,
   ].filter(Boolean)
 }
 
+// HTML variant of the compliance footer (trusted inline HTML for the branded
+// shell's footerLines). Same CAN-SPAM content — unsubscribe link + postal
+// address + RUO — just as an <a> instead of a bare URL.
+function htmlFooterLines(toEmail) {
+  const unsub = unsubscribeUrl(toEmail)
+  return [
+    `You're receiving this because you're a Syngyn customer.`,
+    unsub ? `<a href="${unsub}" style="color:#8A8272;text-decoration:underline;">Unsubscribe</a>` : '',
+    POSTAL_ADDRESS || '',
+    `For research use only. Not for human consumption.`,
+  ].filter(Boolean)
+}
+
+// Turn an admin-authored plain-text body into escaped HTML paragraphs: blank
+// lines split paragraphs, single newlines become <br>. Escaped so nothing the
+// admin types can break the markup.
+function bodyToParagraphs(bodyLines) {
+  return String(Array.isArray(bodyLines) ? bodyLines.join('\n') : bodyLines || '')
+    .split(/\n\s*\n/)
+    .map((chunk) => escapeHtml(chunk).replace(/\n/g, '<br>'))
+    .filter(Boolean)
+}
+
 // Raw send — footer + SendGrid, NO suppression check (callers gate that). Never
 // throws; returns a result so batch sends keep going.
-async function sendOneMarketing({ toEmail, subject, bodyLines }) {
+async function sendOneMarketing({ toEmail, subject, bodyLines, branded = false, heading = '' }) {
   const apiKey = process.env.SENDGRID_API_KEY
   if (!apiKey) return { ok: false, reason: 'sendgrid_not_configured' }
   if (!toEmail) return { ok: false, reason: 'no_recipient' }
   if (!POSTAL_ADDRESS) return { ok: false, reason: 'no_postal_address' }
 
   const value = [...bodyLines, ...footerLines(toEmail)].join('\n')
+  // Multipart: always send text/plain (deliverability + fallback). When branded,
+  // ALSO attach a text/html part rendered in the Syngyn shell — same per-recipient
+  // unsubscribe link, carried in the HTML footer.
+  const content = [{ type: 'text/plain', value }]
+  if (branded) {
+    const html = renderBrandedEmail({
+      preheader: subject,
+      eyebrow: 'Syngyn',
+      heading: heading || subject,
+      paragraphs: bodyToParagraphs(bodyLines),
+      footerLines: htmlFooterLines(toEmail),
+    })
+    content.push({ type: 'text/html', value: html })
+  }
   // RFC 8058 one-click unsubscribe header — REQUIRED by Gmail/Yahoo bulk-sender
   // rules; missing it is a major spam-foldering factor for marketing mail. The
   // endpoint accepts the provider's POST (List-Unsubscribe=One-Click).
@@ -136,7 +174,7 @@ async function sendOneMarketing({ toEmail, subject, bodyLines }) {
         from: { email: MARKETING_FROM, name: MARKETING_FROM_NAME },
         reply_to: { email: 'support@syngyn.co' },
         subject,
-        content: [{ type: 'text/plain', value }],
+        content,
         // Click tracking OFF — SendGrid's branded-link SSL (url####.syngyn.co)
         // isn't provisioned, so tracked links throw a cert warning. No marketing
         // click-analytics wanted; keep it off in code, not just the dashboard.
@@ -183,7 +221,7 @@ async function getSuppressedSet() {
 // suppressions once, dedupes, then sends with bounded concurrency so a few
 // hundred recipients finish well inside the function timeout. Each recipient
 // still gets their own unsubscribe footer. Returns counts.
-export async function sendMarketingBatch({ recipients, subject, bodyLines, concurrency = 12 }) {
+export async function sendMarketingBatch({ recipients, subject, bodyLines, branded = false, heading = '', concurrency = 12 }) {
   if (!POSTAL_ADDRESS) return { ok: false, reason: 'no_postal_address' }
   const suppressed = await getSuppressedSet()
 
@@ -206,7 +244,7 @@ export async function sendMarketingBatch({ recipients, subject, bodyLines, concu
   async function worker() {
     while (idx < queue.length) {
       const email = queue[idx++]
-      const r = await sendOneMarketing({ toEmail: email, subject, bodyLines })
+      const r = await sendOneMarketing({ toEmail: email, subject, bodyLines, branded, heading })
       if (r.ok) sent += 1
       else failed += 1
     }
