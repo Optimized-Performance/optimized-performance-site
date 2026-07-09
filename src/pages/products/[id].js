@@ -656,6 +656,7 @@ export async function getServerSideProps(context) {
       price: p.price,
       category: p.category,
       isKit: p.isKit || false,
+      imageUrl: p.imageUrl || null,
     }));
 
   // BAC cross-sell for any lyophilized-powder peptide (skipped when viewing BAC itself
