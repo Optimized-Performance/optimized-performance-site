@@ -86,12 +86,11 @@ export default function AnalyticsTab({ token }) {
         <p className="text-[13px] text-danger">Couldn&rsquo;t load analytics.</p>
       ) : (
         <>
-          {/* KPI ROW */}
-          <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-8">
+          {/* KPI ROW — order-based only (on-site conversion dropped with the events scan) */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-8">
             <Kpi label="Revenue" value={fmtMoney(k.revenue.value)} d={delta(k.revenue.value, k.revenue.prev)} />
             <Kpi label="Orders" value={fmtNum(k.orders.value)} d={delta(k.orders.value, k.orders.prev)} />
             <Kpi label="AOV" value={fmtMoney(k.aov.value, 2)} d={delta(k.aov.value, k.aov.prev)} />
-            <Kpi label="Conversion" value={fmtPct(k.conversion.value)} d={delta(k.conversion.value, k.conversion.prev)} />
             <Kpi label="Repeat rate" value={fmtPct(k.repeat_rate.value)} d={null} sub={`${data.refunds.count} refunds · ${fmtPct(data.refunds.rate)}`} />
           </div>
 
@@ -134,54 +133,27 @@ export default function AnalyticsTab({ token }) {
             </ResponsiveContainer>
           </Panel>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
-            {/* FUNNEL — horizontal bars (robust to noisy/non-monotonic data) */}
-            <Panel title="Visitor funnel">
-              <div className="flex flex-col gap-2">
-                {FUNNEL_STEPS.map((step, i) => {
-                  const val = f[step.key] || 0;
-                  const prev = i > 0 ? (f[FUNNEL_STEPS[i - 1].key] || 0) : val;
-                  const topVal = f[FUNNEL_STEPS[0].key] || 0;
-                  const widthPct = topVal ? Math.max(3, (val / topVal) * 100) : 3;
-                  return (
-                    <div key={step.key} className="flex items-center gap-3">
-                      <div className="w-32 shrink-0 text-[12px] text-ink-soft">{step.label}</div>
-                      <div className="flex-1 bg-surfaceAlt rounded-opp h-7 relative overflow-hidden">
-                        <div className="h-full rounded-opp" style={{ width: `${widthPct}%`, background: C.accent }} />
-                        <span className="absolute inset-y-0 left-3 flex items-center text-[12px] font-semibold text-ink">{fmtNum(val)}</span>
-                      </div>
-                      <div className="w-14 shrink-0 text-right opp-meta-mono text-ink-mute">{i === 0 ? '' : fmtPct(prev ? (val / prev) * 100 : null)}</div>
-                    </div>
-                  );
-                })}
-              </div>
-              <p className="opp-meta-mono text-ink-mute mt-3 pt-3 border-t border-line leading-relaxed">
-                On-site sessions since tracking began (Jun 6). Off-site Venmo/Zelle orders + pre-tracking history aren&rsquo;t here — see the KPIs for total orders &amp; revenue.
-              </p>
-            </Panel>
+          {/* RAIL MIX (visitor funnel removed with the events scan) */}
+          <Panel title="Revenue by rail">
+            {data.rail_mix.length === 0 ? <Empty>No paid orders in range.</Empty> : (
+              <ResponsiveContainer width="100%" height={230}>
+                <PieChart>
+                  <Tooltip contentStyle={tooltipStyle} formatter={(v) => fmtMoney(v)} />
+                  <Pie data={data.rail_mix} dataKey="revenue" nameKey="method" cx="50%" cy="50%" innerRadius={55} outerRadius={90} paddingAngle={2}>
+                    {data.rail_mix.map((e, i) => <Cell key={e.method} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
+                    <LabelList dataKey="method" position="outside" fill={C.inkSoft} fontSize={11} />
+                  </Pie>
+                </PieChart>
+              </ResponsiveContainer>
+            )}
+          </Panel>
 
-            {/* RAIL MIX */}
-            <Panel title="Revenue by rail">
-              {data.rail_mix.length === 0 ? <Empty>No paid orders in range.</Empty> : (
-                <ResponsiveContainer width="100%" height={230}>
-                  <PieChart>
-                    <Tooltip contentStyle={tooltipStyle} formatter={(v) => fmtMoney(v)} />
-                    <Pie data={data.rail_mix} dataKey="revenue" nameKey="method" cx="50%" cy="50%" innerRadius={55} outerRadius={90} paddingAngle={2}>
-                      {data.rail_mix.map((e, i) => <Cell key={e.method} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
-                      <LabelList dataKey="method" position="outside" fill={C.inkSoft} fontSize={11} />
-                    </Pie>
-                  </PieChart>
-                </ResponsiveContainer>
-              )}
-            </Panel>
-          </div>
-
-          {/* ACQUISITION BY SOURCE */}
-          <Panel title="Acquisition by source">
+          {/* SALES BY SOURCE (order-attributed) */}
+          <Panel title="Sales by source">
             <Table
-              cols={['Source', 'Visits', 'Orders', 'Revenue', 'AOV', 'Conv']}
-              rows={data.by_ref.map((r) => [r.ref, fmtNum(r.visits), r.paid, fmtMoney(r.revenue), fmtMoney(r.aov, 2), r.conv == null ? '—' : `${r.conv}%`])}
-              empty="No source data yet."
+              cols={['Source', 'Orders', 'Revenue', 'AOV']}
+              rows={data.by_ref.filter((r) => r.paid > 0).map((r) => [r.ref, r.paid, fmtMoney(r.revenue), fmtMoney(r.aov, 2)])}
+              empty="No attributed sales yet."
             />
           </Panel>
 
@@ -198,8 +170,8 @@ export default function AnalyticsTab({ token }) {
                   </BarChart>
                 </ResponsiveContainer>
                 <Table
-                  cols={['Product', 'Revenue', 'Bought', 'Carts', 'Views']}
-                  rows={data.top_products.map((p) => [p.name, fmtMoney(p.revenue), p.purchases, p.carts, fmtNum(p.views)])}
+                  cols={['Product', 'Revenue', 'Bought']}
+                  rows={data.top_products.map((p) => [p.name, fmtMoney(p.revenue), p.purchases])}
                   empty=""
                 />
               </>

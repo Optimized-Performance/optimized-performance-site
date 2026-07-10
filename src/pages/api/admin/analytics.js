@@ -119,12 +119,13 @@ export default async function handler(req, res) {
     // Fetch 2× the range so we can compute the prior-period deltas + detect
     // returning customers, then split locally at curStart. The GymThingz
     // summary rides the same Promise.all so it adds no wall-clock.
-    const [{ data: events }, { data: orders }, gtSummary] = await Promise.all([
-      supabaseAdmin
-        .from('events')
-        .select('session_id, event_type, product_id, ref, created_at')
-        .gte('created_at', priorStartIso)
-        .limit(EVENT_CAP),
+    // Events scan REMOVED (Matt 7/10): the dashboard is used for sales + which
+    // items sell — both from `orders` (indexed, small). The events table is huge
+    // + write-heavy, and scanning it on every load was the top Disk-IO cost. The
+    // funnel / on-site conversion / visit-source metrics it powered aren't used,
+    // so we skip the query entirely. Downstream aggregations run over an empty
+    // events array (they just yield 0 visits/funnel), so nothing else breaks.
+    const [{ data: orders }, gtSummary] = await Promise.all([
       supabaseAdmin
         .from('orders')
         .select('session_id, customer_email, affiliate_code, payment_status, payment_method, total, items, recovery_discount, created_at')
@@ -133,9 +134,9 @@ export default async function handler(req, res) {
       fetchGymthingzSummary(days),
     ])
 
-    const allEv = events || []
+    const allEv = []
     const allOrd = orders || []
-    const truncated = allEv.length >= EVENT_CAP || allOrd.length >= ORDER_CAP
+    const truncated = allOrd.length >= ORDER_CAP
 
     const curEv = allEv.filter((e) => e.created_at >= curStartIso)
     const priorEv = allEv.filter((e) => e.created_at < curStartIso)
