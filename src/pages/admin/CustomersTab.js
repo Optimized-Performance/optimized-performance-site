@@ -32,6 +32,21 @@ export default function CustomersTab({ token, showSaveMsg }) {
     setLoading(false);
   }
 
+  async function verifyCustomer(c) {
+    setSavingId(c.id);
+    try {
+      const res = await fetch('/api/admin/customers', {
+        method: 'PATCH', headers: authHeaders(),
+        body: JSON.stringify({ id: c.id, verify: true }),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) { msg(d.error || 'Verify failed'); setSavingId(null); return; }
+      msg(d.message || 'Verified');
+      setRows((rs) => rs.map((r) => (r.id === c.id ? { ...r, email_verified: true } : r)));
+    } catch { msg('Verify failed'); }
+    setSavingId(null);
+  }
+
   async function setDiscount(c) {
     const pct = Number(drafts[c.id]);
     if (!Number.isFinite(pct) || pct < 0 || pct > 90) { msg('Discount must be 0–90.'); return; }
@@ -89,7 +104,20 @@ export default function CustomersTab({ token, showSaveMsg }) {
                     {c.email}
                     {Number(c.discount_pct) > 0 && <span className="ml-2 text-[10px] font-semibold text-accent-strong">VIP {c.discount_pct}%</span>}
                   </td>
-                  <td className="px-4 py-2.5 text-center text-ink-soft">{c.email_verified ? '✓' : '—'}</td>
+                  <td className="px-4 py-2.5 text-center">
+                    {c.email_verified
+                      ? <span className="text-success font-semibold">✓</span>
+                      : (
+                        <button
+                          className="text-[11px] px-2.5 py-1 rounded-opp border border-warning bg-warning text-surface hover:bg-warning/90 font-semibold"
+                          disabled={savingId === c.id}
+                          onClick={() => verifyCustomer(c)}
+                          title="Manually verify this account (unlocks order history; doesn't affect purchasing)."
+                        >
+                          {savingId === c.id ? '…' : 'Verify'}
+                        </button>
+                      )}
+                  </td>
                   <td className="px-4 py-2.5 text-center">
                     <input
                       type="number" min="0" max="90" step="1"

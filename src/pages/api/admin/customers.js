@@ -40,8 +40,23 @@ export default async function handler(req, res) {
     }
 
     if (req.method === 'PATCH') {
-      const { id, discountPct } = req.body || {}
+      const { id, discountPct, verify } = req.body || {}
       if (!id) return res.status(400).json({ error: 'Missing customer id' })
+
+      // Manual email verification — for a customer who didn't receive / can't use
+      // the verification link. Only unlocks account/order-history (never gates
+      // purchasing), so this is a low-risk convenience.
+      if (verify) {
+        const { data, error } = await supabaseAdmin
+          .from('customers')
+          .update({ email_verified: true })
+          .eq('id', id)
+          .select('id, email, email_verified')
+          .single()
+        if (error) throw error
+        return res.status(200).json({ ok: true, customer: data, message: `${data.email} manually verified.` })
+      }
+
       const pct = Number(discountPct)
       if (!Number.isFinite(pct) || pct < 0 || pct > 90) {
         return res.status(400).json({ error: 'discountPct must be a number between 0 and 90' })
