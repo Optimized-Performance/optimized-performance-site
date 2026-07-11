@@ -18,7 +18,7 @@ async function sumOrders(code, pk) {
   const { start, end } = periodRange(pk)
   const { data, error } = await supabaseAdmin
     .from('orders')
-    .select('total, shipping')
+    .select('total, shipping, cogs')
     .eq('affiliate_code', code)
     .eq('payment_status', 'completed')
     .gte('created_at', start)

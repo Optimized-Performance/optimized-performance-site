@@ -20,6 +20,7 @@ import { finalizePaidOrder } from '../../../../lib/payments/finalizeOrder'
 import { PAYMENT_STATUS } from '../../../../lib/order-status'
 import { generateOrderNumber } from '../../../../lib/order-number'
 import { getCatalog } from '../../../../lib/catalog'
+import { estimateOrderCogs } from '../../../../lib/takehome-config'
 
 const VALID_METHODS = new Set(['zelle', 'venmo', 'crypto', 'card', 'paypal', 'cash', 'other'])
 
@@ -150,6 +151,10 @@ export default async function handler(req, res) {
       subtotal: finalSubtotal,
       shipping,
       total,
+      // COGS snapshot (v33) — same rule as customer checkout: commission basis
+      // is total - shipping - cogs (lib/commission). Vendor cost doesn't change
+      // under a priceOverride, so the estimate stays item-based either way.
+      cogs: estimateOrderCogs(lineItems).cogs,
       payment_status: PAYMENT_STATUS.PENDING,
       payment_method: paymentMethod,
       fraud_status: 'unreviewed',
@@ -161,9 +166,16 @@ export default async function handler(req, res) {
       insertData.affiliate_commission_pct = validatedCommissionPct
     }
 
-    const { error: insertErr } = await supabaseAdmin
+    let { error: insertErr } = await supabaseAdmin
       .from('orders')
       .insert(insertData)
+    // Missing-column backstop (migration v33 not applied yet): retry once
+    // without the COGS snapshot rather than failing the order.
+    if (insertErr && /cogs/i.test(insertErr.message || '')) {
+      console.warn('[create-manual] insert retry without cogs (migration v33 not applied?):', insertErr.message)
+      delete insertData.cogs
+      ;({ error: insertErr } = await supabaseAdmin.from('orders').insert(insertData))
+    }
     if (insertErr) {
       console.error('[create-manual] insert failed:', insertErr.message)
       return res.status(500).json({ error: insertErr.message })

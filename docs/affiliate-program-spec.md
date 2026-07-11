@@ -6,11 +6,26 @@
 
 ---
 
+## Commission basis (updated 2026-07-10)
+
+Every affiliate dollar (direct commission, recruiter override, royalty) is computed on the **commissionable basis** defined in `lib/commission`: the post-all-discount order total **minus shipping minus the order's COGS snapshot** (per Tris — commission accounts for cost of goods).
+
+- `orders.cogs` (migration v33) is the estimated vendor cost of the order's items, stamped at order-create time from the `PRODUCT_COST` map in `lib/takehome-config` (unmapped SKUs fall back to 10% of line revenue).
+- Orders created **before** the v33 cutover have `cogs` NULL → their basis stays the legacy total-minus-shipping. Nothing already shown or paid shifts retroactively.
+- Volume/"revenue" **stats** still report gross sales; only earnings use the basis. Tier quotas below are measured on the commissionable basis (as they were pre-v33, which already excluded shipping).
+
 ## Tier structure
 
 ### Standard affiliates (no recruiter)
 
-Tiered commission rate based on **prior-month attributed volume**. Tier is recalculated monthly by `/api/cron/affiliate-monthly` — affiliate's `commission_pct` field is updated for the new month.
+Tiered commission rate based on **prior-month attributed volume**. Tiers are evaluated monthly by `/api/cron/affiliate-monthly` under the **two-consecutive-month rule** (2026-07-10):
+
+- **Promotion** requires volume above the current rate's tier for **two months in a row** — the rate moves to the highest tier both months support.
+- **Demotion** requires volume below the current rate's tier for **two months in a row** — the rate moves to the best tier either of the two months earned.
+- A mixed read (one qualifying month, one not) **holds** the current rate.
+- Affiliates enrolled within the two-month window are never demoted off a partial history (two qualifying months can still promote them).
+
+Decision logic lives in `lib/affiliate-config` (`decideTier`), shared with the dashboard so displayed tiers can't drift from paid ones.
 
 | Prior month attributed volume | Commission rate |
 |---|---|
@@ -50,7 +65,7 @@ Flat rate, no tier ratchet. Created with `is_flat_rate = true` so the monthly cr
 
 A new affiliate who comes in with documented sales history from another vendor (anonymized merchant statements, affiliate dashboard screenshots, or other admissible proof) can be **seeded at the tier their proven volume warrants** instead of starting at Tier 1. Admin sets the appropriate `commission_pct` on the affiliate record at creation time.
 
-- The cron continues to run normally on this affiliate from month 1 — if their actual attributed volume continues to qualify, they stay at the seeded tier; if they materially underdeliver, the cron ratchets them down at the next month-end.
+- The cron continues to run normally on this affiliate from month 1 — if their actual attributed volume continues to qualify, they stay at the seeded tier; if they underdeliver **two months in a row**, the cron ratchets them down (a single soft month holds the seed, and an affiliate enrolled within the two-month window is never demoted).
 - Self-correcting: no floor field, no manual locking. The seed is just initial placement.
 - Applies equally to direct signups and recruited signups — recruited proven-volume affiliates are seeded at the recruited-tier rate corresponding to their proven volume (i.e., 5 points below the standard tier their volume would qualify for).
 - Documentation of the seed reasoning should be retained in the affiliate's notes field for audit trail.
@@ -90,7 +105,7 @@ The primary affiliate receives **5% of OPP's total gross monthly revenue** — a
 
 - Recorded as `payout_type='royalty'`, with `trigger_affiliate_id = NULL`
 - Per period — UNIQUE constraint prevents duplicate inserts on cron retries
-- Calculation: `SUM(orders.total) WHERE created_at IN (period) AND payment_status='completed'` × 0.05
+- Calculation: sum of the commissionable basis (total − shipping − cogs, see `lib/commission`) over the period's completed orders × 0.05
 - **Stacks** with the recruitment override on recruit volume — so on a recruit's $50K month, the primary collects 5% override + 5% royalty contribution from that revenue, intentional per deal terms
 
 ---
@@ -110,23 +125,26 @@ When an order is created with an `affiliate_code`:
 
 **Trigger:** Vercel Cron, run on the 1st of each month at 09:00 UTC. Manual trigger via authenticated POST for testing.
 
-**Pseudocode:**
+**Pseudocode** (volume sums use the commissionable basis: total − shipping − cogs):
 ```
 period = previous_calendar_month  // e.g., '2026-06' if running on July 1
-opp_gross = SELECT SUM(total) FROM orders WHERE created_at IN period AND payment_status = 'completed'
+prev_period = period - 1          // e.g., '2026-05' — the two-month ratchet read
+opp_gross = SUM(commissionable basis) over period's completed orders
 
 FOR each affiliate WHERE active = true:
-  attributed_volume = SELECT SUM(total) FROM orders WHERE affiliate_code = affiliate.code AND created_at IN period AND payment_status = 'completed'
+  attributed_volume = SUM(commissionable basis) over period's completed orders with affiliate_code = affiliate.code
 
-  // 1. Tier ratchet (skip if flat-rate)
-  IF NOT affiliate.is_flat_rate:
-    standard_rate = TIER_TABLE_LOOKUP(attributed_volume)  // 10/15/20/25/30
-    // If recruited, subtract the recruiter's override
-    IF affiliate.parent_affiliate_id IS NOT NULL:
-      recruiter = SELECT * FROM affiliates WHERE id = affiliate.parent_affiliate_id
-      new_commission_pct = standard_rate - recruiter.recruiter_override_pct
-    ELSE:
-      new_commission_pct = standard_rate
+  // 1. Tier ratchet (skip if flat-rate or secondary code) — two-consecutive-month rule
+  IF NOT affiliate.is_flat_rate AND affiliate.owner_affiliate_id IS NULL:
+    prev_volume = same sum over prev_period
+    override = recruited ? recruiter.recruiter_override_pct : 0
+    current_tier = affiliate.commission_pct + override   // stored pct is net of override
+    target_tier = decideTier(current_tier, tierLookup(prev_volume), tierLookup(attributed_volume))
+      // promote: BOTH months above current → highest tier both support
+      // demote:  BOTH months below current → best tier either month earned
+      // mixed:   hold
+    IF demotion AND affiliate.created_at inside the two-month window: hold  // no partial-history demotions
+    new_commission_pct = max(0, target_tier - override)
 
     IF new_commission_pct != affiliate.commission_pct:
       UPDATE affiliates SET commission_pct = new_commission_pct WHERE id = affiliate.id

@@ -1,6 +1,6 @@
 import { supabaseAdmin } from '../../../lib/supabase'
 import { commissionableTotal } from '../../../lib/commission'
-import { ROYALTY_PCT } from '../../../lib/affiliate-config'
+import { ROYALTY_PCT, tierLookup, decideTier } from '../../../lib/affiliate-config'
 import { isAuthorizedCron } from '../../../lib/cron-auth'
 
 // Monthly affiliate processing job.
@@ -8,31 +8,29 @@ import { isAuthorizedCron } from '../../../lib/cron-auth'
 // Manual trigger: POST with header x-cron-secret: $CRON_SECRET.
 //
 // Steps (per docs/affiliate-program-spec.md):
-//   1. Tier ratchet for non-flat-rate affiliates based on prior-month attributed volume,
-//      adjusted by recruiter_override_pct if recruited.
+//   1. Tier ratchet for non-flat-rate affiliates — TWO-CONSECUTIVE-MONTH rule
+//      (2026-07 review): a promotion or demotion requires two months in a row
+//      of qualifying attributed volume; one hot or cold month holds the rate.
+//      Adjusted by recruiter_override_pct if recruited. See
+//      lib/affiliate-config decideTier for the exact decision table.
 //   2. Recruitment override payouts — for each recruit with prior-month volume > 0.
 //   3. Royalty payouts — for each is_flat_rate affiliate (5% of OPP gross).
 //
 // Idempotent: UNIQUE (affiliate_id, payout_type, period, trigger_affiliate_id) on
 // affiliate_payouts means re-running for the same period is safe.
-
-const TIER_THRESHOLDS = [
-  { min: 0,      max: 9999,    rate: 10 },
-  { min: 10000,  max: 19999,   rate: 15 },
-  { min: 20000,  max: 34999,   rate: 20 },
-  { min: 35000,  max: 59999,   rate: 25 },
-  { min: 60000,  max: Infinity, rate: 30 },
-]
-
-// ROYALTY_PCT now lives in lib/affiliate-config (shared with the dashboard).
-
-function tierLookup(volume) {
-  const v = Number(volume) || 0
-  return TIER_THRESHOLDS.find((t) => v >= t.min && v <= t.max).rate
-}
+//
+// Tier table + tierLookup + decideTier live in lib/affiliate-config (shared
+// with the affiliate dashboard so displayed tiers can't drift from paid ones).
 
 function previousPeriodKey(d = new Date()) {
   const prev = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() - 1, 1))
+  return `${prev.getUTCFullYear()}-${String(prev.getUTCMonth() + 1).padStart(2, '0')}`
+}
+
+// The period immediately before a YYYY-MM key (for the two-month ratchet read).
+function periodKeyBefore(pk) {
+  const [y, m] = pk.split('-').map(Number)
+  const prev = new Date(Date.UTC(y, m - 2, 1))
   return `${prev.getUTCFullYear()}-${String(prev.getUTCMonth() + 1).padStart(2, '0')}`
 }
 
@@ -47,13 +45,14 @@ async function sumOrders(code, pk) {
   const { start, end } = periodRange(pk)
   const { data, error } = await supabaseAdmin
     .from('orders')
-    .select('total, shipping')
+    .select('total, shipping, cogs')
     .eq('affiliate_code', code)
     .eq('payment_status', 'completed')
     .gte('created_at', start)
     .lt('created_at', end)
   if (error) throw error
-  // Override payout basis: product revenue only, shipping excluded (see lib/commission).
+  // Override payout basis: product margin — shipping + COGS snapshot excluded
+  // (see lib/commission; pre-v33 orders have cogs NULL → legacy basis).
   return (data || []).reduce((s, o) => s + commissionableTotal(o), 0)
 }
 
@@ -61,12 +60,12 @@ async function sumGrossRevenue(pk) {
   const { start, end } = periodRange(pk)
   const { data, error } = await supabaseAdmin
     .from('orders')
-    .select('total, shipping')
+    .select('total, shipping, cogs')
     .eq('payment_status', 'completed')
     .gte('created_at', start)
     .lt('created_at', end)
   if (error) throw error
-  // Royalty payout basis: product revenue only, shipping excluded (see lib/commission).
+  // Royalty payout basis: same commissionable basis as everything else.
   return (data || []).reduce((s, o) => s + commissionableTotal(o), 0)
 }
 
@@ -96,17 +95,22 @@ export default async function handler(req, res) {
     let affiliates, affErr
     ;({ data: affiliates, error: affErr } = await supabaseAdmin
       .from('affiliates')
-      .select('id, code, name, commission_pct, is_flat_rate, parent_affiliate_id, recruiter_override_pct, owner_affiliate_id, active')
+      .select('id, code, name, commission_pct, is_flat_rate, parent_affiliate_id, recruiter_override_pct, owner_affiliate_id, active, created_at')
       .eq('active', true))
     if (affErr && /owner_affiliate_id/.test(affErr.message || '')) {
       ;({ data: affiliates, error: affErr } = await supabaseAdmin
         .from('affiliates')
-        .select('id, code, name, commission_pct, is_flat_rate, parent_affiliate_id, recruiter_override_pct, active')
+        .select('id, code, name, commission_pct, is_flat_rate, parent_affiliate_id, recruiter_override_pct, active, created_at')
         .eq('active', true))
     }
     if (affErr) throw affErr
 
     const affById = new Map((affiliates || []).map((a) => [a.id, a]))
+
+    // Earlier of the two ratchet months (the month before `period`), for the
+    // two-consecutive-month rule + the young-affiliate demotion guard.
+    const prevPeriod = periodKeyBefore(period)
+    const twoMonthStart = new Date(periodRange(prevPeriod).start)
 
     // 1. Tier ratchet + 2. Override payouts (in same loop)
     for (const aff of affiliates || []) {
@@ -117,15 +121,30 @@ export default async function handler(req, res) {
         // (owner_affiliate_id set) carries a deliberately-set split for the
         // same person's sub-channel — auto-ratcheting would silently overwrite
         // the rate Matt configured for it.
+        //
+        // Two-consecutive-month rule (2026-07 review): promotion or demotion
+        // requires BOTH of the last two months to qualify — see decideTier in
+        // lib/affiliate-config. Comparison happens on the TIER plane: a
+        // recruited affiliate's stored pct is (tier − recruiter override), so
+        // the override is added back before deciding and re-subtracted after.
         if (!aff.is_flat_rate && !aff.owner_affiliate_id) {
-          let newRate = tierLookup(volume)
-          // Recruited affiliate — subtract recruiter's override
-          if (aff.parent_affiliate_id) {
-            const recruiter = affById.get(aff.parent_affiliate_id)
-            if (recruiter) {
-              newRate = Math.max(0, newRate - Number(recruiter.recruiter_override_pct || 0))
-            }
+          const prevVolume = await sumOrders(aff.code, prevPeriod)
+          const recruiter = aff.parent_affiliate_id ? affById.get(aff.parent_affiliate_id) : null
+          const override = Number(recruiter?.recruiter_override_pct || 0)
+          const currentTier = Number(aff.commission_pct || 0) + override
+          let targetTier = decideTier({
+            current: currentTier,
+            earnedPrev: tierLookup(prevVolume),
+            earnedLast: tierLookup(volume),
+          })
+          // Young affiliates (enrolled inside the two-month window) don't have
+          // a fair two-month read — never demote them off a partial history.
+          // (Seeded starting tiers stay honored until two full months say
+          // otherwise.) Two qualifying months still promote.
+          if (targetTier < currentTier && aff.created_at && new Date(aff.created_at) > twoMonthStart) {
+            targetTier = currentTier
           }
+          const newRate = Math.max(0, targetTier - override)
           const oldRate = Number(aff.commission_pct || 0)
           if (Math.abs(newRate - oldRate) > 0.001) {
             const { error: upErr } = await supabaseAdmin
@@ -133,7 +152,7 @@ export default async function handler(req, res) {
               .update({ commission_pct: newRate, updated_at: new Date().toISOString() })
               .eq('id', aff.id)
             if (upErr) throw upErr
-            log.tier_changes.push({ affiliate: aff.code, from: oldRate, to: newRate, volume })
+            log.tier_changes.push({ affiliate: aff.code, from: oldRate, to: newRate, volume, prev_volume: prevVolume })
           }
         }
 

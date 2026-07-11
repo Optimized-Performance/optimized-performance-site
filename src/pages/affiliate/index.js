@@ -277,7 +277,7 @@ export default function AffiliateDashboard() {
             </tbody>
           </table>
           <p className="opp-meta-mono mt-2 text-ink-mute text-xs">
-            Revenue driven is gross product sales; earnings are your commission on each product (shipping excluded).
+            Revenue driven is gross product sales; earnings are your commission on each product (shipping and cost of goods excluded).
           </p>
         </div>
       )}
@@ -466,7 +466,7 @@ export default function AffiliateDashboard() {
             </tbody>
           </table>
           <p className="opp-meta-mono mt-2 text-ink-mute text-xs">
-            Commission per order locks in at the rate in effect at order time. Tier ratchets apply to future orders only.
+            Commission per order locks in at the rate in effect at order time and is calculated on product proceeds (order total less shipping and cost of goods). Rate moves — up or down — take two consecutive qualifying months and apply to future orders only.
           </p>
         </div>
       )}

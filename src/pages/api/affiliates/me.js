@@ -5,16 +5,11 @@ import { calcCommission, commissionableTotal } from '../../../lib/commission'
 import { ROYALTY_PCT } from '../../../lib/affiliate-config'
 import { getCatalog } from '../../../lib/catalog'
 
-// Tier table — direct affiliates. Recruited affiliates use the same thresholds
-// but the cron applies a -recruiter_override_pct adjustment to commission_pct.
+// Tier table lives in lib/affiliate-config (shared with the cron, which is
+// what actually moves rates — two-consecutive-month rule). Recruited
+// affiliates use the same thresholds but the cron applies a
+// -recruiter_override_pct adjustment to commission_pct.
 // (See docs/affiliate-program-spec.md)
-const TIER_THRESHOLDS = [
-  { min: 0,      max: 9999,    rate: 10 },
-  { min: 10000,  max: 19999,   rate: 15 },
-  { min: 20000,  max: 34999,   rate: 20 },
-  { min: 35000,  max: 59999,   rate: 25 },
-  { min: 60000,  max: Infinity, rate: 30 },
-]
 
 function periodKey(d = new Date()) {
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`
@@ -40,7 +35,7 @@ function periodRange(periodKey) {
 async function sumOrdersWithCommission(codes, start, end) {
   const { data, error } = await supabaseAdmin
     .from('orders')
-    .select('total, shipping, affiliate_commission_pct')
+    .select('total, shipping, cogs, affiliate_commission_pct')
     .in('affiliate_code', codes)
     .eq('payment_status', 'completed')
     .gte('created_at', start)
@@ -76,7 +71,7 @@ async function sumOppGross(pk) {
   const { start, end } = periodRange(pk)
   const { data, error } = await supabaseAdmin
     .from('orders')
-    .select('total, shipping')
+    .select('total, shipping, cogs')
     .eq('payment_status', 'completed')
     .gte('created_at', start)
     .lt('created_at', end)
@@ -133,7 +128,7 @@ async function topItemsSold(codes) {
   const products = await getCatalog()
   const { data, error } = await supabaseAdmin
     .from('orders')
-    .select('items, total, shipping, affiliate_commission_pct')
+    .select('items, total, shipping, cogs, affiliate_commission_pct')
     .in('affiliate_code', codes)
     .eq('payment_status', 'completed')
   if (error) throw error

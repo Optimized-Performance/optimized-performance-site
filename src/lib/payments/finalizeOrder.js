@@ -140,8 +140,9 @@ export async function finalizePaidOrder({ orderNumber, sendConfirmation = true, 
   }
 
   if (order.affiliate_code) {
-    // Commission on product revenue only — shipping is logistics pass-through,
-    // not commissionable (see lib/commission). total_revenue below stays gross.
+    // Commission on product margin — shipping (logistics pass-through) and the
+    // order's COGS snapshot are excluded (see lib/commission). total_revenue
+    // below stays gross.
     const commission = calcCommission(order)
     const { data: aff } = await supabaseAdmin
       .from('affiliates')

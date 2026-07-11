@@ -45,7 +45,7 @@ export default async function handler(req, res) {
     // the rate that was in effect when each order was placed.
     const { data: orders, error: oErr } = await supabaseAdmin
       .from('orders')
-      .select('total, shipping, affiliate_commission_pct, created_at')
+      .select('total, shipping, cogs, affiliate_commission_pct, created_at')
       .eq('affiliate_code', aff.code)
       .eq('payment_status', 'completed')
       .gte('created_at', cutoff.toISOString())

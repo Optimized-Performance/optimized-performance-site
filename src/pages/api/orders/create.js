@@ -12,6 +12,7 @@ import { isRailAvailable } from '../../../lib/rail-utilization'
 import { verifyRecoveryToken } from '../../../lib/recovery'
 import { generateOrderNumber } from '../../../lib/order-number'
 import { getCatalog } from '../../../lib/catalog'
+import { estimateOrderCogs } from '../../../lib/takehome-config'
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://syngyn.co'
 
@@ -395,6 +396,11 @@ export default async function handler(req, res) {
       subtotal,
       shipping,
       total,
+      // COGS snapshot (v33): estimated vendor cost of this cart, frozen at
+      // create time like affiliate_commission_pct — the commission basis is
+      // total - shipping - cogs (lib/commission). Computed from the
+      // server-validated lineItems (catalog id + price), not the client items.
+      cogs: estimateOrderCogs(lineItems).cogs,
       payment_status: initialPaymentStatus,
       payment_method: paymentMethod,
       idempotency_key: idempotencyKey || null,
@@ -454,11 +460,25 @@ export default async function handler(req, res) {
           .eq('id', resumeOrder.id)
       }
     } else {
-      const { data: inserted, error } = await supabaseAdmin
+      let { data: inserted, error } = await supabaseAdmin
         .from('orders')
         .insert(insertData)
         .select()
         .single()
+
+      // Missing-column backstop: if migration v33 (orders.cogs) hasn't been
+      // applied yet, drop the snapshot and retry once — the COGS estimate must
+      // never take checkout down. The order then carries cogs NULL (legacy
+      // commission basis), which is exactly the pre-migration behavior.
+      if (error && /cogs/i.test(error.message || '')) {
+        console.warn('[orders/create] insert retry without cogs (migration v33 not applied?):', error.message)
+        delete insertData.cogs
+        ;({ data: inserted, error } = await supabaseAdmin
+          .from('orders')
+          .insert(insertData)
+          .select()
+          .single())
+      }
 
       if (error) {
         // Idempotency-key race: a concurrent request with the same key won the

@@ -36,7 +36,7 @@ export default async function handler(req, res) {
     // OPP commissionable gross by period, from completed orders.
     const { data: orders, error: oErr } = await supabaseAdmin
       .from('orders')
-      .select('total, shipping, created_at')
+      .select('total, shipping, cogs, created_at')
       .eq('payment_status', 'completed')
       .order('created_at', { ascending: false })
       .limit(10000)

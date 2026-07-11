@@ -20,6 +20,7 @@ import { validateOrigin, rateLimit } from '../../../../lib/security'
 import { computeOrderTotals } from '../../../../lib/pricing'
 import { getCatalog } from '../../../../lib/catalog'
 import { calcCommission } from '../../../../lib/commission'
+import { estimateOrderCogs } from '../../../../lib/takehome-config'
 import { PAYMENT_STATUS, assertPaymentTransition } from '../../../../lib/order-status'
 import { createCheckoutSession } from '../../../../lib/payments/cardProcessor'
 import { sendBalanceDueEmail } from '../../../../lib/customer-emails'
@@ -141,6 +142,11 @@ export default async function handler(req, res) {
     })
     const newTotal = totals.total
     const newShipping = totals.shipping.total
+    // COGS snapshot follows the edited cart (v33) — but ONLY on orders that
+    // already carry one. Pre-cutover orders (cogs NULL) stay NULL so their
+    // commission basis remains the legacy total - shipping; an edit must not
+    // retroactively move an order onto the new basis.
+    const newCogs = order.cogs == null ? null : estimateOrderCogs(newItems).cogs
 
     // ── money + status ───────────────────────────────────────────────────────
     const finalized = order.payment_status === PAYMENT_STATUS.COMPLETED || order.payment_status === PAYMENT_STATUS.BALANCE_DUE
@@ -177,8 +183,8 @@ export default async function handler(req, res) {
     // ── affiliate credit delta (finalized + attributed only) ──────────────────
     if (finalized && order.affiliate_code) {
       const pct = Number(order.affiliate_commission_pct || 0)
-      const oldComm = calcCommission({ total: order.total, shipping: order.shipping, affiliate_commission_pct: pct })
-      const newComm = calcCommission({ total: newTotal, shipping: newShipping, affiliate_commission_pct: pct })
+      const oldComm = calcCommission({ total: order.total, shipping: order.shipping, cogs: order.cogs, affiliate_commission_pct: pct })
+      const newComm = calcCommission({ total: newTotal, shipping: newShipping, cogs: newCogs, affiliate_commission_pct: pct })
       const commDelta = round2(newComm - oldComm)
       const revDelta = round2(newTotal - Number(order.total || 0))
       if (commDelta !== 0 || revDelta !== 0) {
@@ -209,6 +215,9 @@ export default async function handler(req, res) {
       recovery_discount: totals.recoveryDiscount,
       shipping: newShipping,
       total: newTotal,
+      // Only written when the order already carries a snapshot (see newCogs
+      // above) — also keeps this update column-safe before migration v33 runs.
+      ...(newCogs == null ? {} : { cogs: newCogs }),
       edit_history: [...(Array.isArray(order.edit_history) ? order.edit_history : []), historyEntry],
       updated_at: new Date().toISOString(),
     }
