@@ -596,7 +596,7 @@ export default function Checkout() {
             Contact &amp; shipping
           </h2>
           <p className="text-ink-soft m-0 mb-7">
-            We use your email for order updates. Payments are processed securely off-site.
+            We use your email for order updates. Payments are processed by our secure payment partners.
           </p>
 
           <form onSubmit={(e) => { e.preventDefault(); if (activeMethod === 'card' && cardUp) handleCheckout('card'); }}>
@@ -702,12 +702,23 @@ export default function Checkout() {
                         intent={cardIntent}
                         orderNumber={cardIntent.orderNumber}
                         amount={cardIntent.total}
+                        billing={{
+                          name: name.trim(),
+                          email: email.trim(),
+                          address: {
+                            line1: address.trim(),
+                            city: city.trim(),
+                            state: state.trim(),
+                            postal_code: zip.trim(),
+                            country: 'US',
+                          },
+                        }}
                         onCancel={() => setCardIntent(null)}
                       />
                     ) : (
                       <button
                         type="submit"
-                        className="btn-primary w-full py-4 text-base"
+                        className="btn-primary btn-glow w-full py-4 text-base"
                         disabled={submitting || !researchAck || !researchField}
                       >
                         <Icon name="card" size={18} />
@@ -780,7 +791,7 @@ export default function Checkout() {
             )}
             <p className="opp-meta-mono text-center mt-4 leading-relaxed m-0">
               {[
-                cardUp && 'Card processed securely off-site',
+                cardUp && 'Cards processed securely by our payments partner',
                 paypalUp && 'PayPal, Pay Later & card via PayPal',
                 cryptoUp && `Crypto (BTC, ETH, USDC, USDT) — ${ALT_PAY_DISCOUNT_PCT}% off`,
                 zelleUp && `Zelle direct — ${ALT_PAY_DISCOUNT_PCT}% off`,

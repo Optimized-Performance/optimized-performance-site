@@ -350,3 +350,33 @@ button, a, input, select, textarea, label, summary { touch-action: manipulation;
     radial-gradient(120% 85% at 50% 28%, rgba(245, 166, 35, 0.08), transparent 62%),
     linear-gradient(180deg, var(--surfaceAlt), var(--surface));
 }
+
+/* ============================================================
+   Native-feel patterns ported from the coaching app's 7/10 pass
+   (skeleton shimmer, fade-rise entrance, glow CTA + press-down
+   physics). Used by the inline card checkout panel.
+   ============================================================ */
+.skel {
+  border-radius: 8px;
+  background: linear-gradient(100deg,
+    rgba(255, 255, 255, 0.05) 40%,
+    rgba(255, 255, 255, 0.10) 50%,
+    rgba(255, 255, 255, 0.05) 60%);
+  background-size: 200% 100%;
+  animation: skel-sweep 1.3s ease-in-out infinite;
+}
+@keyframes skel-sweep { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+
+.fade-rise { animation: fade-rise-in 0.2s ease; }
+@keyframes fade-rise-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+/* Warm glow + press-down physics for hero CTAs (pair with .btn-primary). */
+.btn-glow { box-shadow: 0 8px 26px -8px rgba(245, 166, 35, 0.55); }
+.btn-glow:hover { box-shadow: 0 12px 32px -8px rgba(245, 166, 35, 0.65); transform: translateY(-1px); }
+.btn-glow:active { transform: scale(0.98); }
+.btn-glow:disabled { box-shadow: none; transform: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .skel, .fade-rise { animation: none; }
+  .btn-glow:hover, .btn-glow:active { transform: none; }
+}
