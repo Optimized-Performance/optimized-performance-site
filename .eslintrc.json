@@ -1,21 +1,33 @@
 {
   "root": true,
-  "env": { "browser": true, "node": true, "es2021": true },
+  "env": {
+    "browser": true,
+    "node": true,
+    "es2021": true
+  },
   "parserOptions": {
     "ecmaVersion": 2022,
     "sourceType": "module",
-    "ecmaFeatures": { "jsx": true }
+    "ecmaFeatures": {
+      "jsx": true
+    }
   },
-  "plugins": ["react-hooks"],
-  "globals": { "React": "readonly" },
+  "plugins": [
+    "react-hooks"
+  ],
+  "globals": {
+    "React": "readonly"
+  },
   "rules": {
     "no-undef": "error",
-    "react-hooks/rules-of-hooks": "off",
+    "react-hooks/rules-of-hooks": "error",
     "react-hooks/exhaustive-deps": "off"
   },
   "overrides": [
     {
-      "files": ["src/pages/**/*.js"],
+      "files": [
+        "src/pages/**/*.js"
+      ],
       "rules": {
         "no-restricted-syntax": [
           "error",
