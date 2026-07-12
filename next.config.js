@@ -10,16 +10,19 @@ const CSP = [
   "default-src 'self'",
   // 'unsafe-inline'/'unsafe-eval' required by Next.js inline bootstrap + PayPal SDK
   // until a nonce pipeline is added; tighten once violations are reviewed.
-  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.paypal.com https://www.paypalobjects.com https://*.paypal.com",
+  // js.stripe.com — the inline card experience's Payment Element (CARD_EXPERIENCE=inline).
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.paypal.com https://www.paypalobjects.com https://*.paypal.com https://js.stripe.com",
   // Google Fonts: used only inside the gated /api/tools/* documents (the
   // resource-tool iframes load Inter Tight there; the store itself self-hosts
   // via next/font).
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "img-src 'self' data: https:",
   "font-src 'self' data: https://fonts.gstatic.com",
-  "connect-src 'self' https://*.supabase.co https://*.paypal.com https://api.nowpayments.io https://vitals.vercel-insights.com",
+  "connect-src 'self' https://*.supabase.co https://*.paypal.com https://api.nowpayments.io https://vitals.vercel-insights.com https://api.stripe.com",
   // 'self' — the /resources pages iframe same-origin gated tool documents.
-  "frame-src 'self' https://*.paypal.com https://*.nowpayments.io",
+  // Stripe hosts — the Payment Element mounts its card iframes from js.stripe.com
+  // and 3DS challenge frames from hooks.stripe.com.
+  "frame-src 'self' https://*.paypal.com https://*.nowpayments.io https://js.stripe.com https://hooks.stripe.com",
   "object-src 'none'",
   "base-uri 'self'",
   "form-action 'self'",

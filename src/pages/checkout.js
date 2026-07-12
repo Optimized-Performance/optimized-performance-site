@@ -11,6 +11,7 @@ import { track, getSessionId } from '../lib/track';
 import PaypalCheckoutButtons from '../components/PaypalCheckoutButtons';
 import AltRailPanel, { VENMO_HANDLE } from '../components/AltRailPanel';
 import AltPaySaveBanner from '../components/AltPaySaveBanner';
+import CardPaymentPanel from '../components/CardPaymentPanel';
 import { useCohortUi } from '../lib/cohort-ui';
 import PaymentMethodTiles from '../components/PaymentMethodTiles';
 import { US_STATES } from '../lib/us-states';
@@ -91,6 +92,9 @@ export default function Checkout() {
   const [zip, setZip] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [submittingMethod, setSubmittingMethod] = useState(null);
+  // Inline card experience: the create response's payment-intent client fields
+  // (+ order number/total). Non-null = the branded Payment Element panel is up.
+  const [cardIntent, setCardIntent] = useState(null);
   const [affiliateCode, setAffiliateCode] = useState('');
   const [affiliateApplied, setAffiliateApplied] = useState(null);
   const [affiliateError, setAffiliateError] = useState('');
@@ -354,6 +358,12 @@ export default function Checkout() {
     return idempotencyRef.current.key;
   };
 
+  // If the cart changes while the inline card panel is up, its payment intent
+  // amount is stale — drop the panel; the next "Pay with card" creates a fresh
+  // order + intent (new idempotency key, so no resume of the old amount).
+  const cartSig = cartItems.map((i) => `${i.sku || i.id}:${i.quantity}`).sort().join('|');
+  useEffect(() => { setCardIntent(null); }, [cartSig]);
+
   const buildOrderPayload = (paymentMethod) => ({
     name: name.trim(), email: email.trim(), address: address.trim(),
     city: city.trim(), state: state.trim(), zip: zip.trim(),
@@ -374,6 +384,9 @@ export default function Checkout() {
 
   const handleCheckout = async (paymentMethod) => {
     if (!validateCheckoutForm()) return;
+    // Inline card panel already up for this cart (e.g. Enter re-submits the
+    // form behind it) — the intent is live; don't create another.
+    if (paymentMethod === 'card' && cardIntent) return;
     track('payment_attempt', { value: Number(discountedTotal) || null, meta: { method: paymentMethod } });
     setSubmitting(true);
     setSubmittingMethod(paymentMethod);
@@ -392,6 +405,19 @@ export default function Checkout() {
         return;
       }
       if (!res.ok) throw new Error(data.error || 'Failed to create order');
+      // Inline card experience (CARD_EXPERIENCE=inline server-side): the
+      // response carries payment-intent client fields instead of a redirect
+      // URL — mount the on-site branded Payment Element and stay on the page.
+      if (data.card_intent) {
+        setCardIntent({
+          ...data.card_intent,
+          orderNumber: data.order_number,
+          total: Number(data.total),
+        });
+        setSubmitting(false);
+        setSubmittingMethod(null);
+        return;
+      }
       if (!data.redirect_url) throw new Error('Payment processor returned no redirect URL');
       window.location.href = data.redirect_url;
       return;
@@ -671,16 +697,25 @@ export default function Checkout() {
 
                 <div>
                   {activeMethod === 'card' && cardUp && (
-                    <button
-                      type="submit"
-                      className="btn-primary w-full py-4 text-base"
-                      disabled={submitting || !researchAck || !researchField}
-                    >
-                      <Icon name="card" size={18} />
-                      {submitting && submittingMethod === 'card'
-                        ? 'Processing…'
-                        : `Pay $${discountedTotal.toFixed(2)} with card`}
-                    </button>
+                    cardIntent ? (
+                      <CardPaymentPanel
+                        intent={cardIntent}
+                        orderNumber={cardIntent.orderNumber}
+                        amount={cardIntent.total}
+                        onCancel={() => setCardIntent(null)}
+                      />
+                    ) : (
+                      <button
+                        type="submit"
+                        className="btn-primary w-full py-4 text-base"
+                        disabled={submitting || !researchAck || !researchField}
+                      >
+                        <Icon name="card" size={18} />
+                        {submitting && submittingMethod === 'card'
+                          ? 'Processing…'
+                          : `Pay $${discountedTotal.toFixed(2)} with card`}
+                      </button>
+                    )
                   )}
                   {activeMethod === 'crypto' && cryptoUp && (
                     <button

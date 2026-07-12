@@ -28,7 +28,7 @@
 // imported directly by each /api/webhooks/* endpoint (one endpoint per
 // processor URL), so it's intentionally not part of this create-side registry.
 
-import { createCheckoutSession } from './cardProcessor'
+import { createCheckoutSession, createCardPaymentIntent, cardCheckoutExperience } from './cardProcessor'
 import { createCryptoCheckoutSession } from './cryptoProcessor'
 import { createPaypalCheckoutSession } from './paypalProcessor'
 import { sendZelleInstructions, sendVenmoInstructions } from '../alerts'
@@ -42,7 +42,7 @@ const RAILS = {
     failureError: 'Payment processor unavailable. Please try again or use crypto checkout.',
     async createSession({ orderNumber, total, customer, urls }) {
       const [firstName, ...lastParts] = String(customer.name || '').trim().split(/\s+/)
-      const { redirectUrl, sessionId } = await createCheckoutSession({
+      const opts = {
         orderNumber,
         amountCents: cents(total),
         currency: 'USD',
@@ -58,7 +58,28 @@ const RAILS = {
         },
         returnUrl: urls.returnUrl,
         cancelUrl: urls.cancelUrl,
-      })
+      }
+
+      // Inline experience (CARD_EXPERIENCE=inline): no redirect — return the
+      // payment-intent client fields and the checkout page mounts the branded
+      // Payment Element in place. The client keys off card_intent's presence,
+      // so this env var alone switches (and rolls back) the whole experience.
+      if (cardCheckoutExperience() === 'inline') {
+        const intent = await createCardPaymentIntent(opts)
+        // card_session_id doubles as the gateway payment ref for reconcile —
+        // a pi_… id routes to the payment-intents reconcile endpoint.
+        return {
+          card_session_id: intent.paymentIntentId,
+          card_intent: {
+            payment_intent_id: intent.paymentIntentId,
+            client_secret: intent.clientSecret,
+            publishable_key: intent.publishableKey,
+            connected_account_id: intent.connectedAccountId,
+          },
+        }
+      }
+
+      const { redirectUrl, sessionId } = await createCheckoutSession(opts)
       // card_session_id is stamped on the order by /api/orders/create (for
       // reconcile) and stripped from the client response there.
       return { redirect_url: redirectUrl, card_session_id: sessionId }

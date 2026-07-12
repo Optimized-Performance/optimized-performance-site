@@ -22,6 +22,21 @@ export async function createCheckoutSession(opts) {
   return norampCreateSession(opts)
 }
 
+// Which card checkout experience the customer gets. 'redirect' (default) =
+// the gateway-hosted page; 'inline' = on-site Payment Element via
+// /payment-intents (fully Syngyn-branded, card data stays inside Stripe's
+// iframes so our PCI surface is unchanged). Server-side flag only — the
+// checkout client keys off the create-response shape (card_intent vs
+// redirect_url), so flipping this env var + redeploy is the entire rollback.
+export function cardCheckoutExperience() {
+  return process.env.CARD_EXPERIENCE === 'inline' ? 'inline' : 'redirect'
+}
+
+export async function createCardPaymentIntent(opts) {
+  assertSupportedProcessor()
+  return norampCreatePaymentIntent(opts)
+}
+
 export async function parseWebhookEvent({ rawBody, headers }) {
   assertSupportedProcessor()
   return norampParseWebhook({ rawBody, headers })
@@ -39,23 +54,41 @@ export async function reconcileCardSession(opts) {
 // plugin (payment-gateway-woocommerce, scm_* fns): POST /checkout/sessions with
 // a Bearer merchant token → { checkout_url, session_id }; customer pays on the
 // gateway-hosted page; NoRamp POSTs a signed callback to /api/webhooks/noramp.
-// Inline/Elements (payment-intents + Stripe.js w/ connected account) is the
-// other experience — deferred to keep the money path small + off our PCI
-// surface. Statement descriptor (SYNGYN) is configured gateway-side.
+// The inline experience (CARD_EXPERIENCE=inline) instead POSTs
+// /payment-intents and renders Stripe's Payment Element ON the checkout page
+// under the connected account — fully branded, card data never touches our
+// servers (stays inside Stripe's iframes). Both experiences share the same
+// webhook + reconcile safety net; reconcile routes by id prefix (pi_… →
+// payment-intents, else checkout sessions). Statement descriptor (SYNGYN) is
+// configured gateway-side.
 const NORAMP_LIVE_BASE = 'https://api.noramp.dev'
 
 function norampBaseUrl() {
   return process.env.NORAMP_API_BASE || NORAMP_LIVE_BASE
 }
 
-async function norampCreateSession({ orderNumber, amountCents, currency, customer, returnUrl, cancelUrl }) {
-  const token = process.env.NORAMP_MERCHANT_TOKEN
-  if (!token) throw new Error('[noramp] NORAMP_MERCHANT_TOKEN not configured')
+// RUO business context sent with payment intents (verbatim from the merchant
+// plugin's scm_ruo_business_context) — the platform's screening posture for
+// research-supplier merchants. Order payloads stay product-name-free either way.
+function norampRuoContext() {
+  return {
+    company_name: '',
+    buyer_company: '',
+    buyer_type: 'business_or_lab',
+    use_case: 'in_vitro_research',
+    product_category: 'ruo_reference_materials',
+    site_acknowledgment: 'research_use_only',
+    not_for_consumption_acknowledged: true,
+    coa_available: true,
+    shipping_contains: 'research_materials',
+  }
+}
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || ''
+// Shared order payload for both checkout experiences (sessions + intents).
+function buildNorampOrder({ orderNumber, amountCents, currency, customer }) {
   const fullName = (customer?.name || '').trim()
   const total = (amountCents / 100).toFixed(2)
-  const order = {
+  return {
     id: String(orderNumber),
     number: String(orderNumber),
     key: String(orderNumber),
@@ -89,6 +122,14 @@ async function norampCreateSession({ orderNumber, amountCents, currency, custome
       country: customer?.country || 'US',
     },
   }
+}
+
+async function norampCreateSession({ orderNumber, amountCents, currency, customer, returnUrl, cancelUrl }) {
+  const token = process.env.NORAMP_MERCHANT_TOKEN
+  if (!token) throw new Error('[noramp] NORAMP_MERCHANT_TOKEN not configured')
+
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || ''
+  const order = buildNorampOrder({ orderNumber, amountCents, currency, customer })
 
   const body = {
     order,
@@ -122,6 +163,61 @@ async function norampCreateSession({ orderNumber, amountCents, currency, custome
   }
   const sessionId = data.session_id || data.id || ''
   return { redirectUrl, sessionId }
+}
+
+// Inline experience: create a platform payment intent (plugin flow: POST
+// /payment-intents with inline_blocks + disable_redirects) → the client mounts
+// Stripe's Payment Element with the returned client_secret under the returned
+// connected account. idempotency_key is keyed on the order number so a retry
+// of the same order (pay-screen timeout, resumed order) reuses one intent
+// instead of minting parallel charges.
+async function norampCreatePaymentIntent({ orderNumber, amountCents, currency, customer, returnUrl, cancelUrl }) {
+  const token = process.env.NORAMP_MERCHANT_TOKEN
+  if (!token) throw new Error('[noramp] NORAMP_MERCHANT_TOKEN not configured')
+
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || ''
+  const checkoutId = `syngyn_${orderNumber}`
+
+  const body = {
+    order: buildNorampOrder({ orderNumber, amountCents, currency, customer }),
+    success_url: returnUrl,
+    cancel_url: cancelUrl,
+    callback_url: `${siteUrl}/api/webhooks/noramp`,
+    checkout_id: checkoutId,
+    idempotency_key: checkoutId,
+    source: 'syngyn',
+    compliance: norampRuoContext(),
+    inline_blocks: true,
+    disable_redirects: true,
+  }
+
+  const res = await fetch(`${norampBaseUrl()}/payment-intents`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+    },
+    body: JSON.stringify(body),
+  })
+
+  const text = await res.text()
+  let data
+  try { data = JSON.parse(text) } catch { data = null }
+
+  if (!res.ok || !data) {
+    throw new Error(`[noramp] /payment-intents failed (${res.status}): ${text.slice(0, 500)}`)
+  }
+
+  const paymentIntentId = String(data.payment_intent_id || '')
+  const clientSecret = String(data.client_secret || '')
+  const publishableKey = String(data.publishable_key || '')
+  const connectedAccountId = String(data.connected_account_id || '')
+  if (!paymentIntentId || !clientSecret || !publishableKey) {
+    throw new Error(`[noramp] /payment-intents response missing client fields: ${text.slice(0, 400)}`)
+  }
+
+  return { paymentIntentId, clientSecret, publishableKey, connectedAccountId }
 }
 
 // Callback signature (verbatim from plugin scm_validate_callback_signature):
@@ -164,18 +260,26 @@ async function norampParseWebhook({ rawBody, headers }) {
   return { verified: true, eventId, txId: paymentId, orderNumber, status }
 }
 
-// Missed-callback safety net: POST /checkout/sessions/{id}/reconcile (per the
-// merchant plugin's reconcile flow) → { payment_status }. Used by the success
-// return + the expire-awaiting cron so a dropped/late callback can't strand a
-// paid order as "awaiting payment" or get it wrongly abandoned. Never throws.
+// Missed-callback safety net → { payment_status }. Used by the success return
+// + the expire-awaiting cron so a dropped/late callback can't strand a paid
+// order as "awaiting payment" or get it wrongly abandoned. Never throws.
+//
+// orders.card_session_id holds EITHER a hosted-checkout session id (redirect
+// experience) or a Stripe payment-intent id (inline experience — always
+// `pi_…`), so the endpoint routes on that prefix, mirroring the plugin's
+// intent-vs-session reconcile split. Callers don't care which it was.
 async function norampReconcileSession({ sessionId, orderNumber, orderKey }) {
   const token = process.env.NORAMP_MERCHANT_TOKEN
   if (!token || !sessionId) return { paid: false, status: 'no_session' }
 
+  const path = /^pi_/.test(String(sessionId))
+    ? `/payment-intents/${encodeURIComponent(sessionId)}/reconcile`
+    : `/checkout/sessions/${encodeURIComponent(sessionId)}/reconcile`
+
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || ''
   try {
     const res = await fetch(
-      `${norampBaseUrl()}/checkout/sessions/${encodeURIComponent(sessionId)}/reconcile`,
+      `${norampBaseUrl()}${path}`,
       {
         method: 'POST',
         headers: {
