@@ -194,6 +194,9 @@ export default function BroadcastTab({ products = [], showSaveMsg, token }) {
             onChange={(e) => setBody(e.target.value)}
             placeholder={'Plain text. Line breaks are preserved.\n\nPaste links as full URLs — they send as-is.\nThe unsubscribe + address footer is added automatically.'}
           />
+          <span className="opp-meta-mono block mt-1.5 text-ink-mute">
+            Gold button: put <code className="text-accent">[Button text](https://link)</code> on its own line — it renders as a branded CTA button (plain-text part gets &quot;Button text: link&quot;).
+          </span>
         </label>
 
         <div className="mb-4">

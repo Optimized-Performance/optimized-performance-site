@@ -128,13 +128,32 @@ function htmlFooterLines(toEmail) {
   ].filter(Boolean)
 }
 
+// Composer button syntax: a line that is exactly `[Button text](https://url)`
+// renders as a branded gold CTA button in the HTML part (and as "Button text:
+// url" in the plain-text part). http(s) only — anything else stays literal
+// text. Everything is still escaped, so admin input can't break the markup.
+const BUTTON_RE = /^\s*\[([^\]]{1,80})\]\((https?:\/\/[^\s)]+)\)\s*$/
+
+function lineToHtml(line) {
+  const m = line.match(BUTTON_RE)
+  if (m) {
+    const text = escapeHtml(m[1].trim())
+    const url = escapeHtml(m[2])
+    // Gold-on-black brand button (matches email-layout's CTA styling).
+    // inline-block <a> — no table, so it stays valid inside the paragraph
+    // wrapper; Outlook desktop degrades to a padded link, which is fine.
+    return `<a href="${url}" target="_blank" style="display:inline-block;margin:6px 0 2px;padding:14px 32px;background:#F5A623;background:linear-gradient(180deg,#FCD667,#F5A623);border:1px solid #A66A12;border-radius:8px;color:#000000;font-size:15px;font-weight:bold;letter-spacing:0.04em;text-decoration:none;">${text} &rarr;</a>`
+  }
+  return escapeHtml(line)
+}
+
 // Turn an admin-authored plain-text body into escaped HTML paragraphs: blank
-// lines split paragraphs, single newlines become <br>. Escaped so nothing the
-// admin types can break the markup.
-function bodyToParagraphs(bodyLines) {
+// lines split paragraphs, single newlines become <br>. Button-syntax lines
+// (above) become CTA buttons. Exported for unit tests.
+export function bodyToParagraphs(bodyLines) {
   return String(Array.isArray(bodyLines) ? bodyLines.join('\n') : bodyLines || '')
     .split(/\n\s*\n/)
-    .map((chunk) => escapeHtml(chunk).replace(/\n/g, '<br>'))
+    .map((chunk) => chunk.split('\n').map(lineToHtml).join('<br>'))
     .filter(Boolean)
 }
 
@@ -146,7 +165,9 @@ async function sendOneMarketing({ toEmail, subject, bodyLines, branded = false, 
   if (!toEmail) return { ok: false, reason: 'no_recipient' }
   if (!POSTAL_ADDRESS) return { ok: false, reason: 'no_postal_address' }
 
-  const value = [...bodyLines, ...footerLines(toEmail)].join('\n')
+  // Plain-text part: button syntax degrades to "Button text: url".
+  const plainLines = bodyLines.map((l) => String(l).replace(BUTTON_RE, '$1: $2'))
+  const value = [...plainLines, ...footerLines(toEmail)].join('\n')
   // Multipart: always send text/plain (deliverability + fallback). When branded,
   // ALSO attach a text/html part rendered in the Syngyn shell — same per-recipient
   // unsubscribe link, carried in the HTML footer.
