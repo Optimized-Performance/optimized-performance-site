@@ -1,7 +1,7 @@
 import dynamic from 'next/dynamic';
 import { useEffect } from 'react';
 import { useRouter } from 'next/router';
-import { Inter_Tight, JetBrains_Mono } from 'next/font/google';
+import { fontVariables } from '../lib/fonts';
 import { Analytics } from '@vercel/analytics/next';
 import { track } from '../lib/track';
 import { CartProvider } from '../context/CartContext';
@@ -11,19 +11,10 @@ import CartDrawer from '../components/CartDrawer';
 import MobileTabBar from '../components/MobileTabBar';
 import '../styles/globals.css';
 
-const interTight = Inter_Tight({
-  subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
-  variable: '--font-inter-tight',
-  display: 'swap',
-});
-
-const jetbrainsMono = JetBrains_Mono({
-  subsets: ['latin'],
-  weight: ['400', '500', '600'],
-  variable: '--font-jetbrains-mono',
-  display: 'swap',
-});
+// Fonts now live in lib/fonts.js — the variable classes attach to <html> in
+// _document (required for the :root token composition to resolve; see the
+// note there). The wrapper below keeps them too, harmlessly, for any portal
+// that renders outside <html>'s cascade assumptions.
 
 // SSR ON for the age gate: it must be a server-rendered "confirm on entry" gate
 // so compliance scanners (which don't execute JS) can detect it. Returning
@@ -61,7 +52,7 @@ export default function App({ Component, pageProps }) {
 
   return (
     <CartProvider>
-      <div className={`${interTight.variable} ${jetbrainsMono.variable} min-h-screen flex flex-col bg-paper text-ink font-body`}>
+      <div className={`${fontVariables} min-h-screen flex flex-col bg-paper text-ink font-body`}>
         {isAdmin ? (
           <Component {...pageProps} />
         ) : (

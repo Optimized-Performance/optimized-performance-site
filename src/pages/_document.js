@@ -1,4 +1,5 @@
 import { Html, Head, Main, NextScript } from 'next/document';
+import { fontVariables } from '../lib/fonts';
 
 // Custom document so we can hide the SSR-rendered research/age gate for
 // already-verified visitors BEFORE first paint (no flash). The gate itself is
@@ -11,7 +12,9 @@ const HIDE_GATE_SCRIPT =
 
 export default function Document() {
   return (
-    <Html lang="en">
+    // Font variables live on <html> so the :root font tokens in globals.css
+    // resolve to the real next/font families (see lib/fonts.js for the story).
+    <Html lang="en" className={fontVariables}>
       <Head>
         <style dangerouslySetInnerHTML={{ __html: HIDE_GATE_STYLE }} />
       </Head>

@@ -974,7 +974,7 @@ export default function OrdersTab({ products = [], showSaveMsg, token }) {
             <p className="opp-meta-mono mt-1 m-0">Orders created through checkout will appear here.</p>
           </div>
         ) : (
-          <table className="w-full border-collapse text-[13px]">
+          <table className="orders-table w-full border-collapse text-[13px]">
             <thead className="bg-surfaceAlt">
               <tr>
                 <th className="px-3 py-3 border-b border-line w-8" onClick={(e) => e.stopPropagation()}>
@@ -1058,12 +1058,12 @@ export default function OrdersTab({ products = [], showSaveMsg, token }) {
                           )}
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-ink-soft">{new Date(order.created_at).toLocaleDateString()}</td>
-                      <td className="px-4 py-3">
+                      <td data-label="Date" className="px-4 py-3 text-ink-soft">{new Date(order.created_at).toLocaleDateString()}</td>
+                      <td data-label="Customer" className="px-4 py-3">
                         <div className="font-semibold text-ink">{order.customer_name}</div>
                         <div className="text-[11px] text-ink-mute">{order.customer_email}</div>
                       </td>
-                      <td className="px-4 py-3 text-ink-soft">
+                      <td data-label="Items" className="px-4 py-3 text-ink-soft">
                         {items.map((it, j) => (
                           <div key={j} className="text-xs flex items-center gap-1.5">
                             <span>{it.name} x{it.quantity}</span>
@@ -1073,8 +1073,8 @@ export default function OrdersTab({ products = [], showSaveMsg, token }) {
                           </div>
                         ))}
                       </td>
-                      <td className="px-4 py-3 text-right font-semibold text-ink">${Number(order.total || 0).toFixed(2)}</td>
-                      <td className="px-4 py-3 text-center">
+                      <td data-label="Total" className="px-4 py-3 text-right font-semibold text-ink">${Number(order.total || 0).toFixed(2)}</td>
+                      <td data-label="Payment" className="px-4 py-3 text-center">
                         <span
                           className={`opp-meta-mono font-semibold ${
                             order.payment_status === 'refunded'
@@ -1101,12 +1101,12 @@ export default function OrdersTab({ products = [], showSaveMsg, token }) {
                                     : 'Pending'}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-center">
+                      <td data-label="Status" className="px-4 py-3 text-center">
                         <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full border ${STATUS_CLASSES[status]}`}>
                           {STATUS_LABELS[status]}
                         </span>
                       </td>
-                      <td className="px-4 py-3 font-mono text-xs text-ink-soft">{order.tracking || '—'}</td>
+                      <td data-label="Tracking" className="px-4 py-3 font-mono text-xs text-ink-soft">{order.tracking || '—'}</td>
                       <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                         <div className="flex gap-1.5 flex-wrap">
                           {isAwaitingZelle(order) && (

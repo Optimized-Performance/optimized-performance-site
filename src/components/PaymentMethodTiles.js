@@ -25,7 +25,7 @@ export default function PaymentMethodTiles({ methods, activeMethod, onSelect }) 
         aria-pressed={active}
       >
         {m.perk && (
-          <span className="absolute top-2 right-2.5 opp-meta-mono text-[9px] text-success font-semibold">{m.perk}</span>
+          <span className="absolute top-2 right-2.5 opp-meta-mono text-[12px] text-success font-semibold">{m.perk}</span>
         )}
         <div className={`flex items-center gap-1.5 text-ink font-semibold ${big ? 'text-base' : 'text-sm'}`}>
           {active && <Icon name="check" size={big ? 16 : 14} className="text-accent-strong" />}
@@ -33,11 +33,11 @@ export default function PaymentMethodTiles({ methods, activeMethod, onSelect }) 
         </div>
         <div className={`opp-meta-mono mt-1 text-ink-soft ${big ? 'text-sm' : ''}`}>${m.price.toFixed(2)}</div>
         {big && (
-          <div className="opp-meta-mono text-[10px] text-ink-mute mt-1">
+          <div className="opp-meta-mono text-[12px] text-ink-mute mt-1">
             Visa · Mastercard · Amex · Discover · Apple&nbsp;Pay · Google&nbsp;Pay
           </div>
         )}
-        {m.sub && <div className="text-[10px] text-ink-mute mt-0.5 leading-tight">{m.sub}</div>}
+        {m.sub && <div className="text-[12px] text-ink-mute mt-0.5 leading-tight">{m.sub}</div>}
       </button>
     );
   };

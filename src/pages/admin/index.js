@@ -25,6 +25,9 @@ export default function AdminPage() {
   const [authError, setAuthError] = useState('');
   const [activeTab, setActiveTab] = useState('orders');
   const [saveMsg, setSaveMsg] = useState('');
+  // Mobile "More" action sheet (coaching-app pattern) — holds the tabs that
+  // don't fit the bottom bar.
+  const [moreOpen, setMoreOpen] = useState(false);
   // Product catalog is loaded via a DYNAMIC import gated on auth, NOT a static
   // top-level import. A static import kept the full catalog (incl. restricted
   // SKUs) in a shared client chunk that public pages also load — defeating the
@@ -119,9 +122,16 @@ export default function AdminPage() {
     { id: 'inbox', label: 'Inbox' },
   ];
 
+  // Bottom-bar primaries (mobile). Everything else lives in the More sheet.
+  const primaryMobile = ['orders', 'customers', 'products', 'analytics'];
+  const selectTab = (id) => {
+    setActiveTab(id);
+    setMoreOpen(false);
+  };
+
   return (
     <div className="min-h-screen bg-paper admin-shell">
-      <div className="bg-ink text-paper">
+      <div className="bg-ink text-paper admin-header">
         <div className="max-w-container mx-auto px-4 sm:px-8 py-5 flex justify-between items-center gap-4 flex-wrap">
           <div className="flex items-center gap-3">
             <Logo size={28} />
@@ -150,12 +160,12 @@ export default function AdminPage() {
         </div>
       </div>
 
-      <div className="max-w-container mx-auto px-4 sm:px-8 py-6 sm:py-8">
+      <div className="max-w-container mx-auto px-4 sm:px-8 py-6 sm:py-8 admin-content">
         <div className="admin-tabs flex gap-1 mb-6 sm:mb-8 border-b border-line overflow-x-auto">
           {tabs.map((t) => (
             <button
               key={t.id}
-              onClick={() => setActiveTab(t.id)}
+              onClick={() => selectTab(t.id)}
               className={`px-4 sm:px-5 py-3 text-sm border-b-2 -mb-px shrink-0 whitespace-nowrap transition-colors ${
                 activeTab === t.id
                   ? 'text-ink border-ink font-semibold'
@@ -167,6 +177,8 @@ export default function AdminPage() {
           ))}
         </div>
 
+        {/* keyed remount = quick fade-rise on every tab switch (coaching-app view-anim) */}
+        <div key={activeTab} className="fade-rise">
         {activeTab === 'orders' && <OrdersTab products={catalog} showSaveMsg={showSaveMsg} token={token} />}
         {activeTab === 'customers' && <CustomersTab token={token} showSaveMsg={showSaveMsg} />}
         {activeTab === 'inventory' && <InventoryTab products={catalog} showSaveMsg={showSaveMsg} token={token} />}
@@ -181,7 +193,54 @@ export default function AdminPage() {
         {activeTab === 'analytics' && <AnalyticsTab token={token} />}
         {activeTab === 'broadcast' && <BroadcastTab products={catalog} showSaveMsg={showSaveMsg} token={token} />}
         {activeTab === 'inbox' && <InboxTab showSaveMsg={showSaveMsg} token={token} />}
+        </div>
       </div>
+
+      {/* Mobile bottom tab bar (coaching-app shell). Hidden ≥701px via CSS. */}
+      <nav className="admin-bottom-bar">
+        {tabs.filter((t) => primaryMobile.includes(t.id)).map((t) => (
+          <button
+            key={t.id}
+            className={activeTab === t.id && !moreOpen ? 'active' : ''}
+            onClick={() => selectTab(t.id)}
+          >
+            {t.label}
+          </button>
+        ))}
+        <button
+          className={moreOpen || !primaryMobile.includes(activeTab) ? 'active' : ''}
+          onClick={() => setMoreOpen(true)}
+        >
+          More
+        </button>
+      </nav>
+
+      {moreOpen && (
+        <>
+          <div className="admin-sheet-bg" onClick={() => setMoreOpen(false)} />
+          <div className="admin-sheet">
+            <div className="p-2 grid grid-cols-2 gap-1">
+              {tabs.filter((t) => !primaryMobile.includes(t.id)).map((t) => (
+                <button
+                  key={t.id}
+                  onClick={() => selectTab(t.id)}
+                  className={`px-4 py-3.5 rounded-opp text-left text-[14px] font-semibold ${
+                    activeTab === t.id ? 'bg-accent-soft text-accent-strong' : 'text-ink-soft'
+                  }`}
+                >
+                  {t.label}
+                </button>
+              ))}
+              <button
+                onClick={() => { setMoreOpen(false); logout(); }}
+                className="px-4 py-3.5 text-left text-[14px] font-semibold text-danger col-span-2 border-t border-line"
+              >
+                Log out
+              </button>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

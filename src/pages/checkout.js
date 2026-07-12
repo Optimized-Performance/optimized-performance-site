@@ -558,7 +558,7 @@ export default function Checkout() {
               return (
                 <li key={s} className={`flex items-center gap-2.5 text-sm ${isActive ? 'text-ink font-semibold' : 'text-ink-mute'}`}>
                   <span
-                    className={`w-7 h-7 rounded-full flex items-center justify-center border opp-meta-mono text-[11px] ${
+                    className={`w-7 h-7 rounded-full flex items-center justify-center border opp-meta-mono text-[12px] ${
                       isActive ? 'bg-ink text-paper border-ink' : 'border-line'
                     }`}
                   >
@@ -686,7 +686,7 @@ export default function Checkout() {
             {activeMethod ? (
               <>
                 <div className="flex items-baseline justify-between mb-2.5">
-                  <span className="font-mono text-[10px] font-medium tracking-[0.14em] uppercase text-ink-mute">Payment method</span>
+                  <span className="font-mono text-[12px] font-medium tracking-[0.14em] uppercase text-ink-mute">Payment method</span>
                   <span className="opp-meta-mono text-ink-mute flex items-center gap-1"><Icon name="lock" size={11} /> Secure</span>
                 </div>
                 <PaymentMethodTiles
@@ -802,7 +802,7 @@ export default function Checkout() {
         </div>
 
         <aside className="card-premium p-6 self-start md:sticky md:top-28">
-          <h3 className="font-mono text-[11px] font-semibold tracking-[0.14em] uppercase text-ink-mute m-0 mb-4">
+          <h3 className="font-mono text-[12px] font-semibold tracking-[0.14em] uppercase text-ink-mute m-0 mb-4">
             Order summary
           </h3>
           <div className="flex flex-col gap-3 pb-4 border-b border-line">
@@ -904,7 +904,7 @@ export default function Checkout() {
             </div>
           </div>
 
-          <div className="flex flex-col gap-1.5 pt-4 border-t border-line font-mono text-[10px] text-ink-soft">
+          <div className="flex flex-col gap-1.5 pt-4 border-t border-line font-mono text-[12px] text-ink-soft">
             <div className="flex items-center gap-2">
               <span className="text-accent-strong"><Icon name="lock" size={12} /></span>
               <span>Encrypted checkout</span>
@@ -931,7 +931,7 @@ export default function Checkout() {
 function Field({ label, children }) {
   return (
     <label className="flex flex-col gap-1.5 mb-4">
-      <span className="font-mono text-[10px] font-medium tracking-[0.14em] uppercase text-ink-mute">
+      <span className="font-mono text-[12px] font-medium tracking-[0.14em] uppercase text-ink-mute">
         {label}
       </span>
       {children}

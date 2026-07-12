@@ -27,9 +27,12 @@
   /* Typography — wired to next/font CSS variables set in _app.js */
   --font-body: var(--font-inter-tight, 'Inter Tight'), Helvetica, Arial, sans-serif;
   --font-mono: var(--font-jetbrains-mono, 'JetBrains Mono'), ui-monospace, monospace;
-  --font-display: var(--font-inter-tight, 'Inter Tight'), Helvetica, Arial, sans-serif;
-  --display-weight: 500;
-  --display-tracking: -0.035em;
+  /* Engraved lapidary serif (Cinzel) — the premium display posture that pairs
+     with the gold script wordmark. Revert = point back at --font-inter-tight
+     with weight 500 / tracking -0.035em. */
+  --font-display: var(--font-cinzel, 'Cinzel'), 'Times New Roman', serif;
+  --display-weight: 600;
+  --display-tracking: 0.02em;
 
   /* Geometry */
   --radius: 6px;
@@ -61,9 +64,9 @@
     font-size: 13px; font-weight: 700; letter-spacing: 0.02em;
     transition: transform 0.12s, background 0.15s, border-color 0.15s, color 0.15s;
   }
-  .btn-primary:hover { background: var(--accentGlow); border-color: var(--accentGlow); color: var(--bg); }
-  .btn-primary:active { transform: translateY(1px); }
-  .btn-primary:disabled { background: var(--inkMute); border-color: var(--inkMute); cursor: not-allowed; opacity: 0.6; }
+  .btn-primary:hover { background: var(--accentGlow); border-color: var(--accentGlow); color: var(--bg); box-shadow: 0 12px 32px -8px rgba(245, 166, 35, 0.55); }
+  .btn-primary:active { transform: scale(0.98); }
+  .btn-primary:disabled { background: var(--inkMute); border-color: var(--inkMute); cursor: not-allowed; opacity: 0.6; box-shadow: none; }
 
   .btn-outline {
     display: inline-flex; align-items: center; justify-content: center; gap: 8px;
@@ -96,7 +99,7 @@
   .opp-eyebrow {
     display: inline-block;
     font-family: var(--font-mono);
-    font-size: 11px;
+    font-size: 12px;
     letter-spacing: 0.14em;
     text-transform: uppercase;
     color: var(--inkSoft);
@@ -104,7 +107,7 @@
   }
   .opp-meta-mono {
     font-family: var(--font-mono);
-    font-size: 11px;
+    font-size: 12px;
     letter-spacing: 0.04em;
     color: var(--inkSoft);
   }
@@ -209,7 +212,9 @@
 .admin-tabs::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
 
 @media (max-width: 768px) {
-  .admin-shell table {
+  /* :not(.orders-table) — the Orders table restacks into cards instead
+     (see the admin app-shell layer at the end of this file). */
+  .admin-shell table:not(.orders-table) {
     display: block;
     width: 100%;
     max-width: 100%;
@@ -379,4 +384,123 @@ button, a, input, select, textarea, label, summary { touch-action: manipulation;
 @media (prefers-reduced-motion: reduce) {
   .skel, .fade-rise { animation: none; }
   .btn-glow:hover, .btn-glow:active { transform: none; }
+}
+
+/* ============================================================
+   Admin app-shell — the coaching-app mobile pass ported to the
+   admin dashboard: sticky blurred header, bottom tab bar + More
+   sheet, touch ergonomics, and the Orders table restacked into
+   labeled cards on phones. Desktop admin is untouched.
+   ============================================================ */
+@media (max-width: 700px) {
+  .admin-shell .admin-header {
+    position: sticky; top: 0; z-index: 40;
+    background: rgba(10, 10, 12, 0.88);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+  }
+  .admin-shell .admin-tabs { display: none; }
+  .admin-shell .admin-content {
+    padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+.admin-bottom-bar {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 50;
+  display: flex;
+  background: rgba(10, 10, 12, 0.92);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-top: 1px solid var(--border);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.admin-bottom-bar button {
+  flex: 1; padding: 13px 4px 11px;
+  font-family: var(--font-mono);
+  font-size: 10.5px; font-weight: 600;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--inkSoft);
+  border-top: 2px solid transparent;
+  transition: color 0.15s, transform 0.1s;
+}
+.admin-bottom-bar button.active { color: var(--accent); border-top-color: var(--accent); }
+.admin-bottom-bar button:active { transform: scale(0.94); }
+@media (min-width: 701px) { .admin-bottom-bar { display: none; } }
+
+/* More sheet (bottom action sheet, coaching-style) */
+.admin-sheet-bg {
+  position: fixed; inset: 0; z-index: 60;
+  background: rgba(0, 0, 0, 0.6);
+  animation: sheet-fade-bg 0.2s ease;
+}
+.admin-sheet {
+  position: fixed; left: 10px; right: 10px;
+  bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+  z-index: 61;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  overflow: hidden;
+  animation: sheet-rise 0.22s ease;
+}
+@keyframes sheet-fade-bg { from { opacity: 0; } }
+@keyframes sheet-rise { from { transform: translateY(26px); opacity: 0; } }
+
+/* Touch ergonomics: ≥16px inputs kill iOS zoom-on-focus; press-down physics
+   replace hover states; comfortable tap targets. */
+@media (pointer: coarse) {
+  .admin-shell input, .admin-shell select, .admin-shell textarea {
+    font-size: 16px !important;
+    min-height: 42px;
+  }
+  .admin-shell input[type='checkbox'] {
+    min-height: 22px; width: 22px; height: 22px;
+  }
+  .admin-shell button { min-height: 38px; }
+  .admin-shell button:active { transform: scale(0.97); }
+}
+
+/* Orders table → stacked, labeled cards on phones. Same DOM, CSS-only:
+   thead drops, each row becomes a card, each cell stacks with a mono
+   micro-label from data-label. The expanded detail row flows naturally
+   as a full-width block. */
+@media (max-width: 700px) {
+  .orders-table { border-collapse: separate; }
+  .orders-table, .orders-table tbody, .orders-table tr, .orders-table td { display: block; width: 100%; }
+  .orders-table thead { display: none; }
+  .orders-table tbody tr {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    margin: 10px;
+    background: var(--surface);
+    overflow: hidden;
+  }
+  .orders-table td {
+    border: none !important;
+    padding: 7px 14px !important;
+    text-align: left !important;
+  }
+  .orders-table td[data-label]::before {
+    content: attr(data-label);
+    display: block;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--inkMute);
+    margin-bottom: 2px;
+  }
+
+  /* Every other admin table just gets a horizontal scroll container. */
+  .admin-shell table:not(.orders-table) {
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-sheet, .admin-sheet-bg { animation: none; }
+  .admin-bottom-bar button:active, .btn-primary:active { transform: none; }
 }
