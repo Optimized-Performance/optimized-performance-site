@@ -14,7 +14,8 @@ import AltPaySaveBanner from '../components/AltPaySaveBanner';
 import CardPaymentPanel from '../components/CardPaymentPanel';
 import { useCohortUi } from '../lib/cohort-ui';
 import PaymentMethodTiles from '../components/PaymentMethodTiles';
-import { US_STATES } from '../lib/us-states';
+import { US_STATES, CA_PROVINCES } from '../lib/us-states';
+import { CANADA_SHIPPING_FLAT } from '../lib/shipping';
 
 // Read the opp_ref cookie set by lib/cohort-session when a visitor arrives
 // via a valid ?ref=CODE link. Used to pre-fill + auto-apply the affiliate
@@ -90,6 +91,11 @@ export default function Checkout() {
   const [city, setCity] = useState('');
   const [state, setState] = useState('');
   const [zip, setZip] = useState('');
+  // Destination country (Canada launch 2026-07-11). CA switches the province
+  // list, the $50 flat shipping, the card/crypto-only rails, and requires the
+  // customs-risk acknowledgment below.
+  const [country, setCountry] = useState('US');
+  const [customsAck, setCustomsAck] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submittingMethod, setSubmittingMethod] = useState(null);
   // Inline card experience: the create response's payment-intent client fields
@@ -258,7 +264,7 @@ export default function Checkout() {
     altPayDiscount,
     standardTotal: discountedTotal,
     altPayTotal,
-  } = computeOrderTotals({ lineItems: cartItems, affiliatePct: discountPct, recoveryPct });
+  } = computeOrderTotals({ lineItems: cartItems, affiliatePct: discountPct, recoveryPct, country });
   const altPayEnabled = cryptoEnabled || zelleEnabled;
   const altPayLabel = [cryptoEnabled && 'Crypto', zelleEnabled && 'Zelle'].filter(Boolean).join(' or ');
 
@@ -344,6 +350,10 @@ export default function Checkout() {
       alert('You must acknowledge the research-use terms (21+ and non-consumption) to proceed.');
       return false;
     }
+    if (country === 'CA' && !customsAck) {
+      alert('International orders require agreeing to the $50 shipping fee and the customs terms to proceed.');
+      return false;
+    }
     return true;
   };
 
@@ -358,11 +368,23 @@ export default function Checkout() {
     return idempotencyRef.current.key;
   };
 
-  // If the cart changes while the inline card panel is up, its payment intent
-  // amount is stale — drop the panel; the next "Pay with card" creates a fresh
-  // order + intent (new idempotency key, so no resume of the old amount).
+  // If the cart OR destination country changes while the inline card panel is
+  // up, its payment intent amount is stale — drop the panel; the next "Pay
+  // with card" creates a fresh order + intent.
   const cartSig = cartItems.map((i) => `${i.sku || i.id}:${i.quantity}`).sort().join('|');
-  useEffect(() => { setCardIntent(null); }, [cartSig]);
+  useEffect(() => { setCardIntent(null); }, [cartSig, country]);
+
+  // Country switch: the state/province lists don't overlap, the customs ack is
+  // CA-specific, and Zelle/Venmo/PayPal are US-bank rails — reset all three so
+  // a stale selection can't survive the switch.
+  const onCountryChange = (next) => {
+    setCountry(next);
+    setState('');
+    setCustomsAck(false);
+    if (next === 'CA' && ['zelle', 'venmo', 'paypal'].includes(selectedMethod)) {
+      setSelectedMethod(null);
+    }
+  };
 
   const buildOrderPayload = (paymentMethod) => ({
     name: name.trim(), email: email.trim(), address: address.trim(),
@@ -380,6 +402,8 @@ export default function Checkout() {
     researchUseAck: researchAck,
     researchField,
     paymentMethod,
+    country,
+    customsAck: country === 'CA' ? customsAck : undefined,
   });
 
   const handleCheckout = async (paymentMethod) => {
@@ -529,12 +553,15 @@ export default function Checkout() {
   // equal, card-grade tile (no primary-card-button vs. demoted-outline-alt
   // hierarchy, which signaled the alt rails as a sketchy side-door). Crypto and
   // Zelle show the alt-pay discount as a cheaper price + a SAVE badge — a perk, not a caveat.
+  // Zelle/Venmo/PayPal are US-bank rails — Canadian destinations get card +
+  // crypto only (server enforces the same in /api/orders/create).
+  const intl = country === 'CA';
   const paymentMethods = [
     cardUp && { key: 'card', label: 'Card', price: discountedTotal },
-    paypalUp && { key: 'paypal', label: 'PayPal', price: discountedTotal, sub: 'Pay Later & card too' },
+    paypalUp && !intl && { key: 'paypal', label: 'PayPal', price: discountedTotal, sub: 'Pay Later & card too' },
     cryptoUp && { key: 'crypto', label: 'Crypto', price: altPayTotal, perk: cohort ? `SAVE ${ALT_PAY_DISCOUNT_PCT}%` : undefined },
-    zelleUp && { key: 'zelle', label: 'Zelle', price: altPayTotal, perk: cohort ? `SAVE ${ALT_PAY_DISCOUNT_PCT}%` : undefined },
-    venmoUp && { key: 'venmo', label: 'Venmo', price: discountedTotal },
+    zelleUp && !intl && { key: 'zelle', label: 'Zelle', price: altPayTotal, perk: cohort ? `SAVE ${ALT_PAY_DISCOUNT_PCT}%` : undefined },
+    venmoUp && !intl && { key: 'venmo', label: 'Venmo', price: discountedTotal },
   ].filter(Boolean);
   // Pre-select the first available rail so the action area is never empty.
   const activeMethod = selectedMethod && paymentMethods.some((m) => m.key === selectedMethod)
@@ -613,15 +640,25 @@ export default function Checkout() {
             <Field label="Address">
               <input className="input-field" required placeholder="Street address" value={address} onChange={(e) => setAddress(e.target.value)} />
             </Field>
-            <div className="grid grid-cols-1 md:grid-cols-[2fr_1fr_1fr] gap-4 mb-4">
-              <Field label="City"><input className="input-field" required value={city} onChange={(e) => setCity(e.target.value)} /></Field>
-              <Field label="State"><select className="input-field" required value={state} onChange={(e) => setState(e.target.value)}>
-                <option value="" disabled>State…</option>
-                {US_STATES.map((s) => (<option key={s.code} value={s.code}>{s.name}</option>))}
+            <div className="grid grid-cols-1 md:grid-cols-[1fr_2fr] gap-4 mb-4">
+              <Field label="Country"><select className="input-field" required value={country} onChange={(e) => onCountryChange(e.target.value)}>
+                <option value="US">United States</option>
+                <option value="CA">Canada</option>
               </select></Field>
-              <Field label="ZIP"><input className="input-field" required value={zip} onChange={(e) => setZip(e.target.value)} /></Field>
+              <Field label="City"><input className="input-field" required value={city} onChange={(e) => setCity(e.target.value)} /></Field>
             </div>
-            <p className="opp-meta-mono text-ink-soft -mt-2 mb-4 m-0">We currently ship within the United States only.</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+              <Field label={country === 'CA' ? 'Province / Territory' : 'State'}><select className="input-field" required value={state} onChange={(e) => setState(e.target.value)}>
+                <option value="" disabled>{country === 'CA' ? 'Province…' : 'State…'}</option>
+                {(country === 'CA' ? CA_PROVINCES : US_STATES).map((s) => (<option key={s.code} value={s.code}>{s.name}</option>))}
+              </select></Field>
+              <Field label={country === 'CA' ? 'Postal code' : 'ZIP'}><input className="input-field" required value={zip} onChange={(e) => setZip(e.target.value)} placeholder={country === 'CA' ? 'A1A 1A1' : ''} /></Field>
+            </div>
+            <p className="opp-meta-mono text-ink-soft -mt-2 mb-4 m-0">
+              {country === 'CA'
+                ? `Canadian orders ship at a flat $${CANADA_SHIPPING_FLAT} international rate — card or crypto payment.`
+                : 'We ship within the United States and Canada.'}
+            </p>
 
             <Field label="Affiliate / Promo Code (optional)">
               <div className="flex gap-2">
@@ -676,6 +713,27 @@ export default function Checkout() {
                 dosing, injection, ingestion, or administration.
               </span>
             </label>
+
+            {country === 'CA' && (
+              <label className="flex items-start gap-3 mb-4 p-4 rounded-opp-lg border border-accent-strong bg-accent-soft text-[13px] leading-relaxed text-ink-soft cursor-pointer fade-rise">
+                <input
+                  type="checkbox"
+                  required
+                  className="mt-0.5"
+                  checked={customsAck}
+                  onChange={(e) => setCustomsAck(e.target.checked)}
+                />
+                <span>
+                  <span className="font-semibold text-ink">International order acknowledgment.</span>{' '}
+                  I agree to the ${CANADA_SHIPPING_FLAT} flat international shipping fee. I understand that
+                  cross-border shipments are made entirely at my own risk: Syngyn is not responsible for
+                  shipments that are delayed, held, inspected, or seized by customs or any border authority,
+                  and no refund, replacement, or credit will be issued for orders that do not clear customs.
+                  By checking this box I expressly waive any right to a refund or replacement for
+                  customs-related loss.
+                </span>
+              </label>
+            )}
 
             {cartOffCard && (
               <div className="mb-4 p-4 rounded-opp-lg border border-accent-strong bg-accent-soft text-center">

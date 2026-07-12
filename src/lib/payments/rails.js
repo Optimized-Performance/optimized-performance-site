@@ -54,7 +54,7 @@ const RAILS = {
           city: customer.city,
           state: customer.state,
           zip: customer.zip,
-          country: 'US',
+          country: customer.country || 'US',
         },
         returnUrl: urls.returnUrl,
         cancelUrl: urls.cancelUrl,

@@ -292,7 +292,7 @@ export default function OrderLookup() {
               <div className="text-sm text-ink leading-relaxed">
                 {order.customer_name}<br />
                 {order.shipping_address}<br />
-                {order.city}, {order.state} {order.zip}
+                {order.city}, {order.state} {order.zip}{order.country && order.country !== 'US' ? `, ${order.country === 'CA' ? 'Canada' : order.country}` : ''}
               </div>
             </div>
 

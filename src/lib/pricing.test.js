@@ -249,3 +249,66 @@ describe('computeOrderTotals — volume breaks', () => {
     expect(r.volumeDiscount).toEqual(money(0))
   })
 })
+
+// Canada shipping (2026-07-11): flat $50 international — immune to the
+// free-shipping threshold, site-wide sales, and the cold-pack surcharge.
+import { CANADA_SHIPPING_FLAT } from './shipping.js'
+
+describe('Canada shipping (flat $50)', () => {
+  const money = (v) => expect.closeTo(v, 2)
+  const NO_PROMO = new Date('2026-06-10T12:00:00Z')
+  const IN_MEMORIAL = new Date('2026-05-24T12:00:00Z')
+
+  it('charges the flat rate on a small vial cart', () => {
+    const r = computeOrderTotals({
+      lineItems: [{ id: 'x', price: 100, quantity: 1, isKit: false }],
+      paymentMethod: 'card',
+      country: 'CA',
+      now: NO_PROMO,
+    })
+    expect(r.shipping.total).toEqual(money(CANADA_SHIPPING_FLAT))
+    expect(r.shipping.international).toBe(true)
+    expect(r.standardTotal).toEqual(money(150))
+  })
+
+  it('ignores the free-shipping threshold', () => {
+    const r = computeOrderTotals({
+      lineItems: [{ id: 'x', price: 300, quantity: 1, isKit: false }],
+      paymentMethod: 'card',
+      country: 'CA',
+      now: NO_PROMO,
+    })
+    expect(r.shipping.total).toEqual(money(CANADA_SHIPPING_FLAT))
+    expect(r.shipping.freeShipApplied).toBe(false)
+  })
+
+  it('ignores the site-wide sale free-shipping override', () => {
+    const r = computeOrderTotals({
+      lineItems: [{ id: 'x', price: 100, quantity: 1, isKit: false }],
+      paymentMethod: 'card',
+      country: 'CA',
+      now: IN_MEMORIAL,
+    })
+    expect(r.shipping.total).toEqual(money(CANADA_SHIPPING_FLAT))
+  })
+
+  it('does not add the cold-pack surcharge on kit carts (flat covers it)', () => {
+    const r = computeOrderTotals({
+      lineItems: [{ id: 'x', price: 100, quantity: 1, isKit: true }],
+      paymentMethod: 'card',
+      country: 'CA',
+      now: NO_PROMO,
+    })
+    expect(r.shipping.total).toEqual(money(CANADA_SHIPPING_FLAT))
+    expect(r.shipping.hasColdPack).toBe(true)
+  })
+
+  it('US default stays on the domestic table', () => {
+    const r = computeOrderTotals({
+      lineItems: [{ id: 'x', price: 100, quantity: 1, isKit: false }],
+      paymentMethod: 'card',
+      now: NO_PROMO,
+    })
+    expect(r.shipping.total).toEqual(money(16.95))
+  })
+})

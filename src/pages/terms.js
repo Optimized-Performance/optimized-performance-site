@@ -80,9 +80,20 @@ export default function TermsOfService() {
               Orders are processed and shipped within 1-2 business days. Estimated delivery times are
               not guaranteed. {companyName} is not responsible for carrier delays.
             </p>
-            <p className="text-sm text-ink-soft leading-relaxed">
+            <p className="text-sm text-ink-soft leading-relaxed mb-3">
               Risk of loss and title pass to you upon delivery to the carrier. All shipments include
               discrete packaging.
+            </p>
+            <p className="text-sm text-ink-soft leading-relaxed">
+              <strong className="text-ink">International (Canadian) orders.</strong> Canadian orders ship at a
+              flat $50 international rate and are accepted only upon your express acknowledgment, given at
+              checkout, of the following terms: cross-border shipments are made entirely at your own risk;
+              {' '}{companyName} has no control over and assumes no responsibility for customs or border
+              processing of any kind; and <strong className="text-ink">no refund, replacement, or credit will
+              be issued for any order that is delayed, held, inspected, or seized by customs or any border
+              authority, or that otherwise fails to clear the border</strong>. By completing an international
+              order you expressly waive any right to a refund, replacement, or chargeback for customs-related
+              loss. Any duties, taxes, or brokerage fees are your sole responsibility.
             </p>
           </Section>
 

@@ -21,13 +21,29 @@
 export const SHIPPING_BASE = 16.95
 export const COLD_PACK_SURCHARGE = 17
 export const FREE_SHIPPING_THRESHOLD = 250
+// Canada (2026-07-11): flat international rate. Deliberately NOT touched by
+// the free-shipping threshold, site-wide sales, or the cold-pack surcharge —
+// $50 is the all-in cross-border price, always. Customs risk rides with the
+// customer (explicit waiver collected at checkout; see orders/create).
+export const CANADA_SHIPPING_FLAT = 50
 
 export function cartRequiresColdPack(items) {
   if (!Array.isArray(items)) return false
   return items.some((it) => it && it.isKit === true)
 }
 
-export function calcShipping({ items, discountedSubtotal, saleActive = false }) {
+export function calcShipping({ items, discountedSubtotal, saleActive = false, country = 'US' }) {
+  if (country === 'CA') {
+    return {
+      base: CANADA_SHIPPING_FLAT,
+      coldPack: 0,
+      total: CANADA_SHIPPING_FLAT,
+      hasColdPack: cartRequiresColdPack(items),
+      freeShipApplied: false,
+      saleApplied: false,
+      international: true,
+    }
+  }
   const coldPack = cartRequiresColdPack(items)
   // Memorial Day (and any future) site-wide sale: free shipping overrides
   // normal calc including cold-pack surcharge. Cold-chain is still used for

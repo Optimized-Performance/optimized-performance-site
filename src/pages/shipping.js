@@ -64,8 +64,18 @@ export default function ShippingReturns() {
               <li><strong className="text-ink">Free standard shipping on vial-only orders $250+</strong> (after any affiliate or promo discount).</li>
               <li><strong className="text-ink">Cold-pack shipping ($33.95 flat) applies to all kit orders</strong> regardless of order total — kits ship USPS Priority in a larger thermal-insulated mailer. The surcharge covers the larger mailer and faster transit kits require.</li>
               <li>All orders ship from within the United States.</li>
-              <li>We currently ship to <strong className="text-ink">US addresses only</strong>.</li>
+              <li>We ship to <strong className="text-ink">US and Canadian addresses</strong>.</li>
               <li>Shipping times are estimates and not guaranteed.</li>
+            </ul>
+          </Section>
+
+          <Section title="Shipping to Canada">
+            <ul className="list-disc pl-5 space-y-1.5 text-sm text-ink-soft leading-relaxed">
+              <li><strong className="text-ink">Flat $50 international shipping</strong> on all Canadian orders, regardless of order size. The free-shipping threshold and promotional shipping offers do not apply to international orders.</li>
+              <li>Canadian orders can be paid by <strong className="text-ink">card or crypto</strong>.</li>
+              <li><strong className="text-ink">Customs, duties, and import risk are entirely the customer&apos;s responsibility.</strong> Cross-border shipments may be delayed, inspected, held, or seized by customs or border authorities. We have no control over, and assume no responsibility for, customs processing in any form.</li>
+              <li><strong className="text-ink">No refunds or replacements for customs-related loss.</strong> By placing a Canadian order you expressly acknowledge and agree — via a required checkbox at checkout — that no refund, replacement, or credit will be issued for any order that is delayed, held, or seized by customs or otherwise fails to clear the border, and you waive any right to a refund or chargeback on that basis. Ordering across the border is entirely at your own risk.</li>
+              <li>Any duties, taxes, or brokerage fees assessed by Canadian authorities are the customer&apos;s sole responsibility.</li>
             </ul>
           </Section>
 

@@ -2,7 +2,7 @@ import { supabaseAdmin } from '../../../lib/supabase'
 import { validateOrigin, rateLimit, validateEmail, validateString, validateZip } from '../../../lib/security'
 import { getRail, isInstantRail as railIsInstant } from '../../../lib/payments/rails'
 import { resolvePaypalAccount } from '../../../lib/payments/paypalAccounts'
-import { isUsState } from '../../../lib/us-states'
+import { isUsState, isCaProvince, isCaPostal } from '../../../lib/us-states'
 import { runVelocityChecks, extractClientIP } from '../../../lib/fraud-checks'
 import { getCustomerIdFromReq } from '../../../lib/customer-session'
 import { computeOrderTotals } from '../../../lib/pricing'
@@ -54,7 +54,9 @@ export default async function handler(req, res) {
 
   try {
     let { name, email, address, city, state, zip } = req.body
-    const { items, affiliateCode, recoveryToken, sessionId, researchUseAck, researchField, paymentMethod, idempotencyKey, paypalAccount } = req.body
+    const { items, affiliateCode, recoveryToken, sessionId, researchUseAck, researchField, paymentMethod, idempotencyKey, paypalAccount, customsAck } = req.body
+    // Destination country: 'US' (default) or 'CA' (Canada launch 2026-07-11).
+    const country = req.body.country === 'CA' ? 'CA' : 'US'
 
     // Trim string fields before validating. Trailing/leading whitespace from
     // mobile autofill is common, and validateEmail is whitespace-intolerant and
@@ -81,18 +83,40 @@ export default async function handler(req, res) {
     if (!Array.isArray(items) || !items.length) return res.status(400).json({ error: 'Your cart appears to be empty — please re-add your items.' })
     if (items.length > 50) return res.status(400).json({ error: 'Too many items in cart (max 50).' })
 
-    // US-only shipping gate. The State field is a US-states dropdown client-side,
-    // but enforce it HERE too — a client gate can be bypassed, and this is what
-    // actually stops an unshippable international order from being created +
-    // charged (an AU order slipped through when State was free-text). Gates on
-    // the destination address, NOT visitor IP, so VPN'd/traveling US customers
-    // shipping to a US address are unaffected.
-    if (!isUsState(state)) {
-      return res.status(400).json({ error: 'We currently ship within the United States only.' })
+    // Destination gate (US + Canada). The State/Province field is a dropdown
+    // client-side, but enforce it HERE too — a client gate can be bypassed,
+    // and this is what actually stops an unshippable international order from
+    // being created + charged (an AU order slipped through when State was
+    // free-text). Gates on the destination address, NOT visitor IP, so
+    // VPN'd/traveling customers shipping to a supported address are unaffected.
+    if (country === 'CA') {
+      if (!isCaProvince(state)) {
+        return res.status(400).json({ error: 'Please select a valid Canadian province or territory.' })
+      }
+      if (!isCaPostal(zip)) {
+        return res.status(400).json({ error: 'Please enter a valid Canadian postal code (A1A 1A1).' })
+      }
+      // The customs-risk waiver is the condition of selling cross-border:
+      // the customer explicitly agreed to the $50 flat international fee and
+      // waived refunds/replacements for customs delays or seizure. Enforced
+      // server-side so the recorded ack survives client tampering — this is
+      // the chargeback/audit evidence, stored on the order as customs_ack.
+      if (customsAck !== true) {
+        return res.status(400).json({ error: 'International orders require acknowledging the customs terms and the $50 shipping fee.' })
+      }
+    } else if (!isUsState(state)) {
+      return res.status(400).json({ error: 'We currently ship within the United States and Canada only.' })
     }
 
     if (paymentMethod !== 'card' && paymentMethod !== 'crypto' && paymentMethod !== 'zelle' && paymentMethod !== 'venmo' && paymentMethod !== 'paypal') {
       return res.status(400).json({ error: 'Invalid paymentMethod (must be "card", "crypto", "zelle", "venmo", or "paypal")' })
+    }
+
+    // Zelle/Venmo are US-bank rails — a Canadian customer can't send either.
+    // Card + crypto only for international orders (server-enforced; the tiles
+    // are also hidden client-side).
+    if (country === 'CA' && (paymentMethod === 'zelle' || paymentMethod === 'venmo' || paymentMethod === 'paypal')) {
+      return res.status(400).json({ error: 'Canadian orders can be paid by card or crypto.' })
     }
 
     // Card rail is gated behind NEXT_PUBLIC_CARD_ENABLED so it can be flipped
@@ -249,6 +273,7 @@ export default async function handler(req, res) {
       affiliatePct: validatedDiscountPct,
       recoveryPct,
       paymentMethod,
+      country,
     })
     const subtotal = totals.subtotal
     const discount = totals.affiliateDiscount
@@ -396,6 +421,11 @@ export default async function handler(req, res) {
       subtotal,
       shipping,
       total,
+      // Destination + customs waiver (v34). customs_ack is the recorded
+      // agreement to the $50 intl fee + no-refund-on-seizure terms — the
+      // chargeback/audit evidence for CA orders.
+      country,
+      customs_ack: country === 'CA' && customsAck === true,
       // COGS snapshot (v33): estimated vendor cost of this cart, frozen at
       // create time like affiliate_commission_pct — the commission basis is
       // total - shipping - cogs (lib/commission). Computed from the
@@ -466,13 +496,15 @@ export default async function handler(req, res) {
         .select()
         .single()
 
-      // Missing-column backstop: if migration v33 (orders.cogs) hasn't been
-      // applied yet, drop the snapshot and retry once — the COGS estimate must
-      // never take checkout down. The order then carries cogs NULL (legacy
-      // commission basis), which is exactly the pre-migration behavior.
-      if (error && /cogs/i.test(error.message || '')) {
-        console.warn('[orders/create] insert retry without cogs (migration v33 not applied?):', error.message)
+      // Missing-column backstop: if migration v33 (orders.cogs) or v34
+      // (country/customs_ack) hasn't been applied yet, drop those fields and
+      // retry once — a lagging migration must never take checkout down. The
+      // order then carries the pre-migration defaults.
+      if (error && /cogs|country|customs_ack/i.test(error.message || '')) {
+        console.warn('[orders/create] insert retry without v33/v34 columns (migration not applied?):', error.message)
         delete insertData.cogs
+        delete insertData.country
+        delete insertData.customs_ack
         ;({ data: inserted, error } = await supabaseAdmin
           .from('orders')
           .insert(insertData)
@@ -545,7 +577,7 @@ export default async function handler(req, res) {
         order,
         orderNumber,
         total,
-        customer: { name, email, address, city, state, zip },
+        customer: { name, email, address, city, state, zip, country },
         urls: {
           returnUrl: `${SITE_URL}/checkout/success?order=${encodeURIComponent(orderNumber)}`,
           cancelUrl: `${SITE_URL}/checkout/cancel?order=${encodeURIComponent(orderNumber)}`,

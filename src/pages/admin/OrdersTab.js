@@ -752,11 +752,11 @@ export default function OrdersTab({ products = [], showSaveMsg, token }) {
 
   function exportCSV() {
     const filtered = applyFilters(orders);
-    const headers = ['Order #', 'Payment', 'Status', 'Date', 'Customer', 'Email', 'Address', 'City', 'State', 'ZIP', 'Items', 'Has Preorder', 'Preorder Ship Date', 'Subtotal', 'Discount', 'Shipping', 'Total', 'Refund Amount', 'Refunded At', 'Refund Reason', 'Affiliate Code', 'Commission %', 'Tracking', 'Notes'];
+    const headers = ['Order #', 'Payment', 'Status', 'Date', 'Customer', 'Email', 'Address', 'City', 'State', 'ZIP', 'Country', 'Items', 'Has Preorder', 'Preorder Ship Date', 'Subtotal', 'Discount', 'Shipping', 'Total', 'Refund Amount', 'Refunded At', 'Refund Reason', 'Affiliate Code', 'Commission %', 'Tracking', 'Notes'];
     const rows = filtered.map((o) => [
       o.order_number, o.payment_status || '', STATUS_LABELS[o.fulfillment_status || 'pending'],
       new Date(o.created_at).toLocaleDateString(), o.customer_name, o.customer_email,
-      o.shipping_address || '', o.city || '', o.state || '', o.zip || '',
+      o.shipping_address || '', o.city || '', o.state || '', o.zip || '', o.country || 'US',
       (o.items || []).map((i) => `${i.name} x${i.quantity}${i.isPreorder ? ' [PREORDER]' : ''}`).join('; '),
       hasPreorderItems(o) ? 'YES' : 'no',
       latestPreorderShipDateISO(o) || '',
@@ -1228,7 +1228,7 @@ export default function OrdersTab({ products = [], showSaveMsg, token }) {
                               <div className="opp-meta-mono uppercase mb-1">Shipping</div>
                               <div className="text-[13px] text-ink leading-relaxed">
                                 {order.shipping_address}<br />
-                                {order.city}, {order.state} {order.zip}
+                                {order.city}, {order.state} {order.zip}{order.country && order.country !== 'US' ? `, ${order.country}` : ''}
                               </div>
                             </div>
                             <div>

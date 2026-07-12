@@ -80,3 +80,36 @@ export function isUsState(value) {
   if (typeof value !== 'string') return false
   return US_STATE_LOOKUP.has(value.trim().toLowerCase())
 }
+
+// ── Canada (2026-07-11: Canada shipping enabled — flat $50, customs-risk
+// acknowledgment required at checkout; see lib/shipping + orders/create) ──
+export const CA_PROVINCES = [
+  { code: 'AB', name: 'Alberta' },
+  { code: 'BC', name: 'British Columbia' },
+  { code: 'MB', name: 'Manitoba' },
+  { code: 'NB', name: 'New Brunswick' },
+  { code: 'NL', name: 'Newfoundland and Labrador' },
+  { code: 'NS', name: 'Nova Scotia' },
+  { code: 'NT', name: 'Northwest Territories' },
+  { code: 'NU', name: 'Nunavut' },
+  { code: 'ON', name: 'Ontario' },
+  { code: 'PE', name: 'Prince Edward Island' },
+  { code: 'QC', name: 'Quebec' },
+  { code: 'SK', name: 'Saskatchewan' },
+  { code: 'YT', name: 'Yukon' },
+]
+
+const CA_PROVINCE_LOOKUP = new Set(
+  CA_PROVINCES.flatMap((p) => [p.code.toLowerCase(), p.name.toLowerCase()])
+)
+
+export function isCaProvince(value) {
+  if (typeof value !== 'string') return false
+  return CA_PROVINCE_LOOKUP.has(value.trim().toLowerCase())
+}
+
+// Canadian postal code (A1A 1A1, space optional). Mirrors client + server.
+export function isCaPostal(value) {
+  if (typeof value !== 'string') return false
+  return /^[A-Za-z]\d[A-Za-z]\s?\d[A-Za-z]\d$/.test(value.trim())
+}

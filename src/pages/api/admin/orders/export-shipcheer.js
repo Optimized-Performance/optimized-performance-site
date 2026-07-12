@@ -104,7 +104,7 @@ export default async function handler(req, res) {
   try {
     const { data, error } = await supabaseAdmin
       .from('orders')
-      .select('order_number, customer_name, customer_email, shipping_address, city, state, zip, items, fulfillment_status, fraud_status')
+      .select('order_number, customer_name, customer_email, shipping_address, city, state, zip, country, items, fulfillment_status, fraud_status')
       .eq('payment_status', 'completed')
       .is('tracking', null)
       .neq('fraud_status', 'blocked')
@@ -126,7 +126,7 @@ export default async function handler(req, res) {
         '', // Company Name — not collected at checkout
         '', // Phone — not collected at checkout
         o.customer_email || '',
-        'United States',
+        o.country === 'CA' ? 'Canada' : 'United States',
         street,
         o.city || '',
         o.state || '',

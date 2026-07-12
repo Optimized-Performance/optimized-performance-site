@@ -139,6 +139,9 @@ export default async function handler(req, res) {
       affiliatePct,
       recoveryPct,
       paymentMethod: order.payment_method,
+      // Keep the destination's shipping rule — editing a Canadian order must
+      // recompute with the $50 flat, not the US table (v34).
+      country: order.country || 'US',
     })
     const newTotal = totals.total
     const newShipping = totals.shipping.total

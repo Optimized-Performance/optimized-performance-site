@@ -445,7 +445,7 @@ export async function sendOrderConfirmation(order) {
     ``,
     `Total: $${order.total.toFixed(2)}`,
     ``,
-    `Shipping to: ${order.shipping_address}, ${order.city}, ${order.state} ${order.zip}`,
+    `Shipping to: ${order.shipping_address}, ${order.city}, ${order.state} ${order.zip}${order.country && order.country !== 'US' ? ', ' + order.country : ''}`,
     ``,
     showRebrandNotice ? rebrandNotice : ``,
     showRebrandNotice ? `` : ``,
@@ -461,7 +461,7 @@ export async function sendOrderConfirmation(order) {
       value: `$${(i.price * i.quantity).toFixed(2)}`,
     })),
     { label: 'Total', value: `$${order.total.toFixed(2)}`, strong: true, accent: true },
-  ]) + `<div style="font-family:${EMAIL_FONT};font-size:13px;color:#6E6D68;line-height:1.5;">Shipping to: ${escapeHtml(order.shipping_address)}, ${escapeHtml(order.city)}, ${escapeHtml(order.state)} ${escapeHtml(order.zip)}</div>`;
+  ]) + `<div style="font-family:${EMAIL_FONT};font-size:13px;color:#6E6D68;line-height:1.5;">Shipping to: ${escapeHtml(order.shipping_address)}, ${escapeHtml(order.city)}, ${escapeHtml(order.state)} ${escapeHtml(order.zip)}${order.country && order.country !== 'US' ? ', ' + escapeHtml(order.country) : ''}</div>`;
   const html = renderBrandedEmail({
     preheader: `Order ${order.order_number} confirmed — thank you!`,
     eyebrow: 'Order confirmed',
@@ -524,7 +524,7 @@ export async function sendOrderCompletedOwnerAlert(order) {
     itemLines,
     ``,
     `Total: $${total}`,
-    `Ship to: ${order.shipping_address || ''}, ${order.city || ''}, ${order.state || ''} ${order.zip || ''}`,
+    `Ship to: ${order.shipping_address || ''}, ${order.city || ''}, ${order.state || ''} ${order.zip || ''}${order.country && order.country !== 'US' ? ', ' + order.country : ''}`,
   ].join('\n');
 
   const detailsHtml = emailDetailTable([
@@ -535,7 +535,7 @@ export async function sendOrderCompletedOwnerAlert(order) {
     { label: 'Total', value: `$${total}`, strong: true, accent: true },
     { label: 'Rail', value: escapeHtml(rail) },
     { label: 'Ref', value: escapeHtml(ref) },
-  ]) + `<div style="font-family:${EMAIL_FONT};font-size:13px;color:#6E6D68;line-height:1.5;">${escapeHtml(order.customer_name || '')} &middot; ${escapeHtml(order.customer_email || '')}<br/>Ship to: ${escapeHtml(order.shipping_address || '')}, ${escapeHtml(order.city || '')}, ${escapeHtml(order.state || '')} ${escapeHtml(order.zip || '')}</div>`;
+  ]) + `<div style="font-family:${EMAIL_FONT};font-size:13px;color:#6E6D68;line-height:1.5;">${escapeHtml(order.customer_name || '')} &middot; ${escapeHtml(order.customer_email || '')}<br/>Ship to: ${escapeHtml(order.shipping_address || '')}, ${escapeHtml(order.city || '')}, ${escapeHtml(order.state || '')} ${escapeHtml(order.zip || '')}${order.country && order.country !== 'US' ? ', ' + escapeHtml(order.country) : ''}</div>`;
   const html = renderBrandedEmail({
     preheader: `New sale ${order.order_number} — $${total}`,
     eyebrow: 'Internal · New sale',
