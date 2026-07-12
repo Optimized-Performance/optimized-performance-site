@@ -152,7 +152,7 @@ export default function OrdersTab({ products = [], showSaveMsg, token }) {
   // holds hundreds of orders; rendering every one as a block card made mobile
   // Safari drop frames compositing the scroll ("jumps around" on the All
   // filter while short filters were smooth). Show-more appends in pages.
-  const PAGE_SIZE = 60;
+  const PAGE_SIZE = 30;
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
