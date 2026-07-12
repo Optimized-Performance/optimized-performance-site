@@ -137,9 +137,24 @@ export default function CardPaymentPanel({ intent, orderNumber, amount, billing,
         // card ToS microtext off; Link suppressed — its bundled saved-card UI
         // is what made the default render look off-brand. Older Stripe.js
         // rejects the link wallet key, so fall back without it.
+        //
+        // billingDetails must be GRANULAR, not the blanket 'never': the
+        // blanket form makes confirmPayment demand EVERY billing field —
+        // including phone, which checkout doesn't collect — and hard-fails
+        // the confirm with an IntegrationError (live incident 7/11, caught by
+        // Wes/Matt on a real card). phone:'auto' lets Stripe render a phone
+        // field only for methods that require one instead of demanding it
+        // from us.
         const baseOpts = {
           layout: { type: 'tabs' },
-          fields: { billingDetails: 'never' },
+          fields: {
+            billingDetails: {
+              name: 'never',
+              email: 'never',
+              phone: 'auto',
+              address: 'never',
+            },
+          },
           terms: { card: 'never' },
         };
         try {
