@@ -19,41 +19,13 @@
 import { supabaseAdmin } from '../../../../lib/supabase'
 import { validateSessionToken } from '../../../../lib/session'
 import { validateOrigin, rateLimit } from '../../../../lib/security'
-import { cartRequiresColdPack } from '../../../../lib/shipping'
+// Package specs + address parsing moved to lib/fulfillment (shared with the
+// Shippo label purchase, which replaced this export as the primary flow).
+import { packageSpecForOrder, splitStreetAndApt } from '../../../../lib/fulfillment'
 
 function requireAuth(req) {
   const token = req.headers['x-admin-token']
   return validateSessionToken(token)
-}
-
-// Conservative per-package defaults derived from the cart contents. Cold-chain
-// packaging pivoted 2026-05-11 from Uline insulated boxes + PCM gel to
-// thermal-insulated mailers. The dimensions below are the historical Uline
-// box specs — they still produce safe (over-)estimates for ShipCheer's
-// postage quote engine, so labels won't underpay, but they're not accurate
-// to the actual mailer shape. TODO once the thermal-mailer SKUs are received
-// and confirmed: replace with real outer dims + weights so postage estimates
-// match billed cost.
-function packageSpecForOrder(items) {
-  if (cartRequiresColdPack(items)) {
-    return { lbs: 5, oz: 0, length: 10, width: 8, height: 9 }
-  }
-  return { lbs: 1, oz: 8, length: 8, width: 6, height: 5 }
-}
-
-// Best-effort apartment/suite extraction from the single-line shipping
-// address customers type at checkout. ShipCheer wants Street + Apt as
-// separate columns. If we can't parse it, leave Apt blank and put the
-// whole string in Street — ShipCheer's address validator handles the rest.
-function splitStreetAndApt(addressLine) {
-  if (!addressLine) return { street: '', apt: '' }
-  const s = String(addressLine).trim()
-  const aptPattern = /\b(apt|apartment|unit|suite|ste|#)\.?\s*[\w-]+/i
-  const match = s.match(aptPattern)
-  if (!match) return { street: s, apt: '' }
-  const apt = match[0].trim()
-  const street = s.replace(aptPattern, '').replace(/[,\s]+$/, '').trim()
-  return { street, apt }
 }
 
 function csvCell(value) {

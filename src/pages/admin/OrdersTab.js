@@ -136,6 +136,7 @@ export default function OrdersTab({ products = [], showSaveMsg, token }) {
     affiliateCode: '', paymentMethod: 'zelle', priceOverride: '', sendConfirmation: true,
     lines: [{ productId: '', quantity: 1 }],
   };
+  const [labelBuying, setLabelBuying] = useState(null); // order id mid-purchase (Shippo)
   const [manualOpen, setManualOpen] = useState(false);
   const [manualSubmitting, setManualSubmitting] = useState(false);
   const [manualForm, setManualForm] = useState(MANUAL_FORM_BLANK);
@@ -377,6 +378,31 @@ export default function OrdersTab({ products = [], showSaveMsg, token }) {
     } catch {
       /* fail */
     }
+  }
+
+  // Buy a real USPS label via Shippo (replaces the ShipCheer CSV hop):
+  // charges the Shippo account, stamps tracking + label_url, opens the PDF.
+  async function buyShippoLabel(order) {
+    if (!window.confirm(`Buy a USPS label for ${order.order_number}? This charges the Shippo account.`)) return;
+    setLabelBuying(order.id);
+    try {
+      const res = await fetch('/api/admin/orders/shippo-label', {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ order_number: order.order_number }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        showSaveMsg && showSaveMsg(`Label failed: ${data.error || `HTTP ${res.status}`}`);
+      } else {
+        showSaveMsg && showSaveMsg(`Label bought — ${data.service} $${Number(data.cost || 0).toFixed(2)}${data.warning ? ` · ${data.warning}` : ''}`);
+        if (data.label_url) window.open(data.label_url, '_blank', 'noopener');
+        await fetchOrders({ silent: true });
+      }
+    } catch (e) {
+      showSaveMsg && showSaveMsg(`Label failed: ${e.message}`);
+    }
+    setLabelBuying(null);
   }
 
   async function cancelOrder(orderId) {
@@ -1319,6 +1345,35 @@ export default function OrdersTab({ products = [], showSaveMsg, token }) {
                                 placeholder="Enter tracking #"
                                 onClick={(e) => e.stopPropagation()}
                               />
+                              <div className="flex gap-1.5 flex-wrap mt-2">
+                                {!order.tracking &&
+                                  (order.country || 'US') === 'US' &&
+                                  ['completed', 'balance_due'].includes(order.payment_status) && (
+                                  <button
+                                    className="text-[11px] font-semibold px-2.5 py-1 rounded-opp border border-accent-strong bg-accent-strong text-surface hover:opacity-90 disabled:opacity-50"
+                                    disabled={labelBuying === order.id}
+                                    onClick={(e) => { e.stopPropagation(); buyShippoLabel(order); }}
+                                  >
+                                    {labelBuying === order.id ? 'Buying label…' : 'Buy USPS label'}
+                                  </button>
+                                )}
+                                {order.label_url && (
+                                  <a
+                                    href={order.label_url}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="text-[11px] font-semibold px-2.5 py-1 rounded-opp border border-line text-ink-soft hover:text-ink"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    Print label{order.label_cost ? ` ($${Number(order.label_cost).toFixed(2)})` : ''} ↗
+                                  </a>
+                                )}
+                                {(order.country || 'US') !== 'US' && !order.tracking && (
+                                  <span className="text-[11px] text-ink-mute self-center">
+                                    International — buy in the Shippo dashboard (customs declaration)
+                                  </span>
+                                )}
+                              </div>
                               {order.notes && (
                                 <>
                                   <div className="opp-meta-mono uppercase mt-3 mb-1">Notes</div>
