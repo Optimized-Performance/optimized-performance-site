@@ -237,7 +237,7 @@ export default function OrdersTab({ products = [], showSaveMsg, token }) {
         setEditSubmitting(false);
         return;
       }
-      await fetchOrders();
+      await fetchOrders({ silent: true });
       showSaveMsg(data.message || 'Order updated.');
       setEditOrder(null);
     } catch (e) {
@@ -259,7 +259,7 @@ export default function OrdersTab({ products = [], showSaveMsg, token }) {
         showSaveMsg(`Failed: ${data.error || res.status}`);
         return;
       }
-      await fetchOrders();
+      await fetchOrders({ silent: true });
       showSaveMsg(data.message || 'Balance settled.');
     } catch (e) {
       showSaveMsg(`Failed: ${e.message}`);
@@ -304,7 +304,7 @@ export default function OrdersTab({ products = [], showSaveMsg, token }) {
         setManualSubmitting(false);
         return;
       }
-      await fetchOrders();
+      await fetchOrders({ silent: true });
       setManualOpen(false);
       setManualForm(MANUAL_FORM_BLANK);
       showSaveMsg(
@@ -325,15 +325,21 @@ export default function OrdersTab({ products = [], showSaveMsg, token }) {
     };
   }
 
-  async function fetchOrders() {
-    setLoading(true);
+  // silent: refresh the data WITHOUT unmounting the table. Every action used
+  // to call the loud version — the whole list swapped to "Loading…", the page
+  // height collapsed, and scroll slammed to the top on every Mark Paid /
+  // Cancel / status move (the mobile "scrolling jumps around" complaint).
+  // Rows keep their identity (key=order.id) so the refreshed data lands in
+  // place and the viewport doesn't move.
+  async function fetchOrders({ silent = false } = {}) {
+    if (!silent) setLoading(true);
     try {
       const res = await fetch('/api/admin/orders', { headers: authHeaders() });
       if (res.ok) setOrders(await res.json());
     } catch {
       /* fail */
     }
-    setLoading(false);
+    if (!silent) setLoading(false);
   }
 
   async function updateStatus(orderId, newStatus) {
@@ -343,7 +349,7 @@ export default function OrdersTab({ products = [], showSaveMsg, token }) {
         headers: authHeaders(),
         body: JSON.stringify({ id: orderId, status: newStatus }),
       });
-      await fetchOrders();
+      await fetchOrders({ silent: true });
       showSaveMsg(`Order moved to ${STATUS_LABELS[newStatus]}.`);
     } catch {
       /* fail */
@@ -371,7 +377,7 @@ export default function OrdersTab({ products = [], showSaveMsg, token }) {
         headers: authHeaders(),
         body: JSON.stringify({ id: orderId, status: 'cancelled' }),
       });
-      await fetchOrders();
+      await fetchOrders({ silent: true });
     } catch {
       /* fail */
     }
@@ -422,7 +428,7 @@ export default function OrdersTab({ products = [], showSaveMsg, token }) {
         showSaveMsg(`Refund failed: ${data.error || res.status}`);
         return;
       }
-      await fetchOrders();
+      await fetchOrders({ silent: true });
       const successPrefix = isPartial
         ? `Partial refund of $${amount.toFixed(2)} recorded on ${order.order_number} (order stays open).`
         : `Refunded $${amount.toFixed(2)} on ${order.order_number} (order cancelled).`;
@@ -503,7 +509,7 @@ export default function OrdersTab({ products = [], showSaveMsg, token }) {
         showSaveMsg(`Mark paid failed: ${data.error || res.status}`);
         return;
       }
-      await fetchOrders();
+      await fetchOrders({ silent: true });
       showSaveMsg(`${order.order_number} marked paid. Customer notified.`);
     } catch (err) {
       showSaveMsg(`Mark paid failed: ${err.message}`);
@@ -518,7 +524,7 @@ export default function OrdersTab({ products = [], showSaveMsg, token }) {
         headers: authHeaders(),
         body: JSON.stringify({ id: orderId, fraud_status: 'cleared' }),
       });
-      await fetchOrders();
+      await fetchOrders({ silent: true });
       showSaveMsg('Fraud flag cleared.');
     } catch {
       /* fail */
@@ -580,7 +586,7 @@ export default function OrdersTab({ products = [], showSaveMsg, token }) {
         )
       );
       clearSelected();
-      await fetchOrders();
+      await fetchOrders({ silent: true });
       showSaveMsg(`${ids.length} order(s) moved to Packed.`);
     } catch (err) {
       showSaveMsg(`Bulk packed failed: ${err.message}`);
@@ -704,7 +710,7 @@ export default function OrdersTab({ products = [], showSaveMsg, token }) {
       setBulkPasteOpen(false);
       setBulkPasteText('');
       setBulkPasteSnapshot(null);
-      await fetchOrders();
+      await fetchOrders({ silent: true });
     } catch (err) {
       showSaveMsg(`Bulk ship failed: ${err.message}`);
     }
@@ -1011,7 +1017,14 @@ export default function OrdersTab({ products = [], showSaveMsg, token }) {
                       className={`border-t border-line cursor-pointer hover:bg-surfaceAlt transition-colors ${
                         orderHasPreorders ? 'bg-accent-soft/30' : ''
                       } ${selectedIds.has(order.id) ? 'bg-accent-soft/40' : ''}`}
-                      onClick={() => setExpandedId(isExpanded ? null : order.id)}
+                      onClick={() => {
+                        // Touch devices get the explicit "Manage order" button
+                        // instead — whole-row tap-to-expand meant stray thumb
+                        // taps while flick-scrolling expanded/collapsed cards
+                        // under the finger and the list jumped mid-scroll.
+                        if (typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches) return;
+                        setExpandedId(isExpanded ? null : order.id);
+                      }}
                     >
                       <td className="px-3 py-3 w-8" onClick={(e) => e.stopPropagation()}>
                         <input
@@ -1107,7 +1120,7 @@ export default function OrdersTab({ products = [], showSaveMsg, token }) {
                         </span>
                       </td>
                       <td data-label="Tracking" className="px-4 py-3 font-mono text-xs text-ink-soft">{order.tracking || '—'}</td>
-                      <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                      <td className="px-4 py-3 orders-actions-cell" onClick={(e) => e.stopPropagation()}>
                         <div className="flex gap-1.5 flex-wrap">
                           {isAwaitingZelle(order) && (
                             <button
@@ -1180,6 +1193,16 @@ export default function OrdersTab({ products = [], showSaveMsg, token }) {
                             </button>
                           )}
                         </div>
+                        {/* Mobile-only (CSS-gated): explicit expand control —
+                            replaces the desktop whole-row click, which on touch
+                            fired from stray scroll-taps. */}
+                        <button
+                          type="button"
+                          className="orders-manage-btn"
+                          onClick={() => setExpandedId(isExpanded ? null : order.id)}
+                        >
+                          {isExpanded ? 'Hide details ▲' : 'Manage order ▼'}
+                        </button>
                       </td>
                     </tr>
 

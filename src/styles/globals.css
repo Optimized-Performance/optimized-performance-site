@@ -504,3 +504,45 @@ button, a, input, select, textarea, label, summary { touch-action: manipulation;
   .admin-sheet, .admin-sheet-bg { animation: none; }
   .admin-bottom-bar button:active, .btn-primary:active { transform: none; }
 }
+
+/* ── Orders mobile card controls (7/11 usability pass) ──────────────────
+   Explicit expand button (desktop keeps whole-row click), thumb-sized
+   action buttons, and the bulk-select checkbox pinned to the card corner
+   instead of occupying its own stacked block. */
+.orders-manage-btn { display: none; }
+@media (max-width: 700px) {
+  .orders-manage-btn {
+    display: block;
+    width: 100%;
+    margin-top: 10px;
+    padding: 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surfaceAlt);
+    color: var(--inkSoft);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .orders-manage-btn:active { transform: scale(0.98); }
+
+  .orders-actions-cell > div { display: flex; flex-wrap: wrap; gap: 8px; }
+  .orders-actions-cell > div > button {
+    flex: 1 1 45%;
+    min-height: 44px;
+    font-size: 13px !important;
+    padding: 10px 12px !important;
+  }
+
+  .orders-table tbody tr { position: relative; }
+  .orders-table td.w-8 {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    width: auto;
+    padding: 8px !important;
+    z-index: 1;
+  }
+}
