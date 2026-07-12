@@ -148,6 +148,16 @@ export default function OrdersTab({ products = [], showSaveMsg, token }) {
   const [editSubmitting, setEditSubmitting] = useState(false);
   const [editAddSku, setEditAddSku] = useState('');
 
+  // Windowing-lite: only render the first N rows of the filtered list. "All"
+  // holds hundreds of orders; rendering every one as a block card made mobile
+  // Safari drop frames compositing the scroll ("jumps around" on the All
+  // filter while short filters were smooth). Show-more appends in pages.
+  const PAGE_SIZE = 60;
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE);
+  }, [filter, preorderOnly]);
+
   useEffect(() => {
     fetchOrders();
   }, []);
@@ -786,6 +796,9 @@ export default function OrdersTab({ products = [], showSaveMsg, token }) {
   }
 
   const filtered = applyFilters(orders);
+  // Rendered slice (windowing-lite — see visibleCount above). Selection-all,
+  // counts, and CSV export intentionally keep using the FULL filtered list.
+  const visibleRows = filtered.slice(0, visibleCount);
   const counts = {
     all: orders.length,
     ready_to_ship: orders.filter(isReadyToShip).length,
@@ -987,7 +1000,7 @@ export default function OrdersTab({ products = [], showSaveMsg, token }) {
                   <input
                     type="checkbox"
                     checked={allVisibleSelected}
-                    onChange={() => toggleSelectAllVisible(filtered)}
+                    onChange={() => toggleSelectAllVisible(visibleRows)}
                     title={allVisibleSelected ? 'Clear all visible' : 'Select all visible'}
                     className="cursor-pointer"
                   />
@@ -1003,7 +1016,7 @@ export default function OrdersTab({ products = [], showSaveMsg, token }) {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((order) => {
+              {visibleRows.map((order) => {
                 const status = order.fulfillment_status || 'pending';
                 const isExpanded = expandedId === order.id;
                 const nextStatus = STATUSES[STATUSES.indexOf(status) + 1];
@@ -1341,6 +1354,15 @@ export default function OrdersTab({ products = [], showSaveMsg, token }) {
               })}
             </tbody>
           </table>
+        )}
+        {!loading && filtered.length > visibleCount && (
+          <button
+            type="button"
+            className="w-full py-4 text-[13px] font-semibold text-ink-soft hover:text-ink border-t border-line"
+            onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}
+          >
+            Show {Math.min(PAGE_SIZE, filtered.length - visibleCount)} more ({filtered.length - visibleCount} remaining)
+          </button>
         )}
       </div>
 

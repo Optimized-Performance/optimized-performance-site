@@ -546,3 +546,9 @@ button, a, input, select, textarea, label, summary { touch-action: manipulation;
     z-index: 1;
   }
 }
+
+/* Isolate each mobile order card's layout/paint — with hundreds of cards,
+   uncontained repaints made iOS drop frames while scrolling the All filter. */
+@media (max-width: 700px) {
+  .orders-table tbody tr { contain: content; }
+}
