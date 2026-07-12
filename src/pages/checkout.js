@@ -242,6 +242,20 @@ export default function Checkout() {
     return () => { cancelled = true; };
   }, []);
 
+  // If the cart OR destination country changes while the inline card panel is
+  // up, its payment intent amount is stale — drop the panel; the next "Pay
+  // with card" creates a fresh order + intent.
+  //
+  // HOOK ORDER: this MUST stay above the early returns below (auth gate /
+  // empty-cart). The cart provider hydrates from localStorage AFTER first
+  // paint, so a direct load of /checkout renders empty-cart first and then
+  // re-renders with items — a hook below the early return flips the hook
+  // count between those renders and React #310-crashes the whole page
+  // (2026-07-11 prod incident: direct loads/refreshes of checkout died for
+  // ~3.5h while client-side navigation worked).
+  const cartSig = cartItems.map((i) => `${i.sku || i.id}:${i.quantity}`).sort().join('|');
+  useEffect(() => { setCardIntent(null); }, [cartSig, country]);
+
   // Single source of truth for the order total + discount stacking. The server
   // (/api/orders/create) calls this SAME computeOrderTotals(), so the customer-
   // visible total and the charged total cannot drift — the class of bug behind
@@ -367,12 +381,6 @@ export default function Checkout() {
     }
     return idempotencyRef.current.key;
   };
-
-  // If the cart OR destination country changes while the inline card panel is
-  // up, its payment intent amount is stale — drop the panel; the next "Pay
-  // with card" creates a fresh order + intent.
-  const cartSig = cartItems.map((i) => `${i.sku || i.id}:${i.quantity}`).sort().join('|');
-  useEffect(() => { setCardIntent(null); }, [cartSig, country]);
 
   // Country switch: the state/province lists don't overlap, the customs ack is
   // CA-specific, and Zelle/Venmo/PayPal are US-bank rails — reset all three so
