@@ -16,11 +16,14 @@ export const SHIPPING_PCT = 0.05
 export const COMMISSION_PCT = 0.05
 // % of gross — misc operating overhead. SOB ~1.5%.
 export const OPS_PCT = 0.015
-// blended income-tax reserve on pre-tax net profit. S-corp pass-through —
-// covers the owners' combined effective fed + state + SE rate (per Jason).
-export const TAX_PCT = 0.30
-// equal owners splitting distributable profit — Matt / Tris 50/50.
-export const OWNER_COUNT = 2
+// Taxes + owner split: DELIBERATELY NOT MODELED (Matt, 2026-07-12). The old
+// flat 30% reserve overstated Matt's realistic effective rate (S-corp
+// distributions carry no SE tax, QBI applies to non-SSTB e-com, WA has no
+// income tax → ~26-28%), per-owner rates differ (Tris's state/bracket are
+// his own), and the post-re-cut splits diverge (OPP 65/35, GymThingz 50/50).
+// The panel now reports the PRE-TAX pot; allocations get decided from there
+// with Jason. If per-owner modeling ever returns, it returns as per-venture
+// splits × per-owner effective rates — not one blended constant.
 
 // Processing fee per rail = fraction of THAT rail's revenue.
 // NoRamp card = 10% all-in; crypto ~1%; Venmo business ~1.9%; Zelle free.
@@ -154,14 +157,12 @@ export function computeTakeHome(revenue, railMix = [], opts = {}) {
 
   const preTaxNet = gross - processing - cogs - shipping - commissions - ops
 
-  // Roll other ventures into the pot BEFORE tax and the split. With no
-  // ventures this collapses exactly to the old Syngyn-only math.
+  // Roll other ventures into the pot. With no ventures this collapses exactly
+  // to the Syngyn-only math. The pot stays PRE-TAX and UNSPLIT (see the note
+  // on taxes/owner split above).
   const ventures = Array.isArray(opts.ventures) ? opts.ventures.filter(Boolean) : []
   const combinedPreTax = preTaxNet + ventures.reduce((s, v) => s + (Number(v.preTaxNet) || 0), 0)
   const combinedGross = gross + ventures.reduce((s, v) => s + (Number(v.gross) || 0), 0)
-  const tax = Math.max(0, combinedPreTax) * TAX_PCT
-  const afterTax = combinedPreTax - tax
-  const perPartner = afterTax / OWNER_COUNT
 
   return {
     gross: r2(gross),
@@ -178,13 +179,8 @@ export function computeTakeHome(revenue, railMix = [], opts = {}) {
     ventures,
     combinedGross: r2(combinedGross),
     combinedPreTax: r2(combinedPreTax),
-    tax: r2(tax),
-    afterTax: r2(afterTax),
-    perPartner: r2(perPartner),
-    ownerCount: OWNER_COUNT,
-    marginPct: combinedGross ? r2((afterTax / combinedGross) * 100) : 0,
     preTaxMarginPct: gross ? r2((preTaxNet / gross) * 100) : 0, // Syngyn-only
     combinedPreTaxMarginPct: combinedGross ? r2((combinedPreTax / combinedGross) * 100) : 0,
-    rates: { cogs: COGS_PCT, shipping: SHIPPING_PCT, commission: COMMISSION_PCT, ops: OPS_PCT, tax: TAX_PCT },
+    rates: { cogs: COGS_PCT, shipping: SHIPPING_PCT, commission: COMMISSION_PCT, ops: OPS_PCT },
   }
 }
