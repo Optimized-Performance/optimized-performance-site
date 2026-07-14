@@ -7,19 +7,19 @@
 // (stale Uline over-estimates). Env-overridable without a deploy so the box
 // can be re-sized to match actual stock: SHIP_PARCEL_LBS / _OZ / _L / _W / _H.
 //
-// NOTE on cost: UPS bills the GREATER of actual weight and DIMENSIONAL weight
-// (L×W×H ÷ 139). At the default dims below (~117 in³) dim weight stays under
-// 1 lb, so UPS bills the flat 1 lb. If the real box is bigger, dim weight can
-// push the billed weight up regardless of the 1 lb declaration — set the _L/_W/_H
-// envs (or tell me the real box) so the rate quote matches what UPS charges.
+// Default = Matt's actual mailer: 8×11 bubble mailer @ 1 lb, measured as
+// 11 (L) × 8 (W) × 1 (packed thickness) ≈ 88 in³. UPS bills the GREATER of
+// actual weight and DIMENSIONAL weight (L×W×H ÷ 139); at these dims the dim
+// weight is ~0.6 lb, so UPS bills the flat 1 lb. Env-overridable without a
+// deploy (SHIP_PARCEL_LBS/_OZ/_L/_W/_H) if the mailer ever changes.
 const num = (v, d) => (Number(v) > 0 ? Number(v) : d)
 export function packageSpecForOrder(/* items */) {
   return {
     lbs: num(process.env.SHIP_PARCEL_LBS, 1),
     oz: num(process.env.SHIP_PARCEL_OZ, 0),
-    length: num(process.env.SHIP_PARCEL_L, 9),
-    width: num(process.env.SHIP_PARCEL_W, 6.5),
-    height: num(process.env.SHIP_PARCEL_H, 2),
+    length: num(process.env.SHIP_PARCEL_L, 11),
+    width: num(process.env.SHIP_PARCEL_W, 8),
+    height: num(process.env.SHIP_PARCEL_H, 1),
   }
 }
 
