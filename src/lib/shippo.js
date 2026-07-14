@@ -70,13 +70,15 @@ async function shippoGet(path) {
   return data
 }
 
-// Preferred shipping service. Default UPS 2nd Day Air (Matt: our primary
-// service — fast enough for the cold-chain kits too). Override without a
-// deploy via SHIP_PREFERRED_SERVICE (any Shippo servicelevel token, e.g.
-// usps_priority, ups_next_day_air). Requires the matching carrier account
-// connected in the Shippo dashboard, or that service won't be in the rates.
-export function preferredServiceToken() {
-  return process.env.SHIP_PREFERRED_SERVICE || 'ups_second_day_air'
+// Preferred services, in the ORDER we actually ship (Matt): UPS 2nd Day Air
+// first; when a lane doesn't return it, USPS Priority Mail (3-day). Override
+// without a deploy via SHIP_PREFERRED_SERVICES (comma-separated Shippo
+// servicelevel tokens, highest priority first). Each service needs its
+// carrier account connected in the Shippo dashboard to appear in the rates.
+export function preferredServiceTokens() {
+  const raw = process.env.SHIP_PREFERRED_SERVICES
+  if (raw && raw.trim()) return raw.split(',').map((t) => t.trim()).filter(Boolean)
+  return ['ups_second_day_air', 'usps_priority']
 }
 
 // Rate payloads have carried the service token both nested (servicelevel.token)
@@ -85,28 +87,20 @@ function rateToken(r) {
   return r?.servicelevel?.token || r?.servicelevel_token || ''
 }
 
-// Carrier that owns a servicelevel token (ups_* -> UPS, usps_* -> USPS, …).
-function tokenCarrier(token) {
-  return String(token || '').split('_')[0].toUpperCase()
-}
-
-// Pick the rate to buy. Preference order:
-//   1. exact preferred service (cheapest if the carrier returned duplicates)
-//   2. cheapest OTHER service from the preferred carrier (e.g. UPS Ground if
-//      2nd Day Air didn't come back for that lane) — stays with the carrier
-//      we actually use before dropping to another
-//   3. cheapest rate overall
-// The chosen service name is surfaced in the buy result + admin toast, so a
-// fallback is visible rather than silent.
-export function pickRate(rates, preferredToken) {
+// Pick the rate to buy: walk the preferred-service ladder in order and take
+// the first one the carrier returned (cheapest if duplicated). Only if NONE
+// of the preferred services came back does it drop to cheapest-overall — a
+// true last resort, and the chosen service name is surfaced in the buy result
+// + admin toast, so any fallback is visible rather than silent.
+export function pickRate(rates, preferredTokens) {
   const usable = (rates || []).filter((r) => r && r.object_id && Number(r.amount) > 0)
   if (!usable.length) return null
   const byAmount = (a, b) => Number(a.amount) - Number(b.amount)
-  const exact = usable.filter((r) => rateToken(r) === preferredToken).sort(byAmount)
-  if (exact.length) return exact[0]
-  const carrier = tokenCarrier(preferredToken)
-  const sameCarrier = usable.filter((r) => tokenCarrier(rateToken(r)) === carrier).sort(byAmount)
-  if (sameCarrier.length) return sameCarrier[0]
+  const ladder = Array.isArray(preferredTokens) ? preferredTokens : [preferredTokens]
+  for (const token of ladder) {
+    const match = usable.filter((r) => rateToken(r) === token).sort(byAmount)
+    if (match.length) return match[0]
+  }
   return usable.sort(byAmount)[0]
 }
 
@@ -125,9 +119,9 @@ export async function buyLabelForOrder(order) {
 
   const { street, apt } = splitStreetAndApt(order.shipping_address)
   const spec = packageSpecForOrder(order.items || [])
-  // Service is the same preferred one (UPS 2nd Day Air) for every order — kit
+  // Same service ladder (UPS 2nd Day Air → USPS Priority) for every order — kit
   // vs vial only changes the PARCEL dimensions (spec), not the service.
-  const preferredToken = preferredServiceToken()
+  const preferredTokens = preferredServiceTokens()
 
   try {
     const shipment = await shippoPost('/shipments/', {
@@ -155,7 +149,7 @@ export async function buyLabelForOrder(order) {
       async: false,
     })
 
-    const rate = pickRate(shipment.rates, preferredToken)
+    const rate = pickRate(shipment.rates, preferredTokens)
     if (!rate) {
       const msgs = (shipment.messages || []).map((m) => m.text || m.code).filter(Boolean).join('; ')
       return { ok: false, reason: 'no_rates', error: msgs || 'Shippo returned no rates (check the destination address).' }
