@@ -70,24 +70,43 @@ async function shippoGet(path) {
   return data
 }
 
-// Pick the rate to buy. Preference order:
-//   1. the preferred USPS service for this package type (cheapest if multiple)
-//   2. cheapest USPS rate
-//   3. cheapest rate overall
+// Preferred shipping service. Default UPS 2nd Day Air (Matt: our primary
+// service — fast enough for the cold-chain kits too). Override without a
+// deploy via SHIP_PREFERRED_SERVICE (any Shippo servicelevel token, e.g.
+// usps_priority, ups_next_day_air). Requires the matching carrier account
+// connected in the Shippo dashboard, or that service won't be in the rates.
+export function preferredServiceToken() {
+  return process.env.SHIP_PREFERRED_SERVICE || 'ups_second_day_air'
+}
+
 // Rate payloads have carried the service token both nested (servicelevel.token)
 // and flat (servicelevel_token) across API versions — read either.
 function rateToken(r) {
   return r?.servicelevel?.token || r?.servicelevel_token || ''
 }
 
+// Carrier that owns a servicelevel token (ups_* -> UPS, usps_* -> USPS, …).
+function tokenCarrier(token) {
+  return String(token || '').split('_')[0].toUpperCase()
+}
+
+// Pick the rate to buy. Preference order:
+//   1. exact preferred service (cheapest if the carrier returned duplicates)
+//   2. cheapest OTHER service from the preferred carrier (e.g. UPS Ground if
+//      2nd Day Air didn't come back for that lane) — stays with the carrier
+//      we actually use before dropping to another
+//   3. cheapest rate overall
+// The chosen service name is surfaced in the buy result + admin toast, so a
+// fallback is visible rather than silent.
 export function pickRate(rates, preferredToken) {
   const usable = (rates || []).filter((r) => r && r.object_id && Number(r.amount) > 0)
   if (!usable.length) return null
   const byAmount = (a, b) => Number(a.amount) - Number(b.amount)
-  const preferred = usable.filter((r) => rateToken(r) === preferredToken).sort(byAmount)
-  if (preferred.length) return preferred[0]
-  const usps = usable.filter((r) => String(r.provider).toUpperCase() === 'USPS').sort(byAmount)
-  if (usps.length) return usps[0]
+  const exact = usable.filter((r) => rateToken(r) === preferredToken).sort(byAmount)
+  if (exact.length) return exact[0]
+  const carrier = tokenCarrier(preferredToken)
+  const sameCarrier = usable.filter((r) => tokenCarrier(rateToken(r)) === carrier).sort(byAmount)
+  if (sameCarrier.length) return sameCarrier[0]
   return usable.sort(byAmount)[0]
 }
 
@@ -106,8 +125,9 @@ export async function buyLabelForOrder(order) {
 
   const { street, apt } = splitStreetAndApt(order.shipping_address)
   const spec = packageSpecForOrder(order.items || [])
-  const coldPack = spec.lbs === 5 // kit spec (see packageSpecForOrder)
-  const preferredToken = coldPack ? 'usps_priority' : 'usps_ground_advantage'
+  // Service is the same preferred one (UPS 2nd Day Air) for every order — kit
+  // vs vial only changes the PARCEL dimensions (spec), not the service.
+  const preferredToken = preferredServiceToken()
 
   try {
     const shipment = await shippoPost('/shipments/', {

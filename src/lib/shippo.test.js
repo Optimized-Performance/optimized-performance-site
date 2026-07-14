@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { pickRate } from './shippo.js'
+import { pickRate, preferredServiceToken } from './shippo.js'
 
 const r = (id, provider, token, amount, shape = 'nested') => ({
   object_id: id,
@@ -8,38 +8,50 @@ const r = (id, provider, token, amount, shape = 'nested') => ({
   ...(shape === 'nested' ? { servicelevel: { token } } : { servicelevel_token: token }),
 })
 
+describe('preferredServiceToken', () => {
+  it('defaults to UPS 2nd Day Air', () => {
+    expect(preferredServiceToken()).toBe('ups_second_day_air')
+  })
+})
+
 describe('pickRate', () => {
-  it('prefers the requested service, cheapest first', () => {
+  it('picks the exact preferred service, cheapest if duplicated', () => {
     const rates = [
-      r('a', 'USPS', 'usps_priority', 9.5),
-      r('b', 'USPS', 'usps_ground_advantage', 6.2),
-      r('c', 'USPS', 'usps_ground_advantage', 5.9),
-      r('d', 'UPS', 'ups_ground', 4.0),
+      r('a', 'UPS', 'ups_second_day_air', 18.5),
+      r('b', 'UPS', 'ups_second_day_air', 17.9),
+      r('c', 'UPS', 'ups_ground', 9.0),
+      r('d', 'USPS', 'usps_priority', 8.2),
     ]
-    expect(pickRate(rates, 'usps_ground_advantage').object_id).toBe('c')
+    expect(pickRate(rates, 'ups_second_day_air').object_id).toBe('b')
   })
 
   it('reads the flat servicelevel_token shape too', () => {
-    const rates = [r('a', 'USPS', 'usps_priority', 9.5, 'flat'), r('b', 'UPS', 'ups_ground', 2.0)]
-    expect(pickRate(rates, 'usps_priority').object_id).toBe('a')
+    const rates = [r('a', 'UPS', 'ups_second_day_air', 18.5, 'flat'), r('b', 'USPS', 'usps_priority', 8)]
+    expect(pickRate(rates, 'ups_second_day_air').object_id).toBe('a')
   })
 
-  it('falls back to cheapest USPS when the preferred service is missing', () => {
+  it('falls back to cheapest SAME-CARRIER service when the exact one is missing', () => {
+    // No 2nd Day Air for this lane — stay on UPS (ground) before jumping carrier.
     const rates = [
-      r('a', 'USPS', 'usps_priority_express', 30),
-      r('b', 'USPS', 'usps_priority', 9.5),
-      r('c', 'UPS', 'ups_ground', 4.0),
+      r('a', 'UPS', 'ups_3_day_select', 14),
+      r('b', 'UPS', 'ups_ground', 9.5),
+      r('c', 'USPS', 'usps_priority', 7),
     ]
-    expect(pickRate(rates, 'usps_ground_advantage').object_id).toBe('b')
+    expect(pickRate(rates, 'ups_second_day_air').object_id).toBe('b')
   })
 
-  it('falls back to cheapest overall when no USPS rates exist', () => {
-    const rates = [r('a', 'UPS', 'ups_ground', 8), r('b', 'FedEx', 'fedex_ground', 6.5)]
-    expect(pickRate(rates, 'usps_ground_advantage').object_id).toBe('b')
+  it('falls back to cheapest overall when the preferred carrier is absent', () => {
+    const rates = [r('a', 'USPS', 'usps_priority', 8), r('b', 'USPS', 'usps_ground_advantage', 6.5)]
+    expect(pickRate(rates, 'ups_second_day_air').object_id).toBe('b')
+  })
+
+  it('honors a re-pointed preferred token (e.g. USPS priority)', () => {
+    const rates = [r('a', 'UPS', 'ups_second_day_air', 18), r('b', 'USPS', 'usps_priority', 8)]
+    expect(pickRate(rates, 'usps_priority').object_id).toBe('b')
   })
 
   it('returns null on empty/invalid rates', () => {
-    expect(pickRate([], 'usps_priority')).toBe(null)
-    expect(pickRate([{ amount: '0' }], 'usps_priority')).toBe(null)
+    expect(pickRate([], 'ups_second_day_air')).toBe(null)
+    expect(pickRate([{ amount: '0' }], 'ups_second_day_air')).toBe(null)
   })
 })
