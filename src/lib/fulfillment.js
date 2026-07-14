@@ -1,19 +1,26 @@
-import { cartRequiresColdPack } from './shipping'
-
 // Shared fulfillment helpers — package specs + address parsing used by both
 // the legacy CSV export and the Shippo label purchase (lib/shippo).
+// (No cold-pack import anymore — one flat package template regardless of cart.)
 
-// Conservative per-package defaults derived from the cart contents. Cold-chain
-// packaging pivoted 2026-05-11 from Uline insulated boxes + PCM gel to
-// thermal-insulated mailers. The dimensions below are the historical Uline
-// box specs — safe (over-)estimates so labels won't underpay. TODO once the
-// thermal-mailer SKUs are confirmed: replace with real outer dims + weights
-// so postage matches billed cost.
-export function packageSpecForOrder(items) {
-  if (cartRequiresColdPack(items)) {
-    return { lbs: 5, oz: 0, length: 10, width: 8, height: 9 }
+// Single flat package template (Matt, 2026-07-14): everything ships in one box
+// declared at 1 lb — nothing goes over. Replaced the old kit-vs-vial split
+// (stale Uline over-estimates). Env-overridable without a deploy so the box
+// can be re-sized to match actual stock: SHIP_PARCEL_LBS / _OZ / _L / _W / _H.
+//
+// NOTE on cost: UPS bills the GREATER of actual weight and DIMENSIONAL weight
+// (L×W×H ÷ 139). At the default dims below (~117 in³) dim weight stays under
+// 1 lb, so UPS bills the flat 1 lb. If the real box is bigger, dim weight can
+// push the billed weight up regardless of the 1 lb declaration — set the _L/_W/_H
+// envs (or tell me the real box) so the rate quote matches what UPS charges.
+const num = (v, d) => (Number(v) > 0 ? Number(v) : d)
+export function packageSpecForOrder(/* items */) {
+  return {
+    lbs: num(process.env.SHIP_PARCEL_LBS, 1),
+    oz: num(process.env.SHIP_PARCEL_OZ, 0),
+    length: num(process.env.SHIP_PARCEL_L, 9),
+    width: num(process.env.SHIP_PARCEL_W, 6.5),
+    height: num(process.env.SHIP_PARCEL_H, 2),
   }
-  return { lbs: 1, oz: 8, length: 8, width: 6, height: 5 }
 }
 
 // Best-effort apartment/suite extraction from the single-line shipping
