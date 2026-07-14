@@ -406,7 +406,7 @@ export default function OrdersTab({ products = [], showSaveMsg, token }) {
   // Buy a real USPS label via Shippo (replaces the ShipCheer CSV hop):
   // charges the Shippo account, stamps tracking + label_url, opens the PDF.
   async function buyShippoLabel(order) {
-    if (!window.confirm(`Buy a USPS label for ${order.order_number}? This charges the Shippo account.`)) return;
+    if (!window.confirm(`Buy a shipping label for ${order.order_number}? Uses UPS 2nd Day Air (USPS Priority if UPS isn't available for this address) and charges the Shippo account.`)) return;
     setLabelBuying(order.id);
     try {
       const res = await fetch('/api/admin/orders/shippo-label', {
@@ -1377,7 +1377,7 @@ export default function OrdersTab({ products = [], showSaveMsg, token }) {
                                     disabled={labelBuying === order.id}
                                     onClick={(e) => { e.stopPropagation(); buyShippoLabel(order); }}
                                   >
-                                    {labelBuying === order.id ? 'Buying label…' : 'Buy USPS label'}
+                                    {labelBuying === order.id ? 'Buying label…' : 'Buy shipping label'}
                                   </button>
                                 )}
                                 {order.label_url && (
