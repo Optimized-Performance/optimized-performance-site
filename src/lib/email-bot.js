@@ -110,6 +110,24 @@ export async function classifyEmail(email) {
   }
 }
 
+// Deterministic signoff guard. The model is prompted to sign "— Syngyn
+// Customer Service", but a prompt is a suggestion, not a guarantee — it drifted
+// to "OPP Customer Service" post-rebrand. Normalize any OPP/Optimized-Performance
+// customer-service SIGNOFF to the Syngyn one so a stale prompt or model drift
+// can't leak the old brand. Targets the signoff specifically — legitimate body
+// mentions of "Optimized Performance Peptides" (e.g. explaining that COAs still
+// carry the old name during the rebrand) are left untouched.
+export function normalizeSignoff(body) {
+  // Capture the whitespace BEFORE the signoff and re-emit it, so a bare
+  // (dash-less) signoff doesn't get its preceding paragraph break swallowed.
+  // Between brand and "Customer Service" only horizontal space is allowed, so
+  // the match can't reach back across lines into legitimate body text.
+  return String(body || '').replace(
+    /(\s*)(?:—|-|–)?[^\S\r\n]*(?:OPP|Optimized Performance(?: Peptides)?)[^\S\r\n]+Customer Service\s*$/i,
+    '$1— Syngyn Customer Service'
+  )
+}
+
 export async function generateReply(email, context) {
   // context: { classification, order, tracking_url }
   const orderBlock = context?.order
@@ -159,7 +177,7 @@ export async function generateReply(email, context) {
   }
   return {
     subject: String(parsed.subject || `Re: ${email.subject || 'your message'}`),
-    body: String(parsed.body),
+    body: normalizeSignoff(String(parsed.body)),
   }
 }
 

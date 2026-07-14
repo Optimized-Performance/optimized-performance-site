@@ -2,6 +2,7 @@ import { supabaseAdmin } from '../../../lib/supabase'
 import { validateSessionToken } from '../../../lib/session'
 import { validateOrigin, rateLimit } from '../../../lib/security'
 import { sendCustomerReply } from '../../../lib/alerts'
+import { normalizeSignoff } from '../../../lib/email-bot'
 
 const ALLOWED_STATUSES = ['new', 'auto_replied', 'draft_pending', 'sent', 'archived', 'spam', 'escalated']
 
@@ -79,7 +80,9 @@ export default async function handler(req, res) {
       // action: 'send' — admin-approved draft, send via SendGrid + mark sent
       if (action === 'send') {
         const subject = reply_subject || row.reply_subject || `Re: ${row.subject}`
-        const body = reply_body || row.reply_body
+        // Signoff guard at send time too — catches drafts generated before the
+        // normalizer shipped (stored bodies still ending "— OPP Customer Service").
+        const body = normalizeSignoff(reply_body || row.reply_body)
         if (!body) return res.status(400).json({ error: 'No body to send' })
         try {
           await sendCustomerReply({ to_email: row.from_email, subject, body })
