@@ -137,6 +137,7 @@ export default function OrdersTab({ products = [], showSaveMsg, token }) {
     lines: [{ productId: '', quantity: 1 }],
   };
   const [labelBuying, setLabelBuying] = useState(null); // order id mid-purchase (Shippo)
+  const [resending, setResending] = useState(null); // { id, kind } mid-resend
   const [manualOpen, setManualOpen] = useState(false);
   const [manualSubmitting, setManualSubmitting] = useState(false);
   const [manualForm, setManualForm] = useState(MANUAL_FORM_BLANK);
@@ -378,6 +379,28 @@ export default function OrdersTab({ products = [], showSaveMsg, token }) {
     } catch {
       /* fail */
     }
+  }
+
+  // Manually re-send a customer email (confirmation or tracking) — the
+  // "I never got it" support case. Courtesy copy; changes no order state.
+  async function resendEmail(order, kind) {
+    setResending({ id: order.id, kind });
+    try {
+      const res = await fetch('/api/admin/orders/resend-email', {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ order_number: order.order_number, kind }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        showSaveMsg && showSaveMsg(`Resend failed: ${data.error || `HTTP ${res.status}`}`);
+      } else {
+        showSaveMsg && showSaveMsg(`${kind === 'confirmation' ? 'Confirmation' : 'Tracking'} email sent to ${data.to}`);
+      }
+    } catch (e) {
+      showSaveMsg && showSaveMsg(`Resend failed: ${e.message}`);
+    }
+    setResending(null);
   }
 
   // Buy a real USPS label via Shippo (replaces the ShipCheer CSV hop):
@@ -1374,6 +1397,26 @@ export default function OrdersTab({ products = [], showSaveMsg, token }) {
                                   </span>
                                 )}
                               </div>
+                              {['completed', 'balance_due', 'refunded'].includes(order.payment_status) && (
+                                <div className="flex gap-1.5 flex-wrap mt-2">
+                                  <button
+                                    className="text-[11px] px-2.5 py-1 rounded-opp border border-line text-ink-soft hover:text-ink hover:bg-surfaceAlt disabled:opacity-50"
+                                    disabled={resending?.id === order.id}
+                                    onClick={(e) => { e.stopPropagation(); resendEmail(order, 'confirmation'); }}
+                                  >
+                                    {resending?.id === order.id && resending?.kind === 'confirmation' ? 'Sending…' : 'Resend confirmation'}
+                                  </button>
+                                  {order.tracking && (
+                                    <button
+                                      className="text-[11px] px-2.5 py-1 rounded-opp border border-line text-ink-soft hover:text-ink hover:bg-surfaceAlt disabled:opacity-50"
+                                      disabled={resending?.id === order.id}
+                                      onClick={(e) => { e.stopPropagation(); resendEmail(order, 'tracking'); }}
+                                    >
+                                      {resending?.id === order.id && resending?.kind === 'tracking' ? 'Sending…' : 'Resend tracking'}
+                                    </button>
+                                  )}
+                                </div>
+                              )}
                               {order.notes && (
                                 <>
                                   <div className="opp-meta-mono uppercase mt-3 mb-1">Notes</div>
