@@ -1,4 +1,5 @@
 import { createCustomerToken, hashPassword, customerCookieHeader } from '../../../lib/customer-session'
+import { grantCohortCookies } from '../../../lib/cohort-session'
 import { signVerifyToken } from '../../../lib/customer-tokens'
 import { sendVerificationEmail } from '../../../lib/customer-emails'
 import { supabaseAdmin } from '../../../lib/supabase'
@@ -75,5 +76,8 @@ export default async function handler(req, res) {
   }
 
   res.setHeader('Set-Cookie', customerCookieHeader(token))
+  // Having an account unlocks the cohort gate (see lib/cohort-session) — set
+  // the cookies here so the very next page render shows the full catalog.
+  grantCohortCookies(res)
   return res.status(200).json({ ok: true, customer: { id: customer.id, email: customer.email, name: customer.name } })
 }

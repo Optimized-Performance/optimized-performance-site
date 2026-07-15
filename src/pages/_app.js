@@ -23,6 +23,7 @@ const AgeGate = dynamic(() => import('../components/AgeGate'), { ssr: true });
 const LaunchBanner = dynamic(() => import('../components/LaunchBanner'), { ssr: false });
 const MemorialDayBanner = dynamic(() => import('../components/MemorialDayBanner'), { ssr: false });
 const Glp3BogoBanner = dynamic(() => import('../components/Glp3BogoBanner'), { ssr: false });
+const LoginNudge = dynamic(() => import('../components/LoginNudge'), { ssr: false });
 
 export default function App({ Component, pageProps }) {
   const router = useRouter();
@@ -69,6 +70,7 @@ export default function App({ Component, pageProps }) {
             </main>
             <Footer />
             <AgeGate />
+            <LoginNudge />
             {!isCheckout && <MobileTabBar />}
           </>
         )}

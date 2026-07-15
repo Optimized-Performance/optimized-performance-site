@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/router'
 import SEO from '../../components/SEO'
 
@@ -11,6 +11,12 @@ export default function AccountAuth() {
   // Default to 'register': the account gate just went live, so most visitors —
   // including returning guest-checkout buyers — don't have an account yet.
   const [mode, setMode] = useState('register') // 'login' | 'register'
+
+  // ?mode=login deep link (the LoginNudge "Sign in" CTA targets returning
+  // customers). Query isn't populated on first render, so sync in an effect.
+  useEffect(() => {
+    if (router.query.mode === 'login') setMode('login')
+  }, [router.query.mode])
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [name, setName] = useState('')

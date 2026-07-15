@@ -1,6 +1,7 @@
 import crypto from 'crypto'
 import { verifyRecoveryToken } from './recovery'
 import { RECOVERY_COOKIE, RECOVERY_QUERY_PARAM } from './recovery-config'
+import { CUSTOMER_COOKIE, validateCustomerToken } from './customer-session'
 
 // =========================================
 // Cohort gate — referral-token-aware catalog visibility
@@ -299,11 +300,40 @@ export async function getCohortFromRequest(context, supabaseAdmin, { strict = fa
   }
 
   if (cookies[COOKIE_NAME] && isCookieValueValid(cookies[COOKIE_NAME])) {
-    appendSetCookie(res, buildCohortUiCookieHeader())
+    // Sliding TTL (2026-07-14): re-issue with a fresh issued-at on every
+    // server-rendered visit, so active customers never age out at the original
+    // 90-day mark — only 90 days of NOT visiting lets the unlock lapse.
+    grantCohortCookies(res)
     return { cohortAllowed: true, source: 'cookie' }
   }
 
+  // Logged-in customer = cohort credential (2026-07-14). Accounts are
+  // human-created (AUP scanners don't register), so a valid opp_customer
+  // session unlocks the catalog and back-fills the cohort cookie — covers
+  // returning customers whose original ?ref cookie expired or who signed in
+  // on a new device. Counts in strict mode too: it's a real server-verified
+  // credential, unlike the COHORT_GATE_OFF blanket.
+  if (validateCustomerToken(cookies[CUSTOMER_COOKIE])) {
+    grantCohortCookies(res)
+    return { cohortAllowed: true, source: 'customer_session' }
+  }
+
   return { cohortAllowed: false, source: 'none' }
+}
+
+// Grant the cohort unlock (opp_cohort + opp_cohort_ui) on any response.
+// Non-throwing: callers on the login/register money path must never 500
+// because a cohort secret is misconfigured — the account session still works,
+// the visitor just stays on the public catalog until they hit a ?ref link.
+export function grantCohortCookies(res) {
+  try {
+    appendSetCookie(res, buildSetCookieHeader(createCookieValue()))
+    appendSetCookie(res, buildCohortUiCookieHeader())
+    return true
+  } catch (err) {
+    console.warn('[cohort-session] could not issue cohort cookie:', err.message)
+    return false
+  }
 }
 
 // Test-only / admin-tooling export. Lets ops force-set a cohort cookie from
