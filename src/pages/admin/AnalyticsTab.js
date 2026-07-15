@@ -48,6 +48,12 @@ export default function AnalyticsTab({ token }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  // Sales-by-period table (independent of the KPI window above) — its own range
+  // switcher, its own fetch to /api/admin/sales-summary.
+  const [salesRange, setSalesRange] = useState('this_month');
+  const [sales, setSales] = useState(null);
+  const [salesLoading, setSalesLoading] = useState(true);
+
   const load = useCallback(async () => {
     setLoading(true);
     try {
@@ -57,7 +63,17 @@ export default function AnalyticsTab({ token }) {
     setLoading(false);
   }, [authHeaders, days]);
 
+  const loadSales = useCallback(async () => {
+    setSalesLoading(true);
+    try {
+      const res = await fetch(`/api/admin/sales-summary?range=${salesRange}`, { headers: authHeaders() });
+      setSales(res.ok ? await res.json() : null);
+    } catch { setSales(null); }
+    setSalesLoading(false);
+  }, [authHeaders, salesRange]);
+
   useEffect(() => { load(); }, [load]);
+  useEffect(() => { loadSales(); }, [loadSales]);
 
   const k = data?.kpis;
   const f = data?.funnel;
@@ -79,6 +95,17 @@ export default function AnalyticsTab({ token }) {
         Revenue, funnel + sources. Deltas vs the prior {days} days.
         {data?.truncated && <span className="text-warning"> (data capped — range too large)</span>}
       </p>
+
+      {/* TODAY / WTD / MTD — live sales pulse (LA time), independent of the
+          KPI window; always visible even while the heavier analytics load. */}
+      <div className="grid grid-cols-3 gap-3 mb-8">
+        <Kpi label="Today's sales" value={fmtMoney(sales?.today?.revenue ?? 0)} d={null} sub={sales ? `${fmtNum(sales.today.orders)} orders · ${sales.today_la}` : 'Loading…'} />
+        <Kpi label="This week" value={fmtMoney(sales?.wtd?.revenue ?? 0)} d={null} sub={sales ? `${fmtNum(sales.wtd.orders)} orders · since Mon` : ''} />
+        <Kpi label="This month" value={fmtMoney(sales?.mtd?.revenue ?? 0)} d={null} sub={sales ? `${fmtNum(sales.mtd.orders)} orders` : ''} />
+      </div>
+
+      {/* SALES BY PERIOD — switchable table (weeks this month, etc.) */}
+      <SalesBreakdown sales={sales} loading={salesLoading} range={salesRange} setRange={setSalesRange} />
 
       {loading ? (
         <p className="text-[13px] text-ink-mute">Loading…</p>
@@ -205,6 +232,78 @@ export default function AnalyticsTab({ token }) {
         </>
       )}
     </div>
+  );
+}
+
+function SalesBreakdown({ sales, loading, range, setRange }) {
+  const ranges = sales?.ranges || [
+    { key: 'this_month', label: 'This month' },
+    { key: 'last_month', label: 'Last month' },
+    { key: 'last_4_weeks', label: 'Last 4 weeks' },
+    { key: 'last_7_days', label: 'Last 7 days' },
+    { key: 'ytd', label: 'Year to date' },
+  ];
+  const buckets = sales?.buckets || [];
+  const maxRev = Math.max(1, ...buckets.map((b) => b.revenue));
+  const groupLabel = sales?.group === 'month' ? 'Month' : sales?.group === 'day' ? 'Day' : 'Week';
+  return (
+    <Panel title="Sales by period">
+      <div className="flex gap-1 flex-wrap mb-4">
+        {ranges.map((r) => (
+          <button key={r.key} onClick={() => setRange(r.key)}
+            className={`px-3 py-1.5 text-[12px] rounded-opp border ${range === r.key ? 'bg-ink text-paper border-ink' : 'border-line text-ink-soft hover:text-ink'}`}>
+            {r.label}
+          </button>
+        ))}
+      </div>
+      {loading ? (
+        <p className="text-[13px] text-ink-mute m-0">Loading…</p>
+      ) : !sales || buckets.length === 0 ? (
+        <p className="text-[13px] text-ink-mute m-0">No sales in this period.</p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-[13px]">
+            <thead>
+              <tr className="opp-meta-mono uppercase text-ink-mute">
+                <th className="text-left font-medium py-2 pr-3">{groupLabel}</th>
+                <th className="text-right font-medium py-2 px-3">Revenue</th>
+                <th className="text-right font-medium py-2 px-3">Orders</th>
+                <th className="text-right font-medium py-2 pl-3">AOV</th>
+              </tr>
+            </thead>
+            <tbody>
+              {buckets.map((b) => (
+                <tr key={b.key} className="border-t border-line">
+                  <td className="py-2.5 pr-3">
+                    <div className="text-ink font-semibold">{b.label}</div>
+                    {b.sub && <div className="opp-meta-mono text-ink-mute">{b.sub}</div>}
+                  </td>
+                  <td className="py-2.5 px-3 text-right">
+                    <div className="text-ink font-mono">{fmtMoney(b.revenue)}</div>
+                    <div className="mt-1 h-1 rounded-full bg-line overflow-hidden ml-auto" style={{ maxWidth: 120 }}>
+                      <div className="h-full rounded-full" style={{ width: `${(b.revenue / maxRev) * 100}%`, background: C.accent }} />
+                    </div>
+                  </td>
+                  <td className="py-2.5 px-3 text-right font-mono text-ink-soft">{fmtNum(b.orders)}</td>
+                  <td className="py-2.5 pl-3 text-right font-mono text-ink-soft">{fmtMoney(b.aov, 2)}</td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr className="border-t-2 border-line">
+                <td className="py-2.5 pr-3 text-ink font-semibold">Total</td>
+                <td className="py-2.5 px-3 text-right font-mono text-ink font-semibold">{fmtMoney(sales.totals.revenue)}</td>
+                <td className="py-2.5 px-3 text-right font-mono text-ink font-semibold">{fmtNum(sales.totals.orders)}</td>
+                <td className="py-2.5 pl-3 text-right font-mono text-ink-soft">{fmtMoney(sales.totals.aov, 2)}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      )}
+      <p className="opp-meta-mono text-ink-mute mt-4 pt-3 border-t border-line leading-relaxed">
+        Paid orders bucketed by Pacific-time date. Independent of the range selector up top.
+      </p>
+    </Panel>
   );
 }
 
