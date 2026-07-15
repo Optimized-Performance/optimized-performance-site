@@ -42,27 +42,21 @@ export default function ShippingReturns() {
                   <tr className="border-t border-line">
                     <td className="px-4 py-3 text-ink font-medium">Standard Shipping</td>
                     <td className="px-4 py-3 text-ink-soft font-mono">$16.95 flat</td>
-                    <td className="px-4 py-3 text-ink-soft">2–5 business days</td>
-                    <td className="px-4 py-3 text-ink-soft">USPS Ground Advantage · vial orders, thermal-insulated mailer</td>
-                  </tr>
-                  <tr className="border-t border-line">
-                    <td className="px-4 py-3 text-ink font-medium">Cold-Pack Shipping (Kits)</td>
-                    <td className="px-4 py-3 text-ink-soft font-mono">$33.95 flat</td>
-                    <td className="px-4 py-3 text-ink-soft">1–3 business days</td>
-                    <td className="px-4 py-3 text-ink-soft">USPS Priority Mail · larger thermal-insulated mailer · faster transit</td>
+                    <td className="px-4 py-3 text-ink-soft">2–3 business days</td>
+                    <td className="px-4 py-3 text-ink-soft">UPS 2nd Day Air (USPS Priority Mail where UPS isn&apos;t available) · insulated thermal mailer</td>
                   </tr>
                   <tr className="border-t border-line">
                     <td className="px-4 py-3 text-ink font-medium">Expedited Shipping</td>
                     <td className="px-4 py-3 text-ink-soft">By request</td>
-                    <td className="px-4 py-3 text-ink-soft">1–2 business days</td>
-                    <td className="px-4 py-3 text-ink-soft">USPS Priority Mail Express — email us for a quote</td>
+                    <td className="px-4 py-3 text-ink-soft">1 business day</td>
+                    <td className="px-4 py-3 text-ink-soft">Overnight (UPS Next Day Air / USPS Priority Express) — email us for a quote</td>
                   </tr>
                 </tbody>
               </table>
             </div>
             <ul className="list-disc pl-5 space-y-1.5 text-sm text-ink-soft leading-relaxed">
-              <li><strong className="text-ink">Free standard shipping on vial-only orders $250+</strong> (after any affiliate or promo discount).</li>
-              <li><strong className="text-ink">Cold-pack shipping ($33.95 flat) applies to all kit orders</strong> regardless of order total — kits ship USPS Priority in a larger thermal-insulated mailer. The surcharge covers the larger mailer and faster transit kits require.</li>
+              <li><strong className="text-ink">Free standard shipping on orders $250+</strong> (after any affiliate or promo discount).</li>
+              <li>Domestic orders ship <strong className="text-ink">UPS 2nd Day Air</strong>. On the occasional address UPS doesn&apos;t serve on that service, we ship <strong className="text-ink">USPS Priority Mail</strong> instead — same flat rate.</li>
               <li>All orders ship from within the United States.</li>
               <li>We ship to <strong className="text-ink">US and Canadian addresses</strong>.</li>
               <li>Shipping times are estimates and not guaranteed.</li>
@@ -82,16 +76,15 @@ export default function ShippingReturns() {
           <Section title="Packaging & Cold Chain">
             <ul className="list-disc pl-5 space-y-1.5 text-sm text-ink-soft leading-relaxed">
               <li>All orders are shipped in <strong className="text-ink">discrete, unbranded packaging</strong>.</li>
-              <li><strong className="text-ink">Vial orders</strong> ship in a thermal-insulated mailer designed for short-transit temperature protection. The reflective interior insulation moderates package temperature through typical USPS Ground Advantage transit windows nationwide.</li>
-              <li><strong className="text-ink">Kit orders</strong> ship in a larger thermal-insulated mailer via USPS Priority Mail for faster transit.</li>
-              <li>Lyophilized peptides are stable for short periods at room temperature, and our packaging is selected so vials arrive in good condition under typical transit conditions. Once received, vials should be stored at 2–8 °C until reconstitution.</li>
+              <li>Orders ship in an <strong className="text-ink">insulated thermal mailer</strong> built for short-transit temperature protection. The reflective interior insulation moderates package temperature through the 2-day transit window nationwide.</li>
+              <li>Lyophilized peptides are stable for short periods at room temperature, and our packaging plus 2-day service are selected so vials arrive in good condition under typical transit conditions. Once received, vials should be stored at 2–8 °C until reconstitution.</li>
             </ul>
           </Section>
 
           <Section title="Tracking Your Order">
             <ul className="list-disc pl-5 space-y-1.5 text-sm text-ink-soft leading-relaxed">
               <li>Tracking numbers are provided via email once your order ships.</li>
-              <li>Track your package through the USPS website using the tracking number provided.</li>
+              <li>Track your package on the carrier&apos;s site (UPS or USPS) using the tracking number provided.</li>
               <li>If you have not received tracking within 2 business days, please contact us.</li>
             </ul>
           </Section>
