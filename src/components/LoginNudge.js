@@ -92,11 +92,11 @@ export default function LoginNudge() {
     return (
       <button
         onClick={reopen}
-        className="fixed right-4 bottom-[calc(88px+env(safe-area-inset-bottom,0px))] sm:bottom-5 sm:right-5 z-[59] flex items-center gap-2 px-4 py-3 rounded-full bg-accent text-paper text-[11px] font-mono font-bold tracking-[0.14em] uppercase transition hover:brightness-110"
+        className="fixed right-4 bottom-[calc(88px+env(safe-area-inset-bottom,0px))] sm:bottom-5 sm:right-5 z-[59] flex items-center gap-2 px-4 py-3 rounded-full bg-accent text-paper text-[12px] font-bold tracking-[0.14em] uppercase transition hover:brightness-110"
         style={{ boxShadow: '0 8px 26px -8px rgba(245, 166, 35, 0.5)' }}
-        aria-label="Sign in for full access"
+        aria-label="Full catalog — sign in"
       >
-        <span aria-hidden="true">→</span> Sign in
+        <span aria-hidden="true">?</span> Full catalog?
       </button>
     )
   }
