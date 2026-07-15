@@ -138,6 +138,22 @@ export default function ProductsTab({ token, showSaveMsg }) {
     } catch { /* */ }
   }
 
+  async function deleteProduct(p) {
+    if (!window.confirm(
+      `Permanently delete ${p.name} (${p.sku})?\n\nPast orders keep their own copy of the line item, but the SKU disappears from the site, admin pickers, and inventory. This cannot be undone — Unpublish is the reversible option.`
+    )) return;
+    try {
+      const res = await fetch('/api/admin/products', {
+        method: 'DELETE', headers: authHeaders(), body: JSON.stringify({ id: p.id }),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) { msg(d.error || 'Delete failed'); return; }
+      msg(`Deleted ${p.sku}`);
+      if (editingId === p.id) cancel();
+      await fetchProducts();
+    } catch { msg('Delete failed'); }
+  }
+
   async function addGated(e) {
     e.preventDefault();
     if (!newEmail.trim()) return;
@@ -266,7 +282,8 @@ export default function ProductsTab({ token, showSaveMsg }) {
                   <td className="py-2 pr-3">{p.published ? <span className="text-accent">live</span> : <span className="text-ink-soft">draft</span>}</td>
                   <td className="py-2 text-right whitespace-nowrap">
                     <button onClick={() => startEdit(p)} className="text-accent hover:underline mr-3">Edit</button>
-                    <button onClick={() => togglePublished(p)} className="text-ink-soft hover:text-ink">{p.published ? 'Unpublish' : 'Publish'}</button>
+                    <button onClick={() => togglePublished(p)} className="text-ink-soft hover:text-ink mr-3">{p.published ? 'Unpublish' : 'Publish'}</button>
+                    <button onClick={() => deleteProduct(p)} className="text-danger hover:underline">Delete</button>
                   </td>
                 </tr>
               ))}

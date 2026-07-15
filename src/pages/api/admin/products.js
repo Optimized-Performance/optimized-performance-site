@@ -10,8 +10,12 @@ import { getCatalog, invalidateCatalogCache } from '../../../lib/catalog'
 // GET    -> full catalog (incl. unpublished/draft) via getCatalog()
 // POST   -> create a SKU (defaults to unpublished + most-restrictive tier)
 // PATCH  -> update a SKU by id (any subset of editable fields)
-// There is NO hard delete — "disable" = PATCH { published: false }, so order
-// history that references a SKU is never orphaned.
+// DELETE -> hard-delete a SKU (+ its inventory row). Safe for order history:
+//           orders snapshot line items as JSON (sku/name/price copies), so
+//           past orders keep rendering — but editing one of those orders can
+//           no longer re-add the deleted SKU, and its /coa/{sku} page 404s.
+//           Kits pointing at the product block the delete (remove them first).
+//           Unpublish remains the reversible option.
 
 const TIERS = new Set(['public', 'cohort', 'account_gated'])
 const RAILS = new Set(['all', 'p2p_crypto', 'zelle_crypto'])
@@ -117,6 +121,57 @@ export default async function handler(req, res) {
       if (!data) return res.status(404).json({ error: 'Product not found' })
       invalidateCatalogCache()
       return res.status(200).json({ product: data })
+    }
+
+    if (req.method === 'DELETE') {
+      const body = req.body || {}
+      const id = typeof body.id === 'string' ? body.id.trim() : ''
+      if (!id) return res.status(400).json({ error: 'id is required' })
+
+      const { data: product, error: findErr } = await supabaseAdmin
+        .from('products')
+        .select('id, sku, name')
+        .eq('id', id)
+        .maybeSingle()
+      if (findErr) throw findErr
+      if (!product) return res.status(404).json({ error: 'Product not found' })
+
+      // Kits deduct stock from their parent — deleting the parent out from
+      // under them breaks their inventory math. Make the operator remove the
+      // kit variants first (explicit beats cascade for a destructive action).
+      const { data: kits } = await supabaseAdmin
+        .from('products')
+        .select('id')
+        .eq('parent_id', id)
+      if (kits && kits.length > 0) {
+        return res.status(409).json({
+          error: `${kits.length} kit variant(s) point at this product (${kits.map((k) => k.id).join(', ')}). Delete those first.`,
+        })
+      }
+
+      // Clear the SKU's inventory row so the Inventory tab and stock crons
+      // don't carry an orphan. Best-effort: an error here (e.g. legacy schema)
+      // shouldn't strand the delete — the FK check below is the real guard.
+      try {
+        await supabaseAdmin.from('inventory').delete().eq('sku', product.sku)
+      } catch (invErr) {
+        console.warn('[admin/products] inventory cleanup failed:', invErr.message)
+      }
+
+      const { error: delErr } = await supabaseAdmin
+        .from('products')
+        .delete()
+        .eq('id', id)
+      if (delErr) {
+        // 23503 = something still references this row at the DB level.
+        if (delErr.code === '23503') {
+          return res.status(409).json({ error: 'Another record still references this product. Unpublish it instead.' })
+        }
+        throw delErr
+      }
+
+      invalidateCatalogCache()
+      return res.status(200).json({ ok: true, deleted: id, sku: product.sku })
     }
 
     return res.status(405).end()

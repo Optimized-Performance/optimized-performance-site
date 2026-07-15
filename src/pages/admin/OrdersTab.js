@@ -153,6 +153,8 @@ export default function OrdersTab({ products = [], showSaveMsg, token }) {
 
   // Order editing (add/remove items → recompute → invoice the balance or comp).
   const [editOrder, setEditOrder] = useState(null);      // the order being edited (null = closed)
+  const [addrEdit, setAddrEdit] = useState(null);        // { orderId, name, address, city, state, zip } | null
+  const [addrSaving, setAddrSaving] = useState(false);
   const [editLines, setEditLines] = useState([]);        // [{ id, sku, name, price, quantity, comp }]
   const [editChargeMethod, setEditChargeMethod] = useState('card');
   const [editSendInvoice, setEditSendInvoice] = useState(true);
@@ -265,6 +267,49 @@ export default function OrdersTab({ products = [], showSaveMsg, token }) {
       showSaveMsg(`Edit failed: ${e.message}`);
     }
     setEditSubmitting(false);
+  }
+
+  // Shipping-address edit — replaces the paper-notes workflow when a customer
+  // sends a corrected address. Server validates against the order's country
+  // (US state / CA province+postal) and stamps edit_history.
+  function startAddrEdit(order) {
+    setAddrEdit({
+      orderId: order.id,
+      name: order.customer_name || '',
+      address: order.shipping_address || '',
+      city: order.city || '',
+      state: order.state || '',
+      zip: order.zip || '',
+    });
+  }
+
+  async function saveAddrEdit(order) {
+    if (!addrEdit || addrSaving) return;
+    const { name, address, city, state, zip } = addrEdit;
+    if (!name.trim() || !address.trim() || !city.trim() || !state.trim() || !zip.trim()) {
+      showSaveMsg('Fill in recipient name and the full address.');
+      return;
+    }
+    setAddrSaving(true);
+    try {
+      const res = await fetch('/api/admin/orders/edit-address', {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ id: order.id, name, address, city, state, zip }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        showSaveMsg(`Address edit failed: ${data.error || res.status}`);
+        setAddrSaving(false);
+        return;
+      }
+      await fetchOrders({ silent: true });
+      showSaveMsg(data.message || 'Shipping address updated.');
+      setAddrEdit(null);
+    } catch (e) {
+      showSaveMsg(`Address edit failed: ${e.message}`);
+    }
+    setAddrSaving(false);
   }
 
   async function markBalancePaid(order) {
@@ -1319,11 +1364,50 @@ export default function OrdersTab({ products = [], showSaveMsg, token }) {
                           )}
                           <div className="grid gap-4 md:grid-cols-4 grid-cols-1">
                             <div>
-                              <div className="opp-meta-mono uppercase mb-1">Shipping</div>
-                              <div className="text-[13px] text-ink leading-relaxed">
-                                {order.shipping_address}<br />
-                                {order.city}, {order.state} {order.zip}{order.country && order.country !== 'US' ? `, ${order.country}` : ''}
+                              <div className="opp-meta-mono uppercase mb-1">
+                                Shipping
+                                {addrEdit?.orderId !== order.id && (
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); startAddrEdit(order); }}
+                                    className="ml-2 text-accent hover:underline normal-case text-[12px]"
+                                  >
+                                    Edit
+                                  </button>
+                                )}
                               </div>
+                              {addrEdit?.orderId === order.id ? (
+                                <div className="flex flex-col gap-1.5 max-w-[260px]" onClick={(e) => e.stopPropagation()}>
+                                  <input className="input-field text-[13px] py-1.5" placeholder="Recipient name" value={addrEdit.name}
+                                    onChange={(e) => setAddrEdit((a) => ({ ...a, name: e.target.value }))} />
+                                  <input className="input-field text-[13px] py-1.5" placeholder="Street address" value={addrEdit.address}
+                                    onChange={(e) => setAddrEdit((a) => ({ ...a, address: e.target.value }))} />
+                                  <input className="input-field text-[13px] py-1.5" placeholder="City" value={addrEdit.city}
+                                    onChange={(e) => setAddrEdit((a) => ({ ...a, city: e.target.value }))} />
+                                  <div className="flex gap-1.5">
+                                    <input className="input-field text-[13px] py-1.5 w-16" placeholder={order.country === 'CA' ? 'Prov' : 'State'} value={addrEdit.state}
+                                      onChange={(e) => setAddrEdit((a) => ({ ...a, state: e.target.value }))} />
+                                    <input className="input-field text-[13px] py-1.5 flex-1" placeholder={order.country === 'CA' ? 'Postal code' : 'ZIP'} value={addrEdit.zip}
+                                      onChange={(e) => setAddrEdit((a) => ({ ...a, zip: e.target.value }))} />
+                                  </div>
+                                  <div className="flex gap-2 mt-1">
+                                    <button onClick={() => saveAddrEdit(order)} disabled={addrSaving} className="btn-primary px-3 py-1 text-[12px]">
+                                      {addrSaving ? 'Saving…' : 'Save'}
+                                    </button>
+                                    <button onClick={() => setAddrEdit(null)} className="px-3 py-1 border border-line rounded-opp text-[12px] text-ink-soft hover:text-ink">
+                                      Cancel
+                                    </button>
+                                  </div>
+                                  <div className="text-[11px] text-ink-mute">
+                                    Country stays {order.country === 'CA' ? 'Canada' : 'US'} — a country change needs cancel + re-create.
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="text-[13px] text-ink leading-relaxed">
+                                  {order.customer_name}<br />
+                                  {order.shipping_address}<br />
+                                  {order.city}, {order.state} {order.zip}{order.country && order.country !== 'US' ? `, ${order.country}` : ''}
+                                </div>
+                              )}
                             </div>
                             <div>
                               <div className="opp-meta-mono uppercase mb-1">Items Breakdown</div>
