@@ -3,7 +3,7 @@ import { useRouter } from 'next/router';
 import { useCart } from '../context/CartContext';
 import SEO from '../components/SEO';
 import { Vial, Icon } from '../components/Primitives';
-import { FREE_SHIPPING_THRESHOLD } from '../lib/shipping';
+import { FREE_SHIPPING_THRESHOLD, SHIPPING_TIERS, DEFAULT_SHIPPING_METHOD } from '../lib/shipping';
 import { MEMORIAL_DAY_DISCOUNT_PCT, ALT_PAY_DISCOUNT_PCT } from '../lib/sale';
 import { computeOrderTotals } from '../lib/pricing';
 import { RECOVERY_COOKIE, RECOVERY_QUERY_PARAM } from '../lib/recovery-config';
@@ -95,6 +95,8 @@ export default function Checkout() {
   // list, the $50 flat shipping, the card/crypto-only rails, and requires the
   // customs-risk acknowledgment below.
   const [country, setCountry] = useState('US');
+  // Selected US shipping speed tier (Canada has no selector — flat $50).
+  const [shippingMethod, setShippingMethod] = useState(DEFAULT_SHIPPING_METHOD);
   const [customsAck, setCustomsAck] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submittingMethod, setSubmittingMethod] = useState(null);
@@ -278,7 +280,7 @@ export default function Checkout() {
     altPayDiscount,
     standardTotal: discountedTotal,
     altPayTotal,
-  } = computeOrderTotals({ lineItems: cartItems, affiliatePct: discountPct, recoveryPct, country });
+  } = computeOrderTotals({ lineItems: cartItems, affiliatePct: discountPct, recoveryPct, country, shippingMethod });
   const altPayEnabled = cryptoEnabled || zelleEnabled;
   const altPayLabel = [cryptoEnabled && 'Crypto', zelleEnabled && 'Zelle'].filter(Boolean).join(' or ');
 
@@ -411,6 +413,7 @@ export default function Checkout() {
     researchField,
     paymentMethod,
     country,
+    shippingMethod: country === 'CA' ? undefined : shippingMethod,
     customsAck: country === 'CA' ? customsAck : undefined,
   });
 
@@ -935,34 +938,48 @@ export default function Checkout() {
                 <span className="text-success font-semibold">-${recoveryDiscount.toFixed(2)}</span>
               </div>
             )}
+            {/* Shipping method selector — US only; every tier ships insulated
+                + ice pack, they differ by speed. Canada = flat $50, no choice. */}
+            {country === 'US' && (
+              <div className="flex flex-col gap-1.5 py-1">
+                <span className="opp-meta-mono uppercase text-ink-mute">Shipping speed</span>
+                {SHIPPING_TIERS.map((t) => {
+                  const isFree = t.freeEligible && discountedSubtotal >= FREE_SHIPPING_THRESHOLD;
+                  const selected = shippingMethod === t.id;
+                  return (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() => setShippingMethod(t.id)}
+                      className={`flex items-center justify-between gap-3 rounded-opp border px-3 py-2 text-left transition-colors ${selected ? 'border-accent-strong bg-accent-soft' : 'border-line hover:border-ink-soft'}`}
+                    >
+                      <span>
+                        <span className="text-[13px] text-ink font-semibold">{t.label}</span>
+                        <span className="opp-meta-mono text-ink-mute ml-2">{t.eta}</span>
+                      </span>
+                      <span className={`text-[13px] font-semibold ${isFree ? 'text-success' : 'text-ink'}`}>
+                        {isFree ? 'FREE' : `$${t.price.toFixed(2)}`}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
             <div className="flex justify-between text-[13px]">
-              <span className="text-ink-soft">Shipping</span>
+              <span className="text-ink-soft">Shipping{shippingBreakdown.international ? ' (Canada)' : ''}</span>
               {shippingBreakdown.freeShipApplied ? (
                 <span className="text-success font-semibold">FREE</span>
               ) : (
-                <span className="text-ink">${shippingBreakdown.base.toFixed(2)}</span>
+                <span className="text-ink">${shippingBreakdown.total.toFixed(2)}</span>
               )}
             </div>
-            {shippingBreakdown.hasColdPack && (
-              <>
-                <div className="flex justify-between text-[13px]">
-                  <span className="text-ink-soft">Cold-pack handling</span>
-                  <span className="text-ink">${shippingBreakdown.coldPack.toFixed(2)}</span>
-                </div>
-                <p className="opp-meta-mono text-ink-mute m-0">
-                  Kits ship in a larger thermal-insulated mailer via USPS Priority Mail. Surcharge covers the larger mailer + faster transit.
-                </p>
-              </>
-            )}
-            {!shippingBreakdown.hasColdPack && !shippingBreakdown.freeShipApplied && (
+            {country === 'US' && shippingMethod === 'ground' && !shippingBreakdown.freeShipApplied && (
               <p className="opp-meta-mono text-ink-mute m-0">
-                Free standard shipping on vial-only orders ${FREE_SHIPPING_THRESHOLD}+ — add ${(FREE_SHIPPING_THRESHOLD - discountedSubtotal).toFixed(2)} to qualify.
+                Free Ground shipping on orders ${FREE_SHIPPING_THRESHOLD}+ — add ${(FREE_SHIPPING_THRESHOLD - discountedSubtotal).toFixed(2)} to qualify.
               </p>
             )}
-            {shippingBreakdown.hasColdPack && (
-              <p className="opp-meta-mono text-ink-mute m-0">
-                Cold-pack shipping applies to all kit orders — free-shipping threshold does not apply.
-              </p>
+            {country === 'US' && (
+              <p className="opp-meta-mono text-ink-mute m-0">Every order ships insulated with an ice pack.</p>
             )}
             <div className="flex justify-between pt-3 border-t border-line text-base font-bold text-ink">
               <span>Total</span>

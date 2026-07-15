@@ -58,9 +58,9 @@ export default function CartDrawer() {
   // Final numbers are recomputed at checkout once the affiliate code is applied.
   const { discount: volumeDiscount } = calcVolumeDiscount(cartItems);
   const postVolume = Math.round((cartTotal - volumeDiscount) * 100) / 100;
-  const shippingBreakdown = calcShipping({ items: cartItems, discountedSubtotal: postVolume });
-  // Cross-sell add-ons (BAC water) + free-shipping progress — only meaningful for
-  // vial-only carts (kits always pay the cold-pack surcharge, no free-ship tier).
+  // Free-ship progress is measured against the GROUND tier — the only
+  // free-eligible one ($250+). Customer picks their actual speed at checkout.
+  const shippingBreakdown = calcShipping({ items: cartItems, discountedSubtotal: postVolume, shippingMethod: 'ground' });
   // BAC cross-sell: cohort only, only when the cart holds a real peptide (not
   // just BAC), and only for a BAC SKU not already in the cart.
   const bacIds = new Set(BAC_ADDONS.map((b) => b.id));
@@ -69,7 +69,7 @@ export default function CartDrawer() {
   const addOns = cohort && hasPeptide
     ? BAC_ADDONS.filter((b) => !inCart.has(b.id)).slice(0, 1)
     : [];
-  const freeShipEligible = !shippingBreakdown.hasColdPack;
+  const freeShipEligible = true; // ground tier is always free-ship eligible at $250+
   const remaining = Math.max(0, FREE_SHIPPING_THRESHOLD - cartTotal);
   const freeShipPct = Math.min(100, (cartTotal / FREE_SHIPPING_THRESHOLD) * 100);
 
@@ -167,12 +167,12 @@ export default function CartDrawer() {
             </div>
 
             <footer className="border-t border-line px-6 py-5 flex flex-col gap-2.5">
-              {/* Free-shipping progress — nudges AOV toward the $250 vial-only tier */}
+              {/* Free-shipping progress — nudges AOV toward the $250 free-Ground tier */}
               {cohort && freeShipEligible && (
                 remaining > 0 ? (
                   <div className="mb-1">
                     <div className="flex justify-between opp-meta-mono mb-1.5">
-                      <span className="text-ink-soft">Add <strong className="text-ink">${remaining.toFixed(2)}</strong> for FREE shipping</span>
+                      <span className="text-ink-soft">Add <strong className="text-ink">${remaining.toFixed(2)}</strong> for FREE Ground shipping</span>
                       <span className="text-ink-mute">${FREE_SHIPPING_THRESHOLD}</span>
                     </div>
                     <div className="h-1.5 bg-surfaceAlt rounded-full overflow-hidden">
@@ -181,7 +181,7 @@ export default function CartDrawer() {
                   </div>
                 ) : (
                   <div className="opp-meta-mono text-success flex items-center gap-1.5 mb-1">
-                    <Icon name="truck" size={13} /> You&rsquo;ve unlocked FREE shipping
+                    <Icon name="truck" size={13} /> You&rsquo;ve unlocked FREE Ground shipping
                   </div>
                 )
               )}
@@ -221,17 +221,13 @@ export default function CartDrawer() {
                 <span>Shipping</span>
                 <span>
                   {shippingBreakdown.freeShipApplied
-                    ? 'FREE'
-                    : shippingBreakdown.hasColdPack
-                      ? `$${shippingBreakdown.total.toFixed(2)} · cold-pack`
-                      : '$16.95 flat · free over $250'}
+                    ? 'FREE Ground · faster from $17.95'
+                    : 'From $9.95 · choose speed at checkout'}
                 </span>
               </div>
-              {shippingBreakdown.hasColdPack && (
-                <p className="opp-meta-mono text-ink-mute m-0 leading-snug">
-                  Kits ship USPS Priority in a larger thermal-insulated mailer — surcharge covers the larger mailer and faster transit kit-volume orders require.
-                </p>
-              )}
+              <p className="opp-meta-mono text-ink-mute m-0 leading-snug">
+                Every order ships insulated with an ice pack.
+              </p>
               <button className="btn-primary w-full mt-1" onClick={() => goto('/checkout')}>
                 Checkout <Icon name="arrow" size={16} />
               </button>

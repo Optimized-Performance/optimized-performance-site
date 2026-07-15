@@ -10,6 +10,15 @@ const SHIPCHEER_SNAPSHOT_KEY = 'opp_shipcheer_last_export';
 // Cancel button, not part of the normal progression.
 const STATUSES = ['pending', 'packed', 'shipped', 'fulfilled'];
 const ALL_STATUSES = [...STATUSES, 'cancelled'];
+
+// Chosen shipping tier → packing-desk label (v36). Speed the customer paid for;
+// every order ships insulated + ice pack regardless.
+const SHIPPING_METHOD_LABELS = {
+  ground: 'Ground (UPS Ground)',
+  twoday: '2-Day (UPS 2nd Day Air)',
+  overnight: 'Overnight (UPS Next Day Air)',
+  canada: 'Canada ($50 flat)',
+};
 const STATUS_LABELS = {
   pending: 'Pending',
   packed: 'Packed',
@@ -1360,7 +1369,14 @@ export default function OrdersTab({ products = [], showSaveMsg, token }) {
                               )}
                             </div>
                             <div>
-                              <div className="opp-meta-mono uppercase mb-1">Tracking</div>
+                              <div className="opp-meta-mono uppercase mb-1">
+                                Tracking
+                                {order.shipping_method && (
+                                  <span className="ml-2 text-accent-strong normal-case tracking-normal">
+                                    · {SHIPPING_METHOD_LABELS[order.shipping_method] || order.shipping_method}
+                                  </span>
+                                )}
+                              </div>
                               <input
                                 className="input-field"
                                 defaultValue={order.tracking || ''}

@@ -3,6 +3,7 @@ import { validateOrigin, rateLimit, validateEmail, validateString, validateZip }
 import { getRail, isInstantRail as railIsInstant } from '../../../lib/payments/rails'
 import { resolvePaypalAccount } from '../../../lib/payments/paypalAccounts'
 import { isUsState, isCaProvince, isCaPostal } from '../../../lib/us-states'
+import { getShippingTier } from '../../../lib/shipping'
 import { runVelocityChecks, extractClientIP } from '../../../lib/fraud-checks'
 import { getCustomerIdFromReq } from '../../../lib/customer-session'
 import { computeOrderTotals } from '../../../lib/pricing'
@@ -57,6 +58,12 @@ export default async function handler(req, res) {
     const { items, affiliateCode, recoveryToken, sessionId, researchUseAck, researchField, paymentMethod, idempotencyKey, paypalAccount, customsAck } = req.body
     // Destination country: 'US' (default) or 'CA' (Canada launch 2026-07-11).
     const country = req.body.country === 'CA' ? 'CA' : 'US'
+    // Shipping tier (2026-07-14). US orders pick a speed tier; Canada is a
+    // single flat intl rate. Validate against the config — never trust a
+    // client-sent price. Unknown/absent → the default (2-Day).
+    const shippingMethod = country === 'CA'
+      ? 'canada'
+      : (getShippingTier(req.body.shippingMethod).id)
 
     // Trim string fields before validating. Trailing/leading whitespace from
     // mobile autofill is common, and validateEmail is whitespace-intolerant and
@@ -274,6 +281,7 @@ export default async function handler(req, res) {
       recoveryPct,
       paymentMethod,
       country,
+      shippingMethod,
     })
     const subtotal = totals.subtotal
     const discount = totals.affiliateDiscount
@@ -426,6 +434,8 @@ export default async function handler(req, res) {
       // chargeback/audit evidence for CA orders.
       country,
       customs_ack: country === 'CA' && customsAck === true,
+      // Chosen shipping tier (v36) — drives the label service at fulfillment.
+      shipping_method: shippingMethod,
       // COGS snapshot (v33): estimated vendor cost of this cart, frozen at
       // create time like affiliate_commission_pct — the commission basis is
       // total - shipping - cogs (lib/commission). Computed from the
@@ -496,15 +506,16 @@ export default async function handler(req, res) {
         .select()
         .single()
 
-      // Missing-column backstop: if migration v33 (orders.cogs) or v34
-      // (country/customs_ack) hasn't been applied yet, drop those fields and
-      // retry once — a lagging migration must never take checkout down. The
-      // order then carries the pre-migration defaults.
-      if (error && /cogs|country|customs_ack/i.test(error.message || '')) {
-        console.warn('[orders/create] insert retry without v33/v34 columns (migration not applied?):', error.message)
+      // Missing-column backstop: if migration v33 (orders.cogs), v34
+      // (country/customs_ack), or v36 (shipping_method) hasn't been applied
+      // yet, drop those fields and retry once — a lagging migration must never
+      // take checkout down. The order then carries the pre-migration defaults.
+      if (error && /cogs|country|customs_ack|shipping_method/i.test(error.message || '')) {
+        console.warn('[orders/create] insert retry without v33/v34/v36 columns (migration not applied?):', error.message)
         delete insertData.cogs
         delete insertData.country
         delete insertData.customs_ack
+        delete insertData.shipping_method
         ;({ data: inserted, error } = await supabaseAdmin
           .from('orders')
           .insert(insertData)

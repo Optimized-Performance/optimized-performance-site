@@ -15,7 +15,7 @@
 import { supabaseAdmin } from '../../../../lib/supabase'
 import { validateSessionToken } from '../../../../lib/session'
 import { validateOrigin, rateLimit, validateEmail, validateString, validateZip } from '../../../../lib/security'
-import { calcShipping } from '../../../../lib/shipping'
+import { calcShipping, getShippingTier } from '../../../../lib/shipping'
 import { finalizePaidOrder } from '../../../../lib/payments/finalizeOrder'
 import { PAYMENT_STATUS } from '../../../../lib/order-status'
 import { generateOrderNumber } from '../../../../lib/order-number'
@@ -43,6 +43,8 @@ export default async function handler(req, res) {
       items, affiliateCode, paymentMethod,
       priceOverride, sendConfirmation = true,
     } = req.body || {}
+    // Shipping tier for the manual order (default 2-Day); validated against config.
+    const shippingMethod = getShippingTier(req.body.shippingMethod).id
 
     if (!validateString(name) || !validateEmail(email) || !validateString(address) ||
         !validateString(city) || !validateString(state, { minLength: 1, maxLength: 50 }) || !validateZip(zip) ||
@@ -125,7 +127,7 @@ export default async function handler(req, res) {
     } else {
       finalSubtotal = subtotal
       discountedTotal = subtotal - discount
-      const shippingCalc = calcShipping({ items: validatedItems, discountedSubtotal: discountedTotal, saleActive: false })
+      const shippingCalc = calcShipping({ items: validatedItems, discountedSubtotal: discountedTotal, saleActive: false, shippingMethod })
       shipping = shippingCalc.total
       total = Math.round((discountedTotal + shipping) * 100) / 100
     }
@@ -155,6 +157,7 @@ export default async function handler(req, res) {
       // is total - shipping - cogs (lib/commission). Vendor cost doesn't change
       // under a priceOverride, so the estimate stays item-based either way.
       cogs: estimateOrderCogs(lineItems).cogs,
+      shipping_method: shippingMethod,
       payment_status: PAYMENT_STATUS.PENDING,
       payment_method: paymentMethod,
       fraud_status: 'unreviewed',
@@ -169,11 +172,12 @@ export default async function handler(req, res) {
     let { error: insertErr } = await supabaseAdmin
       .from('orders')
       .insert(insertData)
-    // Missing-column backstop (migration v33 not applied yet): retry once
-    // without the COGS snapshot rather than failing the order.
-    if (insertErr && /cogs/i.test(insertErr.message || '')) {
-      console.warn('[create-manual] insert retry without cogs (migration v33 not applied?):', insertErr.message)
+    // Missing-column backstop (migration v33/v36 not applied yet): retry once
+    // without the newer columns rather than failing the order.
+    if (insertErr && /cogs|shipping_method/i.test(insertErr.message || '')) {
+      console.warn('[create-manual] insert retry without cogs/shipping_method (migration not applied?):', insertErr.message)
       delete insertData.cogs
+      delete insertData.shipping_method
       ;({ error: insertErr } = await supabaseAdmin.from('orders').insert(insertData))
     }
     if (insertErr) {

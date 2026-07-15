@@ -54,6 +54,7 @@ export function computeOrderTotals({
   recoveryPct = 0,
   paymentMethod = null,
   country = 'US',
+  shippingMethod = 'twoday',
   now = new Date(),
 } = {}) {
   const items = Array.isArray(lineItems) ? lineItems : []
@@ -108,7 +109,7 @@ export function computeOrderTotals({
   // 6) Shipping — computed on the post-all-discount subtotal (free-ship
   //    threshold + cold-pack surcharge live in lib/shipping). Sale = free ship.
   //    Canada is a flat international rate immune to threshold/sale.
-  const shipping = calcShipping({ items, discountedSubtotal, saleActive, country })
+  const shipping = calcShipping({ items, discountedSubtotal, saleActive, country, shippingMethod })
 
   // 7) Alt-pay (crypto/Zelle) discount — applied to the pre-shipping discounted
   //    subtotal. Computed unconditionally for DISPLAY (so the UI can show the
@@ -131,7 +132,7 @@ export function computeOrderTotals({
     recoveryPct: effectiveRecoveryPct,
     recoveryDiscount,
     discountedSubtotal,
-    shipping, // { base, coldPack, total, hasColdPack, freeShipApplied, saleApplied }
+    shipping, // { base, total, freeShipApplied, saleApplied, international, method, methodLabel }
     altPayDiscount,
     altPayPct: ALT_PAY_DISCOUNT_PCT,
     standardTotal,

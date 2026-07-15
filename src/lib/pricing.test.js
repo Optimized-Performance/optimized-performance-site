@@ -19,11 +19,11 @@ describe('computeOrderTotals', () => {
       now: NO_PROMO,
     })
     expect(r.subtotal).toEqual(money(100))
-    expect(r.shipping.total).toEqual(money(16.95))
-    expect(r.standardTotal).toEqual(money(116.95))
+    expect(r.shipping.total).toEqual(money(17.95)) // default tier = 2-Day $17.95
+    expect(r.standardTotal).toEqual(money(117.95))
     expect(r.altPayDiscount).toEqual(money(5)) // 5% of 100
-    expect(r.altPayTotal).toEqual(money(111.95)) // 116.95 - 5
-    expect(r.total).toEqual(money(116.95)) // non-alt rail pays standard
+    expect(r.altPayTotal).toEqual(money(112.95)) // 117.95 - 5
+    expect(r.total).toEqual(money(117.95)) // non-alt rail pays standard
   })
 
   it('alt-pay rail (crypto) charges the alt-pay total', () => {
@@ -32,29 +32,26 @@ describe('computeOrderTotals', () => {
       paymentMethod: 'crypto',
       now: NO_PROMO,
     })
-    expect(r.total).toEqual(money(111.95)) // 116.95 - 5% alt-pay
+    expect(r.total).toEqual(money(112.95)) // 117.95 - 5% alt-pay
   })
 
-  it('free shipping kicks in for vial-only carts >= $250', () => {
-    const r = computeOrderTotals({
-      lineItems: [{ id: 'x', price: 300, quantity: 1, isKit: false }],
-      paymentMethod: 'paypal',
-      now: NO_PROMO,
-    })
-    expect(r.shipping.freeShipApplied).toBe(true)
-    expect(r.shipping.total).toEqual(money(0))
-    expect(r.standardTotal).toEqual(money(300))
+  it('shipping tiers: ground $9.95, 2-day $17.95, overnight $59.95', () => {
+    const cart = [{ id: 'x', price: 100, quantity: 1 }]
+    expect(computeOrderTotals({ lineItems: cart, shippingMethod: 'ground', now: NO_PROMO }).shipping.total).toEqual(money(9.95))
+    expect(computeOrderTotals({ lineItems: cart, shippingMethod: 'twoday', now: NO_PROMO }).shipping.total).toEqual(money(17.95))
+    expect(computeOrderTotals({ lineItems: cart, shippingMethod: 'overnight', now: NO_PROMO }).shipping.total).toEqual(money(59.95))
   })
 
-  it('cold-pack surcharge applies to kit carts (and overrides free-ship)', () => {
-    const r = computeOrderTotals({
-      lineItems: [{ id: 'k', price: 300, quantity: 1, isKit: true }],
-      paymentMethod: 'paypal',
-      now: NO_PROMO,
-    })
-    expect(r.shipping.hasColdPack).toBe(true)
-    expect(r.shipping.total).toEqual(money(33.95)) // 16.95 + 17, no free-ship for kits
-    expect(r.standardTotal).toEqual(money(333.95))
+  it('free shipping is GROUND-only at $250+ (2-Day still pays its rate)', () => {
+    const cart = [{ id: 'x', price: 300, quantity: 1 }]
+    const ground = computeOrderTotals({ lineItems: cart, shippingMethod: 'ground', paymentMethod: 'paypal', now: NO_PROMO })
+    expect(ground.shipping.freeShipApplied).toBe(true)
+    expect(ground.shipping.total).toEqual(money(0))
+    expect(ground.standardTotal).toEqual(money(300))
+    // 2-Day at the same subtotal is NOT free.
+    const twoday = computeOrderTotals({ lineItems: cart, shippingMethod: 'twoday', paymentMethod: 'paypal', now: NO_PROMO })
+    expect(twoday.shipping.freeShipApplied).toBe(false)
+    expect(twoday.shipping.total).toEqual(money(17.95))
   })
 
   it('house order (recovery token) overrides affiliate: better % applies, affiliate zeroed (no commission)', () => {
@@ -72,7 +69,7 @@ describe('computeOrderTotals', () => {
     expect(r.recoveryDiscount).toEqual(money(30)) // 15% of 200
     expect(r.recoveryPct).toEqual(15)
     expect(r.discountedSubtotal).toEqual(money(170))
-    expect(r.standardTotal).toEqual(money(186.95)) // 170 + 16.95
+    expect(r.standardTotal).toEqual(money(187.95)) // 170 + 17.95 (default 2-Day)
   })
 
   it('house order never gives the customer less than their affiliate code (max of the two)', () => {
@@ -119,20 +116,32 @@ describe('computeOrderTotals', () => {
     expect(r.discountedSubtotal).toEqual(money(180))
   })
 
-  it('Memorial Day sale applies first, then affiliate, with free shipping', () => {
+  it('Memorial Day sale applies first, then affiliate; sale = free GROUND shipping', () => {
     const r = computeOrderTotals({
       lineItems: [{ id: 'x', price: 100, quantity: 2 }],
       affiliatePct: 10,
       paymentMethod: 'paypal',
+      shippingMethod: 'ground', // sale free-ship is ground-only (2026-07-14)
       now: IN_MEMORIAL,
     })
     expect(r.saleActive).toBe(true)
     expect(r.memorialDiscount).toEqual(money(30)) // 15% of 200
     expect(r.affiliateDiscount).toEqual(money(17)) // 10% of 170
     expect(r.discountedSubtotal).toEqual(money(153))
-    expect(r.shipping.total).toEqual(money(0)) // sale = free ship
+    expect(r.shipping.total).toEqual(money(0)) // sale frees the ground tier
     expect(r.standardTotal).toEqual(money(153))
     expect(r.altPayTotal).toEqual(money(145.35)) // 153 - 7.65 (5%)
+  })
+
+  it('site-wide sale does NOT free the paid 2-Day/Overnight tiers', () => {
+    const r = computeOrderTotals({
+      lineItems: [{ id: 'x', price: 100, quantity: 2 }],
+      paymentMethod: 'paypal',
+      shippingMethod: 'twoday',
+      now: IN_MEMORIAL,
+    })
+    expect(r.saleActive).toBe(true)
+    expect(r.shipping.total).toEqual(money(17.95))
   })
 
   it('GLP-3 Buy-2-Get-1-Free discounts one vial per three, before affiliate (now also stacks the 3-unit volume break)', () => {
@@ -149,13 +158,13 @@ describe('computeOrderTotals', () => {
     // it's ever re-run, decide whether volume should be excluded on BOGO SKUs.
     expect(r.volumeDiscount).toEqual(money(7.5))
     expect(r.discountedSubtotal).toEqual(money(92.5))
-    expect(r.standardTotal).toEqual(money(109.45)) // 92.50 + 16.95 ship
+    expect(r.standardTotal).toEqual(money(110.45)) // 92.50 + 17.95 ship (default 2-Day)
   })
 
   it('empty / malformed input is safe (no throw, zero totals)', () => {
     const r = computeOrderTotals({})
     expect(r.subtotal).toEqual(money(0))
-    expect(r.standardTotal).toEqual(money(16.95)) // empty cart still computes base ship; callers gate on cart length
+    expect(r.standardTotal).toEqual(money(17.95)) // empty cart still computes default 2-Day ship; callers gate on cart length
   })
 })
 
@@ -219,12 +228,13 @@ describe('computeOrderTotals — volume breaks', () => {
     const r = computeOrderTotals({
       lineItems: [{ id: 'x', price: 100, quantity: 10 }],
       paymentMethod: 'paypal',
+      shippingMethod: 'ground', // free over $250 on ground
       now: NO_PROMO,
     })
     expect(r.subtotal).toEqual(money(1000))
     expect(r.volumeDiscount).toEqual(money(150)) // 15% of 1000
     expect(r.discountedSubtotal).toEqual(money(850))
-    expect(r.standardTotal).toEqual(money(850)) // free-ship over threshold
+    expect(r.standardTotal).toEqual(money(850)) // free Ground shipping over threshold
   })
 
   it('volume STACKS with an affiliate code (volume first, then affiliate %)', () => {
@@ -292,23 +302,24 @@ describe('Canada shipping (flat $50)', () => {
     expect(r.shipping.total).toEqual(money(CANADA_SHIPPING_FLAT))
   })
 
-  it('does not add the cold-pack surcharge on kit carts (flat covers it)', () => {
+  it('flat rate is immune to the chosen US tier (Canada ignores shippingMethod)', () => {
     const r = computeOrderTotals({
-      lineItems: [{ id: 'x', price: 100, quantity: 1, isKit: true }],
+      lineItems: [{ id: 'x', price: 100, quantity: 1 }],
       paymentMethod: 'card',
       country: 'CA',
+      shippingMethod: 'overnight', // ignored for CA
       now: NO_PROMO,
     })
     expect(r.shipping.total).toEqual(money(CANADA_SHIPPING_FLAT))
-    expect(r.shipping.hasColdPack).toBe(true)
+    expect(r.shipping.method).toBe('canada')
   })
 
-  it('US default stays on the domestic table', () => {
+  it('US default stays on the domestic tier table', () => {
     const r = computeOrderTotals({
       lineItems: [{ id: 'x', price: 100, quantity: 1, isKit: false }],
       paymentMethod: 'card',
       now: NO_PROMO,
     })
-    expect(r.shipping.total).toEqual(money(16.95))
+    expect(r.shipping.total).toEqual(money(17.95)) // default 2-Day
   })
 })

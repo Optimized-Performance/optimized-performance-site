@@ -1,65 +1,71 @@
-// Shipping cost calculation. Single source of truth for both the server-side
-// /api/orders/create handler and the client-side checkout + cart drawer.
+// Shipping cost + method calculation. Single source of truth for the client
+// (checkout + cart drawer) and the server (orders/create, admin manual/edit).
 //
-// Pricing rule (carried forward 2026-05-11 from Option B's 2026-05-06 finalization
-// after cold-chain packaging pivoted from Uline insulated boxes + PCM gel to
-// thermal-insulated mailers — kept unchanged at launch for margin headroom
-// while we ramp; planned to reintroduce insulated-box shippers post-launch
-// once volume supports the higher COGS):
-//   - Vial-only base: $16.95 — ships USPS Ground Advantage in a thermal-
-//     insulated mailer. Lyophilized peptide stability at room temp for short
-//     periods + the mailer's reflective insulation through 2-5 day Ground
-//     transit keeps vials within an acceptable handling envelope nationwide.
-//   - Cold-pack surcharge: +$17 when cart contains any kit SKU. Kits ship
-//     USPS Priority Mail (1-3 day transit) in a larger thermal-insulated
-//     mailer. Surcharge covers the larger mailer + faster carrier service
-//     the higher kit volume warrants. Total kit shipping = $33.95.
-//   - Free standard shipping over $250 (post-discount) — vial-only carts
-//     ONLY. Carts containing any kit always pay the cold-pack surcharge,
-//     regardless of subtotal.
+// Customer picks a SPEED TIER at checkout (2026-07-14). Every tier ships in the
+// same insulated thermal mailer WITH an ice pack — cold chain is baseline, the
+// tiers differ only by carrier speed. The chosen tier also drives the Shippo
+// label service (see getServiceLadder + lib/shippo), so fulfillment doesn't
+// pick a service by hand.
+//
+//   Ground     $9.95  · UPS Ground · FREE on orders $250+ (ground is the only
+//                       free-eligible tier)
+//   2-Day      $17.95 · UPS 2nd Day Air · the DEFAULT · never free
+//   Overnight  $59.95 · UPS Next Day Air · never free
+//
+// Canada is a flat $50 international rate — no tier selector, immune to the
+// free-ship threshold and sales (customs risk rides with the customer; see
+// orders/create). Ships with an ice pack like everything else.
 
-export const SHIPPING_BASE = 16.95
-export const COLD_PACK_SURCHARGE = 17
 export const FREE_SHIPPING_THRESHOLD = 250
-// Canada (2026-07-11): flat international rate. Deliberately NOT touched by
-// the free-shipping threshold, site-wide sales, or the cold-pack surcharge —
-// $50 is the all-in cross-border price, always. Customs risk rides with the
-// customer (explicit waiver collected at checkout; see orders/create).
 export const CANADA_SHIPPING_FLAT = 50
+export const DEFAULT_SHIPPING_METHOD = 'twoday'
 
-export function cartRequiresColdPack(items) {
-  if (!Array.isArray(items)) return false
-  return items.some((it) => it && it.isKit === true)
+export const SHIPPING_TIERS = [
+  { id: 'ground', label: 'Ground', price: 9.95, freeEligible: true, eta: '4–5 business days', service: 'ups_ground', fallback: 'usps_ground_advantage', blurb: 'Cheapest · insulated + ice pack' },
+  { id: 'twoday', label: '2-Day', price: 17.95, freeEligible: false, eta: '2 business days', service: 'ups_second_day_air', fallback: 'usps_priority', blurb: 'Fast · insulated + ice pack' },
+  { id: 'overnight', label: 'Overnight', price: 59.95, freeEligible: false, eta: 'Next business day', service: 'ups_next_day_air', fallback: 'usps_priority_express', blurb: 'Fastest · insulated + ice pack' },
+]
+
+// Resolve a method id to its tier, defaulting to 2-Day for unknown/absent ids
+// (legacy orders created before tiers carry no method).
+export function getShippingTier(methodId) {
+  return SHIPPING_TIERS.find((t) => t.id === methodId)
+    || SHIPPING_TIERS.find((t) => t.id === DEFAULT_SHIPPING_METHOD)
 }
 
-export function calcShipping({ items, discountedSubtotal, saleActive = false, country = 'US' }) {
+// Carrier service ladder for a tier, used by the Shippo label purchase:
+// [preferred UPS service, USPS fallback]. Tier-driven so the label matches
+// what the customer paid for.
+export function getServiceLadder(methodId) {
+  const t = getShippingTier(methodId)
+  return [t.service, t.fallback]
+}
+
+export function calcShipping({ items, discountedSubtotal, saleActive = false, country = 'US', shippingMethod = DEFAULT_SHIPPING_METHOD }) {
   if (country === 'CA') {
     return {
       base: CANADA_SHIPPING_FLAT,
-      coldPack: 0,
       total: CANADA_SHIPPING_FLAT,
-      hasColdPack: cartRequiresColdPack(items),
       freeShipApplied: false,
       saleApplied: false,
       international: true,
+      method: 'canada',
+      methodLabel: 'International (Canada)',
     }
   }
-  const coldPack = cartRequiresColdPack(items)
-  // Memorial Day (and any future) site-wide sale: free shipping overrides
-  // normal calc including cold-pack surcharge. Cold-chain is still used for
-  // kits — we just absorb the cost during the sale window.
-  if (saleActive) {
-    return { base: 0, coldPack: 0, total: 0, hasColdPack: coldPack, freeShipApplied: true, saleApplied: true }
-  }
-  if (!coldPack && discountedSubtotal >= FREE_SHIPPING_THRESHOLD) {
-    return { base: 0, coldPack: 0, total: 0, hasColdPack: false, freeShipApplied: true, saleApplied: false }
-  }
+
+  const tier = getShippingTier(shippingMethod)
+  // Free shipping is GROUND ONLY (Matt): the $250 threshold — and any site-wide
+  // free-ship sale — zero out the ground tier; 2-Day/Overnight always pay their
+  // rate even over the threshold.
+  const qualifiesFree = tier.freeEligible && (saleActive || Number(discountedSubtotal) >= FREE_SHIPPING_THRESHOLD)
   return {
-    base: SHIPPING_BASE,
-    coldPack: coldPack ? COLD_PACK_SURCHARGE : 0,
-    total: SHIPPING_BASE + (coldPack ? COLD_PACK_SURCHARGE : 0),
-    hasColdPack: coldPack,
-    freeShipApplied: false,
-    saleApplied: false,
+    base: tier.price,
+    total: qualifiesFree ? 0 : tier.price,
+    freeShipApplied: qualifiesFree,
+    saleApplied: saleActive && tier.freeEligible,
+    international: false,
+    method: tier.id,
+    methodLabel: tier.label,
   }
 }

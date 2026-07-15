@@ -142,6 +142,9 @@ export default async function handler(req, res) {
       // Keep the destination's shipping rule — editing a Canadian order must
       // recompute with the $50 flat, not the US table (v34).
       country: order.country || 'US',
+      // Preserve the order's chosen speed tier so an item edit doesn't silently
+      // re-rate shipping to the default (v36; NULL → default handled in calc).
+      shippingMethod: order.shipping_method || 'twoday',
     })
     const newTotal = totals.total
     const newShipping = totals.shipping.total

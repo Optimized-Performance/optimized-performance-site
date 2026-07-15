@@ -40,23 +40,30 @@ export default function ShippingReturns() {
                 </thead>
                 <tbody>
                   <tr className="border-t border-line">
-                    <td className="px-4 py-3 text-ink font-medium">Standard Shipping</td>
-                    <td className="px-4 py-3 text-ink-soft font-mono">$16.95 flat</td>
-                    <td className="px-4 py-3 text-ink-soft">2–3 business days</td>
-                    <td className="px-4 py-3 text-ink-soft">UPS 2nd Day Air (USPS Priority Mail where UPS isn&apos;t available) · insulated thermal mailer</td>
+                    <td className="px-4 py-3 text-ink font-medium">Ground</td>
+                    <td className="px-4 py-3 text-ink-soft font-mono">$9.95</td>
+                    <td className="px-4 py-3 text-ink-soft">4–5 business days</td>
+                    <td className="px-4 py-3 text-ink-soft">UPS Ground · insulated mailer + ice pack · FREE on orders $250+</td>
                   </tr>
                   <tr className="border-t border-line">
-                    <td className="px-4 py-3 text-ink font-medium">Expedited Shipping</td>
-                    <td className="px-4 py-3 text-ink-soft">By request</td>
-                    <td className="px-4 py-3 text-ink-soft">1 business day</td>
-                    <td className="px-4 py-3 text-ink-soft">Overnight (UPS Next Day Air / USPS Priority Express) — email us for a quote</td>
+                    <td className="px-4 py-3 text-ink font-medium">2-Day</td>
+                    <td className="px-4 py-3 text-ink-soft font-mono">$17.95</td>
+                    <td className="px-4 py-3 text-ink-soft">2 business days</td>
+                    <td className="px-4 py-3 text-ink-soft">UPS 2nd Day Air · insulated mailer + ice pack</td>
+                  </tr>
+                  <tr className="border-t border-line">
+                    <td className="px-4 py-3 text-ink font-medium">Overnight</td>
+                    <td className="px-4 py-3 text-ink-soft font-mono">$59.95</td>
+                    <td className="px-4 py-3 text-ink-soft">Next business day</td>
+                    <td className="px-4 py-3 text-ink-soft">UPS Next Day Air · insulated mailer + ice pack</td>
                   </tr>
                 </tbody>
               </table>
             </div>
             <ul className="list-disc pl-5 space-y-1.5 text-sm text-ink-soft leading-relaxed">
-              <li><strong className="text-ink">Free standard shipping on orders $250+</strong> (after any affiliate or promo discount).</li>
-              <li>Domestic orders ship <strong className="text-ink">UPS 2nd Day Air</strong>. On the occasional address UPS doesn&apos;t serve on that service, we ship <strong className="text-ink">USPS Priority Mail</strong> instead — same flat rate.</li>
+              <li>Choose your speed at checkout — <strong className="text-ink">every order ships in an insulated mailer with an ice pack</strong> regardless of tier.</li>
+              <li><strong className="text-ink">Free Ground shipping on orders $250+</strong> (after any affiliate or promo discount). Free shipping applies to the Ground tier; 2-Day and Overnight are always at their listed rate.</li>
+              <li>Where UPS doesn&apos;t serve the selected speed to your address, we ship the equivalent USPS service (Priority / Priority Express) at the same rate.</li>
               <li>All orders ship from within the United States.</li>
               <li>We ship to <strong className="text-ink">US and Canadian addresses</strong>.</li>
               <li>Shipping times are estimates and not guaranteed.</li>

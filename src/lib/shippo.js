@@ -1,4 +1,5 @@
 import { packageSpecForOrder, splitStreetAndApt } from './fulfillment'
+import { getServiceLadder } from './shipping'
 
 // Shippo label purchase (replaces the ShipCheer CSV hop): create a shipment,
 // pick the right USPS rate, buy the label, return tracking + label PDF URL.
@@ -119,9 +120,13 @@ export async function buyLabelForOrder(order) {
 
   const { street, apt } = splitStreetAndApt(order.shipping_address)
   const spec = packageSpecForOrder(order.items || [])
-  // Same service ladder (UPS 2nd Day Air → USPS Priority) for every order — kit
-  // vs vial only changes the PARCEL dimensions (spec), not the service.
-  const preferredTokens = preferredServiceTokens()
+  // The customer's chosen speed tier drives the label service (v36):
+  // ground→UPS Ground, twoday→2nd Day Air, overnight→Next Day Air, each with a
+  // USPS fallback. Orders predating tiers (no shipping_method) fall back to the
+  // env/default ladder so old orders still buy a sane label.
+  const preferredTokens = order.shipping_method
+    ? getServiceLadder(order.shipping_method)
+    : preferredServiceTokens()
 
   try {
     const shipment = await shippoPost('/shipments/', {
