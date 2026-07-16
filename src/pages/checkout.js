@@ -270,6 +270,9 @@ export default function Checkout() {
   const {
     saleActive,
     memorialDiscount,
+    flashActive,
+    flashDiscount,
+    flashPct,
     bogoDiscount,
     bogoFreeVials,
     volumeDiscount,
@@ -906,6 +909,14 @@ export default function Checkout() {
                   Memorial Day Sale ({MEMORIAL_DAY_DISCOUNT_PCT}% off)
                 </span>
                 <span className="text-accent-strong font-semibold">-${memorialDiscount.toFixed(2)}</span>
+              </div>
+            )}
+            {flashActive && flashDiscount > 0 && (
+              <div className="flex justify-between text-[13px]">
+                <span className="text-accent-strong font-semibold">
+                  24HR Flash ({flashPct}% off Reta / MT-2 / HGH)
+                </span>
+                <span className="text-accent-strong font-semibold">-${flashDiscount.toFixed(2)}</span>
               </div>
             )}
             {bogoDiscount > 0 && (

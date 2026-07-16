@@ -23,6 +23,10 @@ import {
   calcAltPayDiscount,
   ALT_PAY_DISCOUNT_PCT,
   ALT_PAY_DISCOUNT_METHODS,
+  isFlashSaleActive,
+  isFlashId,
+  calcFlashSale,
+  FLASH_SALE_PCT,
 } from './sale'
 import { calcShipping } from './shipping'
 
@@ -57,17 +61,30 @@ export function computeOrderTotals({
   shippingMethod = 'twoday',
   now = new Date(),
 } = {}) {
-  const items = Array.isArray(lineItems) ? lineItems : []
+  const allItems = Array.isArray(lineItems) ? lineItems : []
 
-  // 1) Subtotal from line prices.
+  // 0) Flash-sale carve-out (Tris birthday 24h). Flash SKUs get a flat 25% and
+  //    are NON-STACKING: they're removed from every other discount base below,
+  //    so no affiliate %, alt-pay, volume, or site sale touches them. Everything
+  //    downstream operates on `items` = the NON-flash lines only. When the flash
+  //    window is closed, flashActive=false and items === allItems (no change).
+  const flashActive = isFlashSaleActive(now)
+  const { discount: flashDiscount, flashSubtotal } = calcFlashSale(allItems, now)
+  const flashPostDiscount = round2(flashSubtotal - flashDiscount) // what flash lines actually cost
+  const items = flashActive ? allItems.filter((it) => !isFlashId(it.id, now)) : allItems
+
+  // 1) Full subtotal (ALL lines, flash included) — the pre-discount cart value.
   const subtotal = round2(
-    items.reduce((sum, it) => sum + (Number(it.price) || 0) * (parseInt(it.quantity, 10) || 0), 0)
+    allItems.reduce((sum, it) => sum + (Number(it.price) || 0) * (parseInt(it.quantity, 10) || 0), 0)
   )
 
   // 2) Site-wide sale (Memorial Day) — applied first so everything else stacks
-  //    on the sale-discounted base.
+  //    on the sale-discounted base. (Non-flash lines only.)
   const saleActive = isMemorialDaySaleActive(now)
-  const { discount: memorialDiscount, post: subtotalPostMemorial } = applyMemorialDiscount(subtotal, now)
+  const nonFlashSubtotal = round2(
+    items.reduce((sum, it) => sum + (Number(it.price) || 0) * (parseInt(it.quantity, 10) || 0), 0)
+  )
+  const { discount: memorialDiscount, post: subtotalPostMemorial } = applyMemorialDiscount(nonFlashSubtotal, now)
 
   // 3) GLP-3 Buy-2-Get-1-Free — dollar discount off the subtotal, before affiliate %.
   const { discount: bogoDiscount, freeVials: bogoFreeVials } = calcGlp3Bogo(
@@ -97,6 +114,8 @@ export function computeOrderTotals({
   const effectiveRecoveryPct = houseOrder ? Math.max(affiliatePctNum, recoveryPctNum) : 0
 
   // Affiliate % comes off the post-promo subtotal (mirrors create.js).
+  // NB: subtotalPostPromos is NON-flash only, so affiliate % never touches the
+  // flash lines (the carve-out).
   const affiliateDiscount = round2(subtotalPostPromos * (effectiveAffiliatePct / 100))
   const subtotalPostAffiliate = round2(subtotalPostPromos - affiliateDiscount)
 
@@ -104,17 +123,22 @@ export function computeOrderTotals({
   // order; carries the larger of the affiliate/house % so the customer never
   // gets less than their code would have given).
   const recoveryDiscount = round2(subtotalPostAffiliate * (effectiveRecoveryPct / 100))
-  const discountedSubtotal = round2(subtotalPostAffiliate - recoveryDiscount)
+  const nonFlashDiscountedSubtotal = round2(subtotalPostAffiliate - recoveryDiscount)
 
-  // 6) Shipping — computed on the post-all-discount subtotal (free-ship
-  //    threshold + cold-pack surcharge live in lib/shipping). Sale = free ship.
-  //    Canada is a flat international rate immune to threshold/sale.
-  const shipping = calcShipping({ items, discountedSubtotal, saleActive, country, shippingMethod })
+  // Whole-order pre-shipping subtotal = non-flash (post every normal discount)
+  // + flash lines at their flat 25%-off price. This is what shipping's free-ship
+  //    threshold and the customer-facing "discounted subtotal" reflect.
+  const discountedSubtotal = round2(nonFlashDiscountedSubtotal + flashPostDiscount)
 
-  // 7) Alt-pay (crypto/Zelle) discount — applied to the pre-shipping discounted
-  //    subtotal. Computed unconditionally for DISPLAY (so the UI can show the
-  //    savings on every rail), then only folded into `total` for alt-pay rails.
-  const altPayDiscount = round2(discountedSubtotal * (ALT_PAY_DISCOUNT_PCT / 100))
+  // 6) Shipping — computed on the whole-order post-discount subtotal, over ALL
+  //    items (flash lines still ship + still need the cold-pack surcharge).
+  //    Sale = free ship. Canada is a flat international rate immune to threshold.
+  const shipping = calcShipping({ items: allItems, discountedSubtotal, saleActive, country, shippingMethod })
+
+  // 7) Alt-pay (crypto/Zelle) discount — on the NON-flash discounted subtotal
+  //    only (flash is non-stacking). Computed unconditionally for DISPLAY, then
+  //    folded into `total` only for alt-pay rails.
+  const altPayDiscount = round2(nonFlashDiscountedSubtotal * (ALT_PAY_DISCOUNT_PCT / 100))
 
   const standardTotal = round2(discountedSubtotal + shipping.total)
   const altPayTotal = round2(standardTotal - altPayDiscount)
@@ -127,6 +151,11 @@ export function computeOrderTotals({
     bogoDiscount: round2(bogoDiscount),
     bogoFreeVials,
     volumeDiscount: round2(volumeDiscount),
+    // Flash sale (Tris birthday 24h) — non-stacking flat % on the flash SKUs.
+    flashActive,
+    flashPct: FLASH_SALE_PCT,
+    flashDiscount: round2(flashDiscount),
+    flashSubtotal: round2(flashSubtotal),
     affiliatePct: effectiveAffiliatePct,
     affiliateDiscount,
     recoveryPct: effectiveRecoveryPct,

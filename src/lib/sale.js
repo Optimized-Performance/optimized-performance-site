@@ -230,3 +230,70 @@ export function calcAltPayDiscount(discountedSubtotal, paymentMethod) {
   const amt = Number(discountedSubtotal) || 0
   return Math.round(amt * (ALT_PAY_DISCOUNT_PCT / 100) * 100) / 100
 }
+
+// ============================================================
+// Tris birthday 24-HOUR FLASH — 2026-07-16.
+// ============================================================
+// 25% off a fixed SKU set (all Reta/GLP-3 + MT-2 + HGH 10iu) for one day.
+// UNLIKE every other promo here, the flash is NON-STACKING: the flash SKUs get
+// exactly 25% and nothing else touches them — no affiliate %, no alt-pay 5%,
+// no volume break, no other site sale. pricing.computeOrderTotals enforces this
+// by CARVING the flash lines out of every other discount base; the rest of the
+// cart is priced normally. (Matt's call 2026-07-16 — protects HGH margin, which
+// is the supply-constrained hero, from a 25% + big-affiliate-code stack.)
+//
+// Window pinned in explicit UTC (same hard lesson as MD/BOGO above — client TZ
+// vs UTC server must evaluate the same instant): 24 h from
+//   2026-07-16 16:00 UTC (09:00 PT)  ->  2026-07-17 16:00 UTC (09:00 PT).
+const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100
+
+export const FLASH_SALE_PCT = 25
+export const FLASH_SALE_IDS = ['glp3-10mg', 'glp3-20mg', 'mt2-5mg', 'hgh-10iu']
+const FLASH_ID_SET = new Set(FLASH_SALE_IDS)
+const FLASH_START_MS = Date.UTC(2026, 6, 16, PT_UTC_OFFSET_HOURS + 9, 0, 0, 0) // 09:00 PT
+const FLASH_END_MS = Date.UTC(2026, 6, 17, PT_UTC_OFFSET_HOURS + 9, 0, 0, 0)   // +24h
+
+export function isFlashSaleActive(now = new Date()) {
+  const t = now.getTime()
+  return t >= FLASH_START_MS && t <= FLASH_END_MS
+}
+
+// Is this id one of the flash SKUs AND is the window open? (drives the
+// carve-out in pricing + the per-SKU discount math staying in sync.)
+export function isFlashId(id, now = new Date()) {
+  return isFlashSaleActive(now) && FLASH_ID_SET.has(id)
+}
+
+// Flash badge / strikethrough on cards + PDPs — auto-false once the window
+// closes so callers render unconditionally.
+export function isFlashProduct(product, now = new Date()) {
+  return isFlashSaleActive(now) && !!product && FLASH_ID_SET.has(product.id)
+}
+
+// Per-price flash price (strikethrough helper). Returns original when inactive.
+export function getFlashPrice(originalPrice) {
+  return round2(originalPrice * (1 - FLASH_SALE_PCT / 100))
+}
+
+// The flash discount + the flash SUBTOTAL that must be excluded from every
+// other discount base. `items` = [{ id, price, quantity }]; callers pass
+// server-validated prices (create.js) or cart prices (checkout.js). Zero /
+// empty when inactive so callers can call unconditionally.
+export function calcFlashSale(items = [], now = new Date()) {
+  if (!isFlashSaleActive(now)) return { discount: 0, flashSubtotal: 0 }
+  let flashSubtotal = 0
+  for (const it of items) {
+    if (!it || !FLASH_ID_SET.has(it.id)) continue
+    const qty = parseInt(it.quantity, 10) || 0
+    const price = Number(it.price) || 0
+    flashSubtotal += price * qty
+  }
+  return {
+    discount: round2(flashSubtotal * (FLASH_SALE_PCT / 100)),
+    flashSubtotal: round2(flashSubtotal),
+  }
+}
+
+export function flashWindowLabel() {
+  return '24 HOURS ONLY'
+}

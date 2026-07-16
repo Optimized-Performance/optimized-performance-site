@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { useCart } from '../context/CartContext';
 import { isPreorderable, formatPreorderShipDate } from '../data/catalog-client';
-import { isMemorialDaySaleActive, getSalePrice, MEMORIAL_DAY_DISCOUNT_PCT, isBogoProduct } from '../lib/sale';
+import { isMemorialDaySaleActive, getSalePrice, MEMORIAL_DAY_DISCOUNT_PCT, isBogoProduct, isFlashProduct, getFlashPrice, FLASH_SALE_PCT } from '../lib/sale';
 import { Vial, Icon } from './Primitives';
 
 const LOW_STOCK_THRESHOLD = 20;
@@ -13,8 +13,12 @@ export default function ProductCard({ product, qty, cohort = false }) {
   // only to cohort (?ref=) visitors. The public/cold face stays clean for AUP
   // review — `cohort` is threaded from shop.js getServerSideProps so this is
   // decided in the server HTML, not hidden client-side.
-  const saleActive = isMemorialDaySaleActive() && cohort;
-  const salePrice = saleActive ? getSalePrice(product.price) : product.price;
+  // Flash (Tris birthday 24h) takes precedence on its SKUs: a flat 25% shown
+  // as strikethrough. Falls back to the Memorial Day site sale otherwise.
+  const flashOn = isFlashProduct(product) && cohort;
+  const mdActive = isMemorialDaySaleActive() && cohort;
+  const saleActive = flashOn || mdActive;
+  const salePrice = flashOn ? getFlashPrice(product.price) : (mdActive ? getSalePrice(product.price) : product.price);
   const bogo = isBogoProduct(product) && cohort;
   const preorderEnabled = stock === 0 && isPreorderable(product);
   const shipDate = preorderEnabled ? formatPreorderShipDate(product) : null;
@@ -67,6 +71,11 @@ export default function ProductCard({ product, qty, cohort = false }) {
         {bogo && (
           <div className="absolute bottom-3 left-3 right-3 font-mono text-[10px] font-bold tracking-[0.1em] px-2 py-1 rounded-sm bg-accent text-surface text-center">
             🎁 BUY 2 GET 1 FREE
+          </div>
+        )}
+        {flashOn && (
+          <div className="absolute bottom-3 left-3 right-3 font-mono text-[10px] font-bold tracking-[0.1em] px-2 py-1 rounded-sm bg-accent text-surface text-center">
+            🎉 24HR FLASH · {FLASH_SALE_PCT}% OFF
           </div>
         )}
         <Vial

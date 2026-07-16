@@ -323,3 +323,78 @@ describe('Canada shipping (flat $50)', () => {
     expect(r.shipping.total).toEqual(money(17.95)) // default 2-Day
   })
 })
+
+// Tris birthday 24-hour flash: 2026-07-16 16:00 UTC .. 2026-07-17 16:00 UTC.
+const IN_FLASH = new Date('2026-07-16T18:00:00Z')
+
+describe('flash sale (Tris birthday 24h, NON-stacking)', () => {
+  it('flash SKU gets a flat 25% — affiliate + alt-pay do NOT stack on it', () => {
+    const r = computeOrderTotals({
+      lineItems: [{ id: 'glp3-10mg', price: 100, quantity: 1 }],
+      affiliatePct: 20, paymentMethod: 'crypto', shippingMethod: 'ground', now: IN_FLASH,
+    })
+    expect(r.flashActive).toBe(true)
+    expect(r.flashDiscount).toEqual(money(25))
+    expect(r.affiliateDiscount).toEqual(money(0)) // carved out of affiliate base
+    expect(r.altPayDiscount).toEqual(money(0))    // carved out of alt-pay base
+    expect(r.discountedSubtotal).toEqual(money(75))
+    expect(r.shipping.total).toEqual(money(9.95)) // ground, under $250
+    expect(r.standardTotal).toEqual(money(84.95))
+    expect(r.total).toEqual(money(84.95))         // crypto rail, but flash != alt-pay eligible
+  })
+
+  it('mixed cart: flash line 25% only; normal line still gets affiliate + alt-pay', () => {
+    const r = computeOrderTotals({
+      lineItems: [
+        { id: 'glp3-10mg', price: 100, quantity: 1 }, // flash
+        { id: 'bpc-10mg', price: 100, quantity: 1 },  // normal
+      ],
+      affiliatePct: 20, paymentMethod: 'crypto', shippingMethod: 'ground', now: IN_FLASH,
+    })
+    expect(r.flashDiscount).toEqual(money(25))     // 25% of the flash 100
+    expect(r.affiliateDiscount).toEqual(money(20)) // 20% of the NORMAL 100 only
+    expect(r.altPayDiscount).toEqual(money(4))     // 5% of non-flash discounted (80)
+    expect(r.discountedSubtotal).toEqual(money(155)) // flash 75 + normal 80
+    expect(r.standardTotal).toEqual(money(164.95))   // +9.95 ground
+    expect(r.altPayTotal).toEqual(money(160.95))     // 164.95 - 4
+    expect(r.total).toEqual(money(160.95))
+  })
+
+  it('HGH 10iu flash: 25% off; volume break never applies', () => {
+    const r = computeOrderTotals({
+      lineItems: [{ id: 'hgh-10iu', price: 230, quantity: 5 }],
+      shippingMethod: 'ground', now: IN_FLASH,
+    })
+    expect(r.flashDiscount).toEqual(money(287.5)) // 5 * 230 * 25%
+    expect(r.volumeDiscount).toEqual(money(0))
+    expect(r.discountedSubtotal).toEqual(money(862.5))
+  })
+
+  it('covers every flash SKU (reta 10/20, mt2, hgh)', () => {
+    for (const id of ['glp3-10mg', 'glp3-20mg', 'mt2-5mg', 'hgh-10iu']) {
+      const r = computeOrderTotals({ lineItems: [{ id, price: 100, quantity: 1 }], now: IN_FLASH })
+      expect(r.flashDiscount, id).toEqual(money(25))
+    }
+  })
+
+  it('inert outside the window — flash SKU priced normally, affiliate applies', () => {
+    const r = computeOrderTotals({
+      lineItems: [{ id: 'glp3-10mg', price: 100, quantity: 1 }],
+      affiliatePct: 20, shippingMethod: 'ground', now: NO_PROMO,
+    })
+    expect(r.flashActive).toBe(false)
+    expect(r.flashDiscount).toEqual(money(0))
+    expect(r.affiliateDiscount).toEqual(money(20))
+    expect(r.discountedSubtotal).toEqual(money(80))
+  })
+
+  it('non-flash SKU during the window is unaffected (affiliate + alt-pay apply)', () => {
+    const r = computeOrderTotals({
+      lineItems: [{ id: 'bpc-10mg', price: 100, quantity: 1 }],
+      affiliatePct: 20, paymentMethod: 'crypto', shippingMethod: 'ground', now: IN_FLASH,
+    })
+    expect(r.flashDiscount).toEqual(money(0))
+    expect(r.affiliateDiscount).toEqual(money(20))
+    expect(r.altPayDiscount).toEqual(money(4))
+  })
+})

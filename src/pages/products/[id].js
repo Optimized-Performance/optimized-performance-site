@@ -9,7 +9,7 @@ import { Vial, Icon } from '../../components/Primitives';
 import NotifyMe from '../../components/NotifyMe';
 import { supabaseAdmin } from '../../lib/supabase';
 import { getCohortFromRequest } from '../../lib/cohort-session';
-import { isMemorialDaySaleActive, getSalePrice, MEMORIAL_DAY_DISCOUNT_PCT, isBogoProduct, VOLUME_TIERS, volumeTierPct, isVolumeEligible } from '../../lib/sale';
+import { isMemorialDaySaleActive, getSalePrice, MEMORIAL_DAY_DISCOUNT_PCT, isBogoProduct, VOLUME_TIERS, volumeTierPct, isVolumeEligible, isFlashProduct, getFlashPrice, FLASH_SALE_PCT } from '../../lib/sale';
 // Static import (NOT require) so Next keeps lib/catalog in this page's server
 // bundle — a dynamic require() of a module with no static importer tree-shakes
 // to {} in the prod build, so getCatalog() became "t is not a function" and
@@ -281,9 +281,11 @@ export default function ProductDetail({
           <div className="flex items-end justify-between pb-5 border-b border-line mb-5">
             <div>
               {(() => {
-                const saleActive = isMemorialDaySaleActive() && cohort;
-                const salePrice = saleActive ? getSalePrice(product.price) : product.price;
-                return saleActive ? (
+                const flashOn = isFlashProduct(product) && cohort;
+                const mdActive = isMemorialDaySaleActive() && cohort;
+                const onSale = flashOn || mdActive;
+                const salePrice = flashOn ? getFlashPrice(product.price) : (mdActive ? getSalePrice(product.price) : product.price);
+                return onSale ? (
                   <div className="flex items-baseline gap-3">
                     <span className="font-display font-semibold text-4xl tracking-display text-accent-strong leading-none">
                       ${salePrice.toFixed(2)}
@@ -291,7 +293,9 @@ export default function ProductDetail({
                     <span className="font-mono text-base text-ink-mute line-through">
                       ${product.price.toFixed(2)}
                     </span>
-                    <span className="opp-meta-mono text-accent-strong">−{MEMORIAL_DAY_DISCOUNT_PCT}% MEMORIAL DAY</span>
+                    <span className="opp-meta-mono text-accent-strong">
+                      {flashOn ? `−${FLASH_SALE_PCT}% · 24HR FLASH` : `−${MEMORIAL_DAY_DISCOUNT_PCT}% MEMORIAL DAY`}
+                    </span>
                   </div>
                 ) : (
                   <div className="font-display font-semibold text-4xl tracking-display text-ink leading-none">

@@ -23,6 +23,7 @@ const AgeGate = dynamic(() => import('../components/AgeGate'), { ssr: true });
 const LaunchBanner = dynamic(() => import('../components/LaunchBanner'), { ssr: false });
 const MemorialDayBanner = dynamic(() => import('../components/MemorialDayBanner'), { ssr: false });
 const Glp3BogoBanner = dynamic(() => import('../components/Glp3BogoBanner'), { ssr: false });
+const FlashSaleBanner = dynamic(() => import('../components/FlashSaleBanner'), { ssr: false });
 const LoginNudge = dynamic(() => import('../components/LoginNudge'), { ssr: false });
 
 export default function App({ Component, pageProps }) {
@@ -50,6 +51,7 @@ export default function App({ Component, pageProps }) {
   const showLaunchBanner = !isAdmin && !isCheckout;
   const showMemorialDayBanner = !isAdmin; // Show on checkout too — reinforces the sale at the moment of purchase
   const showBogoBanner = !isAdmin; // GLP-3 B2G1 — show on checkout too
+  const showFlashBanner = !isAdmin; // 24hr birthday flash — show on checkout too
 
   return (
     <CartProvider>
@@ -60,6 +62,7 @@ export default function App({ Component, pageProps }) {
           <>
             {showMemorialDayBanner && <MemorialDayBanner />}
             {showBogoBanner && <Glp3BogoBanner />}
+            {showFlashBanner && <FlashSaleBanner />}
             {showLaunchBanner && <LaunchBanner />}
             <Header />
             <CartDrawer />
