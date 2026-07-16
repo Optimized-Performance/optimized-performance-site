@@ -58,6 +58,19 @@ export default function BroadcastTab({ products = [], showSaveMsg, token }) {
     setProductIds((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]));
   }
 
+  // One-click insert of the full-catalog CTA. Uses ?cohort=social — the same
+  // cohort token the product-grid links use — so recipients land on the FULL
+  // (gated) catalog, brand-attributed (no commission), consistent with /ig.
+  // Renders as the gold gradient CTA button via the [text](url) composer syntax.
+  const CATALOG_BUTTON = '[Shop the Full Catalog](https://syngyn.co/shop?cohort=social)';
+  function insertCatalogButton() {
+    setBody((b) => {
+      const trimmed = String(b).replace(/\s+$/, '');
+      return trimmed ? `${trimmed}\n\n${CATALOG_BUTTON}\n` : `${CATALOG_BUTTON}\n`;
+    });
+    showSaveMsg && showSaveMsg('Full-catalog button added to the body');
+  }
+
   const load = useCallback(async () => {
     setLoading(true);
     try {
@@ -197,6 +210,13 @@ export default function BroadcastTab({ products = [], showSaveMsg, token }) {
           <span className="opp-meta-mono block mt-1.5 text-ink-mute">
             Gold button: put <code className="text-accent">[Button text](https://link)</code> on its own line — it renders as a branded CTA button (plain-text part gets &quot;Button text: link&quot;).
           </span>
+          <button
+            type="button"
+            onClick={insertCatalogButton}
+            className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-accent/50 text-accent-strong font-mono text-[11px] font-semibold tracking-[0.06em] uppercase hover:bg-accent hover:text-surface transition-colors"
+          >
+            ✨ Insert full-catalog button
+          </button>
         </label>
 
         <div className="mb-4">
