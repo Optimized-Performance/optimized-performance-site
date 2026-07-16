@@ -56,6 +56,10 @@ export default async function handler(req, res) {
 
     for (const order of eligible) {
       for (const item of order.items || []) {
+        // Preorder lines can't be pulled — no stock exists yet. They ship in
+        // their own later wave, so they stay out of the pull totals entirely.
+        if (item?.isPreorder) continue
+
         const product = products.find((p) => p.sku === item.sku || p.id === item.id)
         if (!product) continue
 
@@ -116,6 +120,9 @@ export default async function handler(req, res) {
     // catalog lookup) so nothing is ever silently missing from a box — a
     // deleted/renamed SKU still shows its snapshotted name. Kit lines are
     // annotated with their vial count via the catalog when resolvable.
+    // Preorder lines can't ship yet: an all-preorder order drops off the
+    // list entirely; a mixed order keeps its preorder lines VISIBLE but
+    // flagged, so a deliberately-short box never reads as a packing miss.
     // Sorted oldest-first — the order labels get bought/printed in, so the
     // printout tracks the label stack top-to-bottom.
     const orders = eligible
@@ -131,22 +138,28 @@ export default async function handler(req, res) {
           const qty = Number(item.quantity) || 0
           const product = products.find((p) => p.sku === item.sku || p.id === item.id)
           const isKit = product?.isKit === true
-          const vials = isKit ? (product.vialCount || 1) * qty : null
+          const isPreorder = item?.isPreorder === true
+          const vials = isKit && !isPreorder ? (product.vialCount || 1) * qty : null
           return {
             name: item.name || product?.name || item.sku || 'Unknown item',
             sku: item.sku || product?.sku || '',
             quantity: qty,
-            vials, // non-null only for kit lines (vials to assemble)
+            vials, // non-null only for shippable kit lines (vials to assemble)
+            isPreorder,
+            preorderShipDate: isPreorder ? (item.preorderShipDate || null) : null,
           }
         }),
       }))
+      .filter((o) => o.items.some((it) => !it.isPreorder))
       .sort((a, b) =>
         new Date(a.created_at) - new Date(b.created_at) ||
         a.order_number.localeCompare(b.order_number)
       )
 
     return res.status(200).json({
-      order_count: eligible.length,
+      // Packable orders only — all-preorder orders are excluded above, so the
+      // header count always matches the number of pack-out blocks below it.
+      order_count: orders.length,
       total_vials: Array.from(agg.values()).reduce((sum, x) => sum + x.vials, 0),
       groups: sortedGroups,
       orders,

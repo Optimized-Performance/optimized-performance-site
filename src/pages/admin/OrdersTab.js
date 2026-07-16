@@ -760,6 +760,8 @@ export default function OrdersTab({ products = [], showSaveMsg, token }) {
         .order-block li { padding: 5px 0; border-bottom: 1px dotted #ddd; }
         .order-block li:last-child { border-bottom: none; }
         .kit-note { font-size: 11px; color: #555; font-weight: 600; }
+        .preorder-tag { display: inline-block; font-size: 10px; font-weight: 800; letter-spacing: 0.08em; border: 1.5px solid #999; border-radius: 3px; padding: 1px 5px; margin-right: 8px; color: #777; }
+        .preorder-name { color: #888; text-decoration: line-through; }
         .packed-line { margin-top: 8px; font-size: 12px; color: #444; display: flex; align-items: center; }
       </style></head><body>
       <h1>Syngyn — Pick List</h1>
@@ -787,7 +789,12 @@ export default function OrdersTab({ products = [], showSaveMsg, token }) {
               <span class="order-meta">${esc(o.order_number)}<br/>${esc(o.city)}${o.city && o.state ? ', ' : ''}${esc(o.state)}${o.country && o.country !== 'US' ? ` · ${esc(o.country)}` : ''}${o.shipping_method ? ` · ${esc(SHIPPING_METHOD_LABELS[o.shipping_method] || o.shipping_method)}` : ''}</span>
             </div>
             <ul>
-              ${o.items.map((it) => `
+              ${o.items.map((it) => it.isPreorder ? `
+                <li>
+                  <div><span class="preorder-tag">PREORDER</span><span class="preorder-name">${it.quantity} × ${esc(it.name)}</span>
+                    <span class="kit-note"> — do NOT pack, ships separately${it.preorderShipDate ? ` ~${esc(it.preorderShipDate)}` : ''}</span>
+                  </div>
+                </li>` : `
                 <li>
                   <div><span class="check"></span><span class="name">${it.quantity} × ${esc(it.name)}</span>
                     ${it.vials ? `<span class="kit-note"> — assemble ${it.vials} vials</span>` : ''}
@@ -1683,7 +1690,13 @@ export default function OrdersTab({ products = [], showSaveMsg, token }) {
                       </span>
                     </div>
                     <ul className="m-0 p-0 list-none">
-                      {o.items.map((it, i) => (
+                      {o.items.map((it, i) => it.isPreorder ? (
+                        <li key={i} className="py-1 text-[13px] text-ink-mute">
+                          <span className="text-[10px] font-mono font-bold tracking-[0.08em] border border-line rounded px-1 py-0.5 mr-2">PREORDER</span>
+                          <span className="line-through">{it.quantity} × {it.name}</span>
+                          <span className="text-ink-soft"> — do NOT pack, ships separately{it.preorderShipDate ? ` ~${it.preorderShipDate}` : ''}</span>
+                        </li>
+                      ) : (
                         <li key={i} className="py-1 text-[13px] text-ink">
                           {it.quantity} × {it.name}
                           {it.vials ? <span className="text-ink-soft font-semibold"> — assemble {it.vials} vials</span> : null}
