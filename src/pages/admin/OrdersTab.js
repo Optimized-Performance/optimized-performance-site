@@ -738,6 +738,8 @@ export default function OrdersTab({ products = [], showSaveMsg, token }) {
       return;
     }
     const groups = pickListData.groups || [];
+    const packOrders = pickListData.orders || [];
+    const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     const html = `<!DOCTYPE html><html><head><title>OPP Pick List</title>
       <style>
         body { font-family: system-ui, -apple-system, sans-serif; max-width: 720px; margin: 24px auto; padding: 0 16px; color: #111; }
@@ -746,25 +748,56 @@ export default function OrdersTab({ products = [], showSaveMsg, token }) {
         h2 { font-size: 14px; text-transform: uppercase; letter-spacing: 0.1em; color: #444; border-bottom: 1px solid #ccc; padding-bottom: 4px; margin-top: 28px; }
         ul { list-style: none; padding: 0; }
         li { display: flex; justify-content: space-between; gap: 12px; padding: 8px 4px; border-bottom: 1px solid #eee; }
-        .check { display: inline-block; width: 18px; height: 18px; border: 1.5px solid #444; vertical-align: middle; margin-right: 8px; }
+        .check { display: inline-block; width: 18px; height: 18px; border: 1.5px solid #444; vertical-align: middle; margin-right: 8px; flex-shrink: 0; }
         .name { font-weight: 600; }
         .meta-line { font-size: 11px; color: #777; }
         .qty { font-variant-numeric: tabular-nums; font-weight: 700; white-space: nowrap; }
+        .packout { page-break-before: always; }
+        .order-block { border: 1.5px solid #444; border-radius: 6px; padding: 10px 14px; margin-bottom: 14px; page-break-inside: avoid; }
+        .order-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; border-bottom: 1px solid #ccc; padding-bottom: 6px; margin-bottom: 6px; }
+        .order-name { font-size: 16px; font-weight: 700; }
+        .order-meta { font-size: 11px; color: #666; text-align: right; }
+        .order-block li { padding: 5px 0; border-bottom: 1px dotted #ddd; }
+        .order-block li:last-child { border-bottom: none; }
+        .kit-note { font-size: 11px; color: #555; font-weight: 600; }
+        .packed-line { margin-top: 8px; font-size: 12px; color: #444; display: flex; align-items: center; }
       </style></head><body>
       <h1>Syngyn — Pick List</h1>
       <div class="meta">${pickListData.order_count} order(s) · ${pickListData.total_vials} vials total · generated ${new Date(pickListData.generated_at).toLocaleString()}</div>
       ${groups.map((g) => `
-        <h2>${g.category}</h2>
+        <h2>${esc(g.category)}</h2>
         <ul>
           ${g.items.map((it) => `
             <li>
-              <div><span class="check"></span><span class="name">${it.name} ${it.dosage}</span>
-                <div class="meta-line">${it.sku}${it.kit_count ? ` · ${it.kit_count} kit assembl${it.kit_count === 1 ? 'y' : 'ies'}` : ''}${it.individual_count ? `${it.kit_count ? ' · ' : ' · '}${it.individual_count} loose` : ''}</div>
+              <div><span class="check"></span><span class="name">${esc(it.name)} ${esc(it.dosage)}</span>
+                <div class="meta-line">${esc(it.sku)}${it.kit_count ? ` · ${it.kit_count} kit assembl${it.kit_count === 1 ? 'y' : 'ies'}` : ''}${it.individual_count ? `${it.kit_count ? ' · ' : ' · '}${it.individual_count} loose` : ''}</div>
               </div>
               <div class="qty">${it.vials} vials</div>
             </li>`).join('')}
         </ul>
       `).join('')}
+      ${packOrders.length ? `
+      <div class="packout">
+        <h1>Pack-out by order</h1>
+        <div class="meta">${packOrders.length} box(es) · oldest order first — tracks the label stack top-to-bottom</div>
+        ${packOrders.map((o) => `
+          <div class="order-block">
+            <div class="order-head">
+              <span class="order-name">${esc(o.customer_name)}</span>
+              <span class="order-meta">${esc(o.order_number)}<br/>${esc(o.city)}${o.city && o.state ? ', ' : ''}${esc(o.state)}${o.country && o.country !== 'US' ? ` · ${esc(o.country)}` : ''}${o.shipping_method ? ` · ${esc(SHIPPING_METHOD_LABELS[o.shipping_method] || o.shipping_method)}` : ''}</span>
+            </div>
+            <ul>
+              ${o.items.map((it) => `
+                <li>
+                  <div><span class="check"></span><span class="name">${it.quantity} × ${esc(it.name)}</span>
+                    ${it.vials ? `<span class="kit-note"> — assemble ${it.vials} vials</span>` : ''}
+                  </div>
+                </li>`).join('')}
+            </ul>
+            <div class="packed-line"><span class="check"></span> Boxed + label matched</div>
+          </div>
+        `).join('')}
+      </div>` : ''}
       <script>setTimeout(() => window.print(), 200);</script>
       </body></html>`;
     w.document.write(html);
@@ -1632,6 +1665,35 @@ export default function OrdersTab({ products = [], showSaveMsg, token }) {
                 </ul>
               </div>
             ))}
+
+            {pickListData && (pickListData.orders || []).length > 0 && (
+              <div className="mt-8 pt-4 border-t border-line">
+                <h4 className="opp-meta-mono uppercase pb-1 mb-3 text-ink-mute">
+                  Pack-out by order · {pickListData.orders.length} box(es)
+                </h4>
+                {pickListData.orders.map((o) => (
+                  <div key={o.order_number} className="mb-3 p-3 border border-line rounded-opp">
+                    <div className="flex justify-between items-baseline gap-3 border-b border-line/50 pb-1.5 mb-1.5">
+                      <span className="text-sm font-semibold text-ink">{o.customer_name}</span>
+                      <span className="opp-meta-mono text-ink-mute text-right">
+                        {o.order_number}
+                        {o.city ? ` · ${o.city}, ${o.state}` : ''}
+                        {o.country && o.country !== 'US' ? ` · ${o.country}` : ''}
+                        {o.shipping_method ? ` · ${SHIPPING_METHOD_LABELS[o.shipping_method] || o.shipping_method}` : ''}
+                      </span>
+                    </div>
+                    <ul className="m-0 p-0 list-none">
+                      {o.items.map((it, i) => (
+                        <li key={i} className="py-1 text-[13px] text-ink">
+                          {it.quantity} × {it.name}
+                          {it.vials ? <span className="text-ink-soft font-semibold"> — assemble {it.vials} vials</span> : null}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}
