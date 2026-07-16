@@ -140,8 +140,16 @@ export default async function handler(req, res) {
           const isKit = product?.isKit === true
           const isPreorder = item?.isPreorder === true
           const vials = isKit && !isPreorder ? (product.vialCount || 1) * qty : null
+          // Include the strength so the packer can tell same-name SKUs apart
+          // (e.g. Retatrutide 10mg vs 20mg both in the queue). Append the
+          // dosage only when the snapshot/catalog name doesn't already carry it.
+          const base = item.name || product?.name || item.sku || 'Unknown item'
+          const dosage = item.dosage || product?.dosage || ''
+          const name = dosage && !base.toLowerCase().includes(dosage.toLowerCase())
+            ? `${base} ${dosage}`
+            : base
           return {
-            name: item.name || product?.name || item.sku || 'Unknown item',
+            name,
             sku: item.sku || product?.sku || '',
             quantity: qty,
             vials, // non-null only for shippable kit lines (vials to assemble)
