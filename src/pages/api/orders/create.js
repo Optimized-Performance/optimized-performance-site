@@ -55,7 +55,7 @@ export default async function handler(req, res) {
 
   try {
     let { name, email, address, city, state, zip } = req.body
-    const { items, affiliateCode, recoveryToken, sessionId, researchUseAck, researchField, paymentMethod, idempotencyKey, paypalAccount, customsAck } = req.body
+    const { items, affiliateCode, recoveryToken, sessionId, researchUseAck, researchField, paymentMethod, idempotencyKey, paypalAccount, customsAck, billing } = req.body
     // Destination country: 'US' (default) or 'CA' (Canada launch 2026-07-11).
     const country = req.body.country === 'CA' ? 'CA' : 'US'
     // Shipping tier (2026-07-14). US orders pick a speed tier; Canada is a
@@ -584,11 +584,35 @@ export default async function handler(req, res) {
     }
     const sessionTimer = startTimer()
     try {
+      // Card AVS is checked against the BILLING address (what the bank has on
+      // file), which can differ from the shipping address. checkout sends a
+      // resolved `billing` object (= shipping when "same as shipping" is left
+      // checked). Use it for the CARD rail's customer/billing block; every
+      // other rail keeps the shipping address. Fall back to shipping if billing
+      // is absent or missing an AVS-critical field, so a bad billing block can
+      // never block an order — AVS just evaluates shipping, as it did before.
+      const shippingCustomer = { name, email, address, city, state, zip, country }
+      const railCustomer = (() => {
+        if (paymentMethod !== 'card') return shippingCustomer
+        const b = billing && typeof billing === 'object' ? billing : {}
+        const bAddr = typeof b.address === 'string' ? b.address.trim() : ''
+        const bCity = typeof b.city === 'string' ? b.city.trim() : ''
+        const bState = typeof b.state === 'string' ? b.state.trim() : ''
+        const bZip = typeof b.zip === 'string' ? b.zip.trim() : ''
+        if (!bAddr || !bCity || !bState || !bZip) return shippingCustomer // degrade to shipping
+        return {
+          name: (typeof b.name === 'string' && b.name.trim()) || name,
+          email,
+          address: bAddr, city: bCity, state: bState, zip: bZip,
+          country: b.country === 'CA' ? 'CA' : 'US',
+        }
+      })()
+
       const sessionFields = await rail.createSession({
         order,
         orderNumber,
         total,
-        customer: { name, email, address, city, state, zip, country },
+        customer: railCustomer,
         urls: {
           returnUrl: `${SITE_URL}/checkout/success?order=${encodeURIComponent(orderNumber)}`,
           cancelUrl: `${SITE_URL}/checkout/cancel?order=${encodeURIComponent(orderNumber)}`,

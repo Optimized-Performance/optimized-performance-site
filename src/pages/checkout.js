@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import { useCart } from '../context/CartContext';
 import SEO from '../components/SEO';
@@ -12,6 +12,7 @@ import PaypalCheckoutButtons from '../components/PaypalCheckoutButtons';
 import AltRailPanel, { VENMO_HANDLE } from '../components/AltRailPanel';
 import AltPaySaveBanner from '../components/AltPaySaveBanner';
 import CardPaymentPanel from '../components/CardPaymentPanel';
+import AddressAutocomplete from '../components/AddressAutocomplete';
 import { useCohortUi } from '../lib/cohort-ui';
 import PaymentMethodTiles from '../components/PaymentMethodTiles';
 import { US_STATES, CA_PROVINCES } from '../lib/us-states';
@@ -91,6 +92,36 @@ export default function Checkout() {
   const [city, setCity] = useState('');
   const [state, setState] = useState('');
   const [zip, setZip] = useState('');
+  // Billing address — card AVS checks the address the BANK has on file, which
+  // can differ from where the order ships. Default "same as shipping"; when
+  // unchecked, these hold the separate billing address. Only the card rail
+  // uses billing (AVS); everything ships to the shipping address above.
+  const [billingSame, setBillingSame] = useState(true);
+  const [billingName, setBillingName] = useState('');
+  const [billingAddress, setBillingAddress] = useState('');
+  const [billingCity, setBillingCity] = useState('');
+  const [billingState, setBillingState] = useState('');
+  const [billingZip, setBillingZip] = useState('');
+  const [billingCountry, setBillingCountry] = useState('US');
+
+  // Google Places pick handlers — fill the real fields from a selected address.
+  // Memoized (and declared with the other hooks, before any early return) so
+  // AddressAutocomplete doesn't rebuild the Google element on every render.
+  // The autocomplete is country-restricted to the selected country, so a pick
+  // is always in-country — no need to touch the country field here.
+  const fillShipping = useCallback((a) => {
+    if (a.line1) setAddress(a.line1);
+    if (a.city) setCity(a.city);
+    if (a.state) setState(a.state);
+    if (a.zip) setZip(a.zip);
+  }, []);
+  const fillBilling = useCallback((a) => {
+    if (a.line1) setBillingAddress(a.line1);
+    if (a.city) setBillingCity(a.city);
+    if (a.state) setBillingState(a.state);
+    if (a.zip) setBillingZip(a.zip);
+    if (a.country === 'US' || a.country === 'CA') setBillingCountry(a.country);
+  }, []);
   // Destination country (Canada launch 2026-07-11). CA switches the province
   // list, the $50 flat shipping, the card/crypto-only rails, and requires the
   // customs-risk acknowledgment below.
@@ -361,6 +392,10 @@ export default function Checkout() {
       alert('Please fill in all shipping fields.');
       return false;
     }
+    if (!billingSame && (!billingAddress.trim() || !billingCity.trim() || !billingState.trim() || !billingZip.trim())) {
+      alert('Please complete the billing address, or check "Billing same as shipping".');
+      return false;
+    }
     if (!researchField) {
       alert('Please select your field of research to proceed.');
       return false;
@@ -399,9 +434,21 @@ export default function Checkout() {
     }
   };
 
+  // Resolved billing address sent to the server for card AVS. When "same as
+  // shipping" is checked it mirrors the shipping fields; otherwise the separate
+  // billing fields. Name falls back to the shipping name (AVS ignores name).
+  const resolvedBilling = () => (billingSame
+    ? { name: name.trim(), address: address.trim(), city: city.trim(), state: state.trim(), zip: zip.trim(), country }
+    : {
+        name: billingName.trim() || name.trim(),
+        address: billingAddress.trim(), city: billingCity.trim(),
+        state: billingState.trim(), zip: billingZip.trim(), country: billingCountry,
+      });
+
   const buildOrderPayload = (paymentMethod) => ({
     name: name.trim(), email: email.trim(), address: address.trim(),
     city: city.trim(), state: state.trim(), zip: zip.trim(),
+    billing: resolvedBilling(),
     items: cartItems.map((item) => ({
       id: item.id, sku: item.sku, name: item.name,
       dosage: item.dosage, price: item.price, quantity: item.quantity,
@@ -646,27 +693,71 @@ export default function Checkout() {
                 className="input-field" type="email" required
                 placeholder="researcher@lab.edu"
                 value={email} onChange={(e) => setEmail(e.target.value)}
+                autoComplete="email"
               />
             </Field>
             <Field label="Full Name">
-              <input className="input-field" required value={name} onChange={(e) => setName(e.target.value)} />
+              <input className="input-field" required value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" />
             </Field>
+            <AddressAutocomplete country={country} onPick={fillShipping} label="Find your address (autofill)" />
             <Field label="Address">
-              <input className="input-field" required placeholder="Street address" value={address} onChange={(e) => setAddress(e.target.value)} />
+              <input className="input-field" required placeholder="Street address" value={address} onChange={(e) => setAddress(e.target.value)} autoComplete="shipping street-address" />
             </Field>
             <div className="grid grid-cols-1 md:grid-cols-[1fr_2fr] gap-4 mb-4">
-              <Field label="Country"><select className="input-field" required value={country} onChange={(e) => onCountryChange(e.target.value)}>
+              <Field label="Country"><select className="input-field" required value={country} onChange={(e) => onCountryChange(e.target.value)} autoComplete="shipping country">
                 <option value="US">United States</option>
                 <option value="CA">Canada</option>
               </select></Field>
-              <Field label="City"><input className="input-field" required value={city} onChange={(e) => setCity(e.target.value)} /></Field>
+              <Field label="City"><input className="input-field" required value={city} onChange={(e) => setCity(e.target.value)} autoComplete="shipping address-level2" /></Field>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-              <Field label={country === 'CA' ? 'Province / Territory' : 'State'}><select className="input-field" required value={state} onChange={(e) => setState(e.target.value)}>
+              <Field label={country === 'CA' ? 'Province / Territory' : 'State'}><select className="input-field" required value={state} onChange={(e) => setState(e.target.value)} autoComplete="shipping address-level1">
                 <option value="" disabled>{country === 'CA' ? 'Province…' : 'State…'}</option>
                 {(country === 'CA' ? CA_PROVINCES : US_STATES).map((s) => (<option key={s.code} value={s.code}>{s.name}</option>))}
               </select></Field>
-              <Field label={country === 'CA' ? 'Postal code' : 'ZIP'}><input className="input-field" required value={zip} onChange={(e) => setZip(e.target.value)} placeholder={country === 'CA' ? 'A1A 1A1' : ''} /></Field>
+              <Field label={country === 'CA' ? 'Postal code' : 'ZIP'}><input className="input-field" required value={zip} onChange={(e) => setZip(e.target.value)} placeholder={country === 'CA' ? 'A1A 1A1' : ''} autoComplete="shipping postal-code" /></Field>
+            </div>
+
+            {/* Billing address — card AVS uses the bank's address on file. Default
+                same-as-shipping; uncheck to enter a separate billing address. */}
+            <div className="mb-4 border-t border-line pt-4">
+              <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={billingSame}
+                  onChange={(e) => setBillingSame(e.target.checked)}
+                  className="w-4 h-4 accent-accent"
+                />
+                <span className="text-[13px] text-ink">Billing address same as shipping</span>
+              </label>
+              {!billingSame && (
+                <div className="mt-4">
+                  <p className="opp-meta-mono text-ink-soft mb-3 m-0">
+                    Enter the address on file with your card&apos;s bank — a mismatch here is the #1 reason cards get declined.
+                  </p>
+                  <AddressAutocomplete country={billingCountry} onPick={fillBilling} label="Find your billing address (autofill)" />
+                  <Field label="Cardholder Name">
+                    <input className="input-field" value={billingName} onChange={(e) => setBillingName(e.target.value)} placeholder="(defaults to your name)" autoComplete="billing name" />
+                  </Field>
+                  <Field label="Billing Address">
+                    <input className="input-field" placeholder="Street address" value={billingAddress} onChange={(e) => setBillingAddress(e.target.value)} autoComplete="billing street-address" />
+                  </Field>
+                  <div className="grid grid-cols-1 md:grid-cols-[1fr_2fr] gap-4 mb-4">
+                    <Field label="Country"><select className="input-field" value={billingCountry} onChange={(e) => setBillingCountry(e.target.value)} autoComplete="billing country">
+                      <option value="US">United States</option>
+                      <option value="CA">Canada</option>
+                    </select></Field>
+                    <Field label="City"><input className="input-field" value={billingCity} onChange={(e) => setBillingCity(e.target.value)} autoComplete="billing address-level2" /></Field>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <Field label={billingCountry === 'CA' ? 'Province / Territory' : 'State'}><select className="input-field" value={billingState} onChange={(e) => setBillingState(e.target.value)} autoComplete="billing address-level1">
+                      <option value="" disabled>{billingCountry === 'CA' ? 'Province…' : 'State…'}</option>
+                      {(billingCountry === 'CA' ? CA_PROVINCES : US_STATES).map((s) => (<option key={s.code} value={s.code}>{s.name}</option>))}
+                    </select></Field>
+                    <Field label={billingCountry === 'CA' ? 'Postal code' : 'ZIP'}><input className="input-field" value={billingZip} onChange={(e) => setBillingZip(e.target.value)} placeholder={billingCountry === 'CA' ? 'A1A 1A1' : ''} autoComplete="billing postal-code" /></Field>
+                  </div>
+                </div>
+              )}
             </div>
             <p className="opp-meta-mono text-ink-soft -mt-2 mb-4 m-0">
               {country === 'CA'
@@ -774,17 +865,20 @@ export default function Checkout() {
                         intent={cardIntent}
                         orderNumber={cardIntent.orderNumber}
                         amount={cardIntent.total}
-                        billing={{
-                          name: name.trim(),
-                          email: email.trim(),
-                          address: {
-                            line1: address.trim(),
-                            city: city.trim(),
-                            state: state.trim(),
-                            postal_code: zip.trim(),
-                            country: 'US',
-                          },
-                        }}
+                        billing={(() => {
+                          const b = resolvedBilling();
+                          return {
+                            name: b.name,
+                            email: email.trim(),
+                            address: {
+                              line1: b.address,
+                              city: b.city,
+                              state: b.state,
+                              postal_code: b.zip,
+                              country: b.country || 'US',
+                            },
+                          };
+                        })()}
                         onCancel={() => setCardIntent(null)}
                       />
                     ) : (
