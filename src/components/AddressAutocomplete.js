@@ -9,9 +9,13 @@ import { useEffect, useRef, useState } from 'react';
 // missing key or a Google outage. Fully fail-safe: any error just falls back
 // to manual entry.
 //
-// Uses the current Places API (PlaceAutocompleteElement + importLibrary). The
-// selected place's address components fill the caller's fields via onPick;
-// those fields stay the editable, submitted source of truth.
+// Mount is SELF-HEALING (retry loop): the first instance on a page mounts
+// during checkout's initial render churn, where a single fire-once async
+// effect can lose the race (host ref churn / transient remount) and silently
+// never append the Google element — which is exactly why the SHIPPING box
+// came up empty while BILLING (mounted later, on a click) worked. The loop
+// re-attempts every 500ms until the element is in the DOM (idempotent — it
+// no-ops once the host has a child), capped so it can't spin forever.
 
 const MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '';
 let mapsLoader = null; // shared promise so the script loads once per page
@@ -67,42 +71,52 @@ export default function AddressAutocomplete({ country = 'US', onPick, label = 'F
     if (!MAPS_KEY) return undefined; // no key → render nothing (manual entry)
     let cancelled = false;
     let el = null;
+    let attempts = 0;
 
-    (async () => {
+    const onSelect = async (event) => {
       try {
-        await loadMaps();
-        if (cancelled || !hostRef.current) return;
-        const { PlaceAutocompleteElement } = await window.google.maps.importLibrary('places');
-        if (cancelled || !hostRef.current) return;
-
-        el = new PlaceAutocompleteElement({
-          componentRestrictions: { country: [String(country || 'US').toLowerCase()] },
-        });
-        el.style.width = '100%';
-        hostRef.current.innerHTML = '';
-        hostRef.current.appendChild(el);
-        setReady(true);
-
-        el.addEventListener('gmp-select', async (event) => {
-          try {
-            const place = event.placePrediction.toPlace();
-            await place.fetchFields({ fields: ['addressComponents'] });
-            const parsed = parseComponents(place.addressComponents || []);
-            if (parsed.line1 && typeof onPick === 'function') onPick(parsed);
-          } catch {
-            /* selection parse failed — customer can still type manually */
-          }
-        });
+        const place = event.placePrediction.toPlace();
+        await place.fetchFields({ fields: ['addressComponents'] });
+        const parsed = parseComponents(place.addressComponents || []);
+        if (parsed.line1 && typeof onPick === 'function') onPick(parsed);
       } catch {
-        if (!cancelled) setReady(false); // load failed — silent, manual entry stands
+        /* selection parse failed — customer can still type manually */
       }
-    })();
+    };
+
+    // Idempotent, self-healing mount. Retries until the element is attached or
+    // the attempt cap is hit; no-ops once the host already has a child.
+    const tryMount = async () => {
+      if (cancelled) return;
+      attempts += 1;
+      try {
+        const host = hostRef.current;
+        if (host && host.childElementCount > 0) { setReady(true); return; } // already mounted
+        if (host) {
+          await loadMaps();
+          if (cancelled) return;
+          const { PlaceAutocompleteElement } = await window.google.maps.importLibrary('places');
+          if (cancelled || !hostRef.current || hostRef.current.childElementCount > 0) return;
+          el = new PlaceAutocompleteElement();
+          try { el.includedRegionCodes = [String(country || 'US').toLowerCase()]; } catch { /* option optional */ }
+          el.style.width = '100%';
+          hostRef.current.appendChild(el);
+          el.addEventListener('gmp-select', onSelect);
+          setReady(true);
+          return; // mounted — stop retrying
+        }
+      } catch {
+        /* fall through to retry */
+      }
+      if (!cancelled && attempts < 20) setTimeout(tryMount, 500); // ~10s of retries
+    };
+
+    tryMount();
 
     return () => {
       cancelled = true;
-      try { if (el && el.remove) el.remove(); } catch { /* */ }
+      try { if (el && el.remove) el.remove(); } catch { /* already gone */ }
     };
-    // Restrict-country changes (US<->CA) rebuild the element.
   }, [country, onPick]);
 
   if (!MAPS_KEY) return null;
