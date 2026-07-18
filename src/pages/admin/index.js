@@ -12,6 +12,7 @@ import InboxTab from './InboxTab';
 import RailsTab from './RailsTab';
 import FunnelTab from './FunnelTab';
 import AnalyticsTab from './AnalyticsTab';
+import MarginsTab from './MarginsTab';
 import BroadcastTab from './BroadcastTab';
 import { Logo } from '../../components/Primitives';
 
@@ -118,6 +119,7 @@ export default function AdminPage() {
     { id: 'rails', label: 'Rails' },
     { id: 'funnel', label: 'Funnel' },
     { id: 'analytics', label: 'Analytics' },
+    { id: 'margins', label: 'Margins' },
     { id: 'broadcast', label: 'Broadcast' },
     { id: 'inbox', label: 'Inbox' },
   ];
@@ -191,6 +193,7 @@ export default function AdminPage() {
         {activeTab === 'rails' && <RailsTab showSaveMsg={showSaveMsg} token={token} />}
         {activeTab === 'funnel' && <FunnelTab token={token} />}
         {activeTab === 'analytics' && <AnalyticsTab token={token} />}
+        {activeTab === 'margins' && <MarginsTab token={token} />}
         {activeTab === 'broadcast' && <BroadcastTab products={catalog} showSaveMsg={showSaveMsg} token={token} />}
         {activeTab === 'inbox' && <InboxTab showSaveMsg={showSaveMsg} token={token} />}
         </div>
