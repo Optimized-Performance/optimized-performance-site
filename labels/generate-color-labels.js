@@ -61,6 +61,14 @@ const peptides = [
   { file: 'klow-80mg', name: 'KLOW', desc: 'BPC+TB+GHK-Cu+KPV Stack', dosage: '80 mg', sku: 'OP-KLOW-80MG' },
   { file: 'sermorelin-5mg', name: 'Sermorelin', desc: 'GHRH Analog', dosage: '5 mg', sku: 'OP-SERM-5MG' },
   { file: 'igf-1-lr3-1mg', name: 'IGF-1 LR3', desc: 'Insulin-Like Growth Factor', dosage: '1 mg', sku: 'OP-IGF1LR3-1MG' },
+  // ── 2026-07-18 order: new injectables ───────────────────────────────────────
+  { file: 'glp-3-30mg', name: 'GLP-RT3', desc: 'Triple Agonist Peptide', dosage: '30 mg', sku: 'OP-GLP-RT3-30MG' },
+  { file: 'glp-3-50mg', name: 'GLP-RT3', desc: 'Triple Agonist Peptide', dosage: '50 mg', sku: 'OP-GLP-RT3-50MG' },
+  { file: 'glp-2-20mg', name: 'GLP-2', desc: 'Dual GIP/GLP-1 Agonist', dosage: '20 mg', sku: 'OP-GLP2-20MG' },
+  { file: 'mt1-10mg', name: 'MT-1', desc: 'Melanotan I', dosage: '10 mg', sku: 'OP-MT1-10MG' },
+  { file: 'glutathione-1500mg', name: 'Glutathione', desc: 'Tripeptide Antioxidant', dosage: '1500 mg', sku: 'OP-GLUT-1500MG' },
+  { file: '5amino-1mq-5mg', name: '5-Amino-1MQ', desc: 'NNMT Inhibitor', dosage: '5 mg', sku: 'OP-5AMINO-5MG' },
+  { file: 'hcg-2000iu', name: 'HCG', desc: 'Gonadotropin', dosage: '2000 IU', sku: 'OP-HCG-2000IU' },
 ];
 
 const DEFAULT_VIAL = '3 mL vial';
@@ -81,6 +89,12 @@ const tablets = [
   { file: 'tamoxifen-20mg', name: 'Tamoxifen', descriptor: 'Estrogen Receptor Modulator (SERM)', strength: '20 mg', count: '30 Tablets', sku: 'OP-TAM-20MG' },
   { file: 'anastrozole-1mg', name: 'Anastrozole', descriptor: 'Aromatase Inhibitor (AI)', strength: '1 mg', count: '30 Tablets', sku: 'OP-ANA-1MG' },
   { file: 'telmisartan-40mg', name: 'Telmisartan', descriptor: 'Angiotensin II Receptor Blocker', strength: '40 mg', count: '30 Tablets', sku: 'OP-TEL-40MG' },
+  // ── 2026-07-18 order: SARMs + enclomiphene (Ancillaries, 30-ct) ──────────────
+  { file: 'enclomiphene-125mg', name: 'Enclomiphene', descriptor: 'Estrogen Receptor Modulator (SERM)', strength: '12.5 mg', count: '30 Tablets', sku: 'OP-ENCLO-125' },
+  { file: 'mk677-10mg', name: 'MK-677', descriptor: 'Growth Hormone Secretagogue', strength: '10 mg', count: '30 Tablets', sku: 'OP-MK677-10MG' },
+  { file: 'rad140-10mg', name: 'RAD-140', descriptor: 'Selective Androgen Receptor Modulator', strength: '10 mg', count: '30 Tablets', sku: 'OP-RAD140-10MG' },
+  { file: 'cardarine-10mg', name: 'Cardarine', descriptor: 'PPAR-delta Agonist', strength: '10 mg', count: '30 Tablets', sku: 'OP-CARD-10MG' },
+  { file: 'yk11-10mg', name: 'YK-11', descriptor: 'Myostatin-Pathway Modulator', strength: '10 mg', count: '30 Tablets', sku: 'OP-YK11-10MG' },
 ];
 
 // ── Peptide vial label — 1.5" x 0.75" (viewBox 432 x 216) ────────────────────
