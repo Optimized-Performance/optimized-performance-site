@@ -14,10 +14,19 @@ export default function SupplyTab({ products = [], token }) {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState(emptyForm(products));
+  const [value, setValue] = useState(null); // held-inventory valuation
 
   useEffect(() => {
     fetchLots();
+    fetchValue();
   }, []);
+
+  async function fetchValue() {
+    try {
+      const res = await fetch('/api/admin/inventory-value', { headers: authHeaders() });
+      if (res.ok) setValue(await res.json());
+    } catch { /* leave prior value */ }
+  }
 
   function authHeaders() {
     return {
@@ -71,6 +80,7 @@ export default function SupplyTab({ products = [], token }) {
     try {
       await fetch('/api/admin/lots', { method, headers: authHeaders(), body: JSON.stringify(body) });
       await fetchLots();
+      await fetchValue();
       resetForm();
       setShowForm(false);
     } catch { /* fail */ }
@@ -96,6 +106,7 @@ export default function SupplyTab({ products = [], token }) {
     try {
       await fetch('/api/admin/lots', { method: 'DELETE', headers: authHeaders(), body: JSON.stringify({ id }) });
       await fetchLots();
+      await fetchValue();
     } catch { /* fail */ }
   }
 
@@ -123,6 +134,65 @@ export default function SupplyTab({ products = [], token }) {
           {showForm ? 'Cancel' : '+ New Lot'}
         </button>
       </div>
+
+      {/* Inventory VALUE — what's sitting on the shelf, held (awaiting testing)
+          vs verified (COA on file). Read from supply_lots; separate from
+          sellable stock, so nothing here is purchasable. Both retail + cost. */}
+      {value && (
+        <div className="mb-5">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
+            <ValueStat
+              label="Held — awaiting testing"
+              retail={value.held.retail}
+              cost={value.held.cost}
+              vials={value.held.vials}
+              accent
+            />
+            <ValueStat
+              label="Verified — COA on file"
+              retail={value.verified.retail}
+              cost={value.verified.cost}
+              vials={value.verified.vials}
+            />
+            <ValueStat
+              label="Total on hand"
+              retail={value.total.retail}
+              cost={value.total.cost}
+              vials={value.total.vials}
+            />
+          </div>
+          {value.heldByProduct?.length > 0 && (
+            <details className="mt-3 card-premium p-4">
+              <summary className="cursor-pointer text-sm font-semibold text-ink">
+                Held stock breakdown ({value.heldByProduct.length} SKU{value.heldByProduct.length === 1 ? '' : 's'} awaiting testing)
+              </summary>
+              <table className="w-full text-[13px] mt-3">
+                <thead>
+                  <tr className="text-left text-ink-mute border-b border-line">
+                    <th className="py-1.5 pr-3 font-mono text-[10px] uppercase tracking-wider">Product</th>
+                    <th className="py-1.5 pr-3 font-mono text-[10px] uppercase tracking-wider text-right">Vials</th>
+                    <th className="py-1.5 pr-3 font-mono text-[10px] uppercase tracking-wider text-right">Retail value</th>
+                    <th className="py-1.5 font-mono text-[10px] uppercase tracking-wider text-right">Cost</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {value.heldByProduct.map((r) => (
+                    <tr key={r.id} className="border-b border-line/50 text-ink">
+                      <td className="py-1.5 pr-3">{r.name}</td>
+                      <td className="py-1.5 pr-3 text-right tabular-nums">{r.vials}</td>
+                      <td className="py-1.5 pr-3 text-right tabular-nums">${r.retail.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                      <td className="py-1.5 text-right tabular-nums text-ink-soft">${r.cost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <p className="opp-meta-mono text-ink-mute mt-2 m-0">
+                Retail = catalog price × vials. Cost = vendor-cost map (same basis as commissions). Held = lots without a COA on file yet — not sellable.
+              </p>
+            </details>
+          )}
+        </div>
+      )}
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5 mb-5">
         <Stat value={lots.length} label="Total Lots" />
@@ -249,6 +319,21 @@ function Stat({ value, label }) {
     <div className="card-premium p-5">
       <div className="font-display font-semibold tracking-display text-2xl text-ink">{value}</div>
       <div className="opp-meta-mono uppercase mt-1">{label}</div>
+    </div>
+  );
+}
+
+function ValueStat({ label, retail, cost, vials, accent }) {
+  const money = (n) => `$${Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+  return (
+    <div className={`card-premium p-5 ${accent ? 'border border-accent/50' : ''}`}>
+      <div className="opp-meta-mono uppercase">{label}</div>
+      <div className={`font-display font-semibold tracking-display text-3xl mt-1.5 ${accent ? 'text-accent-strong' : 'text-ink'}`}>
+        {money(retail)}
+      </div>
+      <div className="opp-meta-mono text-ink-mute mt-1">
+        retail · {money(cost)} cost · {Number(vials || 0).toLocaleString()} vials
+      </div>
     </div>
   );
 }
