@@ -31,8 +31,11 @@ export default async function handler(req, res) {
       .filter((p) => Number(p.price) > 0 && !p.isKit) // real sellable units, not virtual kits
       .map((p) => {
         const price = round2(p.price)
-        const mapped = PRODUCT_COST[p.id] != null
-        const cost = round2(mapped ? Number(PRODUCT_COST[p.id]) : price * COGS_PCT)
+        // Resolve cost by id, then sku (mirrors estimateOrderCogs); some SKUs
+        // (admin-added ancillary tablets) are keyed by sku, not id.
+        const mappedCost = PRODUCT_COST[p.id] != null ? PRODUCT_COST[p.id] : PRODUCT_COST[p.sku]
+        const mapped = mappedCost != null
+        const cost = round2(mapped ? Number(mappedCost) : price * COGS_PCT)
         const gp = round2(price - cost)
         const marginPct = price > 0 ? Math.round((gp / price) * 1000) / 10 : 0
         return {

@@ -81,6 +81,9 @@ export const PRODUCT_COST = {
   // ($/tab × 30 + ~$0.50 packaging):
   'enclo-125': 19.70, 'mk677-10mg': 13.10, 'rad140-10mg': 14.90,
   'cardarine-10mg': 12.50, 'yk11-10mg': 26.00,
+  // Ancillary tablets — keyed by SKU (added via admin; per-30ct-bottle cost =
+  // $/100ct × 30 + ~$0.50 pkg). Vendor: Tamox $22/100, Anas $21/100, Telmi $28/100.
+  'OP-TAM-20MG-30CT': 7.10, 'OP-ANA-1MG-30CT': 6.80, 'OP-TEL-40MG-30CT': 8.90,
 }
 
 const r2 = (n) => Math.round((Number(n) || 0) * 100) / 100
