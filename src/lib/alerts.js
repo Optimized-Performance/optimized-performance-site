@@ -147,6 +147,10 @@ export async function sendShipmentNotification(order) {
     `Every vial ships inspected and sealed; damage from removing the crimp after`,
     `delivery isn't covered. Take the caps off gently.`,
     ``,
+    `One normal thing you may notice: some vials hold a vacuum and some don't — that`,
+    `varies with temperature and altitude in transit and has no effect on the`,
+    `freeze-dried product. Vacuum level is not a quality signal; the COA is.`,
+    ``,
     `If anything is off when it arrives — wrong item, damage, missing pieces — email`,
     `support@syngyn.co or call (831) 218-5147 the same day.`,
     `Direct refunds are faster than disputes; please reach out to us first.`,
@@ -164,6 +168,7 @@ export async function sendShipmentNotification(order) {
     paragraphs: [
       `Order <strong style="color:#F5F3EC;">${escapeHtml(order.order_number)}</strong> is on its way via ${escapeHtml(carrier)}.`,
       `<strong style="color:#F5F3EC;">Opening your vials:</strong> flip off the colored plastic cap <strong>only</strong> — do not pry off the metal crimp seal or the rubber stopper. Every vial ships inspected and sealed; taking the crimp off can damage the vial, and post-delivery handling damage isn&rsquo;t covered. Remove the tops gently.`,
+      `<strong style="color:#F5F3EC;">One normal thing to expect:</strong> some vials hold a vacuum and some don&rsquo;t — that varies with temperature and altitude in transit and has no effect on the freeze-dried product. Vacuum level isn&rsquo;t a quality signal; the published COA is what verifies every lot.`,
     ],
     extraHtml: emailDetailTable([
       { label: 'Carrier', value: escapeHtml(carrier) },
