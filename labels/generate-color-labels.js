@@ -33,8 +33,8 @@ function logo(x, y, w) {
 
 const peptides = [
   { file: 'glp-1-10mg', name: 'GLP-1', desc: 'GLP-1 Receptor Agonist', dosage: '10 mg', sku: 'OP-GLP1-10MG' },
-  { file: 'glp-3-10mg', name: 'GLP-RT3', desc: 'Triple Agonist Peptide', dosage: '10 mg', sku: 'OP-GLP-RT3-10MG' },
-  { file: 'glp-3-20mg', name: 'GLP-RT3', desc: 'Triple Agonist Peptide', dosage: '20 mg', sku: 'OP-GLP-RT3-20MG' },
+  { file: 'glp-3-10mg', name: 'Retatrutide', desc: 'Triple Agonist Peptide', dosage: '10 mg', sku: 'OP-RETA-10MG' },
+  { file: 'glp-3-20mg', name: 'Retatrutide', desc: 'Triple Agonist Peptide', dosage: '20 mg', sku: 'OP-RETA-20MG' },
   { file: 'bpc-157-5mg', name: 'BPC-157', desc: 'Body Protection Compound', dosage: '5 mg', sku: 'OP-BPC-5MG' },
   { file: 'bpc-157-10mg', name: 'BPC-157', desc: 'Body Protection Compound', dosage: '10 mg', sku: 'OP-BPC-10MG' },
   { file: 'tb-500-5mg', name: 'TB-500', desc: 'Thymosin Beta-4 Fragment', dosage: '5 mg', sku: 'OP-TB500-5MG' },
@@ -62,9 +62,9 @@ const peptides = [
   { file: 'sermorelin-5mg', name: 'Sermorelin', desc: 'GHRH Analog', dosage: '5 mg', sku: 'OP-SERM-5MG' },
   { file: 'igf-1-lr3-1mg', name: 'IGF-1 LR3', desc: 'Insulin-Like Growth Factor', dosage: '1 mg', sku: 'OP-IGF1LR3-1MG' },
   // ── 2026-07-18 order: new injectables ───────────────────────────────────────
-  { file: 'glp-3-30mg', name: 'GLP-RT3', desc: 'Triple Agonist Peptide', dosage: '30 mg', sku: 'OP-GLP-RT3-30MG' },
-  { file: 'glp-3-50mg', name: 'GLP-RT3', desc: 'Triple Agonist Peptide', dosage: '50 mg', sku: 'OP-GLP-RT3-50MG' },
-  { file: 'glp-2-20mg', name: 'GLP-2', desc: 'Dual GIP/GLP-1 Agonist', dosage: '20 mg', sku: 'OP-GLP2-20MG' },
+  { file: 'glp-3-30mg', name: 'Retatrutide', desc: 'Triple Agonist Peptide', dosage: '30 mg', sku: 'OP-RETA-30MG' },
+  { file: 'glp-3-50mg', name: 'Retatrutide', desc: 'Triple Agonist Peptide', dosage: '50 mg', sku: 'OP-RETA-50MG' },
+  { file: 'tirzepatide-20mg', name: 'Tirzepatide', desc: 'Dual GIP/GLP-1 Agonist', dosage: '20 mg', sku: 'OP-TIRZ-20MG' },
   { file: 'mt1-10mg', name: 'MT-1', desc: 'Melanotan I', dosage: '10 mg', sku: 'OP-MT1-10MG' },
   { file: 'glutathione-1500mg', name: 'Glutathione', desc: 'Tripeptide Antioxidant', dosage: '1500 mg', sku: 'OP-GLUT-1500MG' },
   { file: '5amino-1mq-5mg', name: '5-Amino-1MQ', desc: 'NNMT Inhibitor', dosage: '5 mg', sku: 'OP-5AMINO-5MG' },
