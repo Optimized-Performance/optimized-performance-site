@@ -71,8 +71,8 @@ export const PRODUCT_COST = {
   'hgh-10iu': 4.80, 'hgh-24iu': 10.20,
   // Tadalafil oral solution — in-house fill; rough per-bottle est (confirm)
   'tadalafil-20mg': 3.00,
-  // Bac water: BA10 $8/vial (single); Hospira 30ml domestic ~$18 est (confirm)
-  'bac-water-10ml': 8.00, 'bac-water-30ml-hospira': 18.00,
+  // Bac water: 10ml $1.25/vial (Matt confirmed 2026-07-18); Hospira 30ml domestic ~$18 est (confirm)
+  'bac-water-10ml': 1.25, 'bac-water-30ml-hospira': 18.00,
   // 2026-07-18 vendor order — injectables PER-VIAL (box ÷ 10):
   'glp3-30mg': 6.50, 'glp3-50mg': 20.00, 'tirzepatide-20mg': 6.80,
   'mt1-10mg': 4.00, 'glutathione-1500mg': 6.00, '5amino1mq-5mg': 3.00,
