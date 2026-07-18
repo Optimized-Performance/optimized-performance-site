@@ -73,6 +73,14 @@ export const PRODUCT_COST = {
   'tadalafil-20mg': 3.00,
   // Bac water: BA10 $8/vial (single); Hospira 30ml domestic ~$18 est (confirm)
   'bac-water-10ml': 8.00, 'bac-water-30ml-hospira': 18.00,
+  // 2026-07-18 vendor order — injectables PER-VIAL (box ÷ 10):
+  'glp3-30mg': 6.50, 'glp3-50mg': 20.00, 'tirzepatide-20mg': 6.80,
+  'mt1-10mg': 4.00, 'glutathione-1500mg': 6.00, '5amino1mq-5mg': 3.00,
+  'hcg-2000iu': 5.70,
+  // SARMs + enclomiphene — sold as 30-ct bottles, so cost is PER-BOTTLE
+  // ($/tab × 30 + ~$0.50 packaging):
+  'enclo-125': 19.70, 'mk677-10mg': 13.10, 'rad140-10mg': 14.90,
+  'cardarine-10mg': 12.50, 'yk11-10mg': 26.00,
 }
 
 const r2 = (n) => Math.round((Number(n) || 0) * 100) / 100
