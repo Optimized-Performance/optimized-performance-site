@@ -11,6 +11,7 @@ const faqs = [
       { q: 'What format do your products come in?', a: 'All products are supplied as lyophilized (freeze-dried) powder in sealed 2 mL glass vials with flip-top caps. Kits contain 10 vials.' },
       { q: 'How should I store the peptides?', a: 'Store lyophilized peptides at -20°C for long-term storage. Reconstituted peptides should be stored at 2–8°C and used within the timeframe specified on the product documentation.' },
       { q: 'Do you provide Certificates of Analysis (COAs)?', a: 'Yes. Every batch has a publicly published COA on this site at /coa/{sku}/{lot} — the lot number is printed on every vial label and linked from each product page. All testing is independent third-party HPLC + mass spec verification.' },
+      { q: 'How do I open the vials without damaging them?', a: 'Each vial has a colored plastic flip-top cap sitting over an aluminum crimp seal and a rubber stopper. Flip off ONLY the plastic top cap — gently, with your thumb. Do NOT pry, twist, or pull off the aluminum crimp band or the rubber stopper: the crimp is what holds the seal and keeps the vial intact, and it is meant to stay on. The vial is designed to be accessed through the exposed rubber stopper, not by removing the seal. Every vial is individually inspected and confirmed sealed and intact before it ships, so please handle them carefully — take the tops off slowly and the vial will be fine.' },
     ],
   },
   {
@@ -36,7 +37,7 @@ const faqs = [
     category: 'Returns & Support',
     items: [
       { q: 'What is your return policy?', a: 'Due to the nature of research compounds, all sales are final once shipped. We do offer replacements or refunds for damaged, defective, or incorrect items — contact us within 7 days of delivery.' },
-      { q: 'What if my order arrives damaged?', a: 'Contact us within 7 days with photos of the damage. We will send a replacement or issue a full refund.' },
+      { q: 'What if my order arrives damaged?', a: 'Contact us within 7 days with photos of the damage and we will send a replacement or issue a full refund for anything that arrives broken, defective, or incorrect. This covers damage in transit. It does not cover vials damaged by handling after delivery — for example, prying off the aluminum crimp seal or forcing out the rubber stopper. Every vial is individually inspected and confirmed intact before it ships (see “How do I open the vials without damaging them?” under Products), so please open them gently.' },
       { q: 'How do I contact support?', a: 'Three channels: (1) email support@syngyn.co, (2) call/text +1 (831) 218-5147, or (3) join our customer Telegram group for direct access to the team and other customers. Email and phone both respond within 24 hours; Telegram is typically real-time during business hours. Customers who place an order receive a Telegram invite link in their order confirmation.' },
     ],
   },
