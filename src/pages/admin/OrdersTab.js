@@ -129,6 +129,7 @@ export default function OrdersTab({ products = [], showSaveMsg, token }) {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('ready_to_ship');
   const [preorderOnly, setPreorderOnly] = useState(false);
+  const [search, setSearch] = useState('');
   const [expandedId, setExpandedId] = useState(null);
   const [selectedIds, setSelectedIds] = useState(() => new Set());
   const [pickListOpen, setPickListOpen] = useState(false);
@@ -169,7 +170,7 @@ export default function OrdersTab({ products = [], showSaveMsg, token }) {
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
-  }, [filter, preorderOnly]);
+  }, [filter, preorderOnly, search]);
 
   useEffect(() => {
     fetchOrders();
@@ -645,8 +646,18 @@ export default function OrdersTab({ products = [], showSaveMsg, token }) {
   }
 
   function applyFilters(list) {
+    const q = search.trim().toLowerCase();
     let out;
-    if (filter === 'all') out = list;
+    // A search finds a customer wherever their order sits, so it OVERRIDES the
+    // status filter (matches name / email / order number). Empty search →
+    // normal status-tab behavior.
+    if (q) {
+      out = list.filter((o) =>
+        (o.customer_name || '').toLowerCase().includes(q) ||
+        (o.customer_email || '').toLowerCase().includes(q) ||
+        (o.order_number || '').toLowerCase().includes(q)
+      );
+    } else if (filter === 'all') out = list;
     else if (filter === 'ready_to_ship') out = list.filter(isReadyToShip);
     else if (filter === 'awaiting_zelle') out = list.filter(isAwaitingZelle);
     else if (filter === 'awaiting_venmo') out = list.filter(isAwaitingVenmo);
@@ -1005,7 +1016,34 @@ export default function OrdersTab({ products = [], showSaveMsg, token }) {
         </button>
       </div>
 
-      <div className="flex gap-1.5 mb-4 flex-wrap items-center">
+      <div className="relative mb-3">
+        <input
+          type="search"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search customer name, email, or order #…"
+          className="input-field w-full pl-9"
+          aria-label="Search orders by customer"
+        />
+        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-mute text-sm pointer-events-none">🔍</span>
+        {search && (
+          <button
+            type="button"
+            onClick={() => setSearch('')}
+            aria-label="Clear search"
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-mute hover:text-ink text-lg leading-none"
+          >
+            ×
+          </button>
+        )}
+      </div>
+      {search.trim() && (
+        <p className="opp-meta-mono text-ink-mute mb-3 -mt-1">
+          Searching all orders for &ldquo;{search.trim()}&rdquo; — status filter ignored while searching.
+        </p>
+      )}
+
+      <div className={`flex gap-1.5 mb-4 flex-wrap items-center ${search.trim() ? 'opacity-40 pointer-events-none' : ''}`}>
         <button
           key="ready_to_ship"
           onClick={() => setFilter('ready_to_ship')}
