@@ -64,11 +64,11 @@ export const PRODUCT_COST = {
   // NAD+ (NJ500 $54/box)
   'nad-500mg': 5.40, 'nad-500mg-kit': 54,
   // HGH 191AA — box of 10 vials. This map is PER-VIAL (HGH now sells per vial,
-  // kits retired 7/06), so cost = box price / 10. 10iu: $48/box = $4.80/vial
-  // (Matt confirmed 2026-07-18; prior 35 was the whole-box price applied per
-  // vial → ~7x over-count on every HGH order's COGS since 7/06). ⚠️ 24iu below
-  // (8.50) assumes an ~$85/box; CONFIRM the 24iu box price with Matt.
-  'hgh-10iu': 4.80, 'hgh-24iu': 8.50,
+  // kits retired 7/06), so cost = box price / 10. Both confirmed by Matt
+  // 2026-07-18: 10iu $48/box = $4.80/vial, 24iu $102/box = $10.20/vial. (Prior
+  // 35/85 were the whole-box prices applied per vial → ~7-10x COGS over-count
+  // on every HGH order since 7/06.)
+  'hgh-10iu': 4.80, 'hgh-24iu': 10.20,
   // Tadalafil oral solution — in-house fill; rough per-bottle est (confirm)
   'tadalafil-20mg': 3.00,
   // Bac water: BA10 $8/vial (single); Hospira 30ml domestic ~$18 est (confirm)
