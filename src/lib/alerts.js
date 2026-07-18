@@ -142,6 +142,11 @@ export async function sendShipmentNotification(order) {
     url ? `Track: ${url}` : ``,
     lookupUrl ? `Order details: ${lookupUrl}` : ``,
     ``,
+    `OPENING YOUR VIALS: flip off the colored plastic cap ONLY. Do not pry off the`,
+    `metal crimp seal or the rubber stopper — that's what keeps the vial intact.`,
+    `Every vial ships inspected and sealed; damage from removing the crimp after`,
+    `delivery isn't covered. Take the caps off gently.`,
+    ``,
     `If anything is off when it arrives — wrong item, damage, missing pieces — email`,
     `support@syngyn.co or call (831) 218-5147 the same day.`,
     `Direct refunds are faster than disputes; please reach out to us first.`,
@@ -156,7 +161,10 @@ export async function sendShipmentNotification(order) {
     preheader: `Your order ${order.order_number} is on the way.`,
     eyebrow: 'On its way',
     heading: 'Your order has shipped',
-    paragraphs: [`Order <strong style="color:#F5F3EC;">${escapeHtml(order.order_number)}</strong> is on its way via ${escapeHtml(carrier)}.`],
+    paragraphs: [
+      `Order <strong style="color:#F5F3EC;">${escapeHtml(order.order_number)}</strong> is on its way via ${escapeHtml(carrier)}.`,
+      `<strong style="color:#F5F3EC;">Opening your vials:</strong> flip off the colored plastic cap <strong>only</strong> — do not pry off the metal crimp seal or the rubber stopper. Every vial ships inspected and sealed; taking the crimp off can damage the vial, and post-delivery handling damage isn&rsquo;t covered. Remove the tops gently.`,
+    ],
     extraHtml: emailDetailTable([
       { label: 'Carrier', value: escapeHtml(carrier) },
       { label: 'Tracking #', value: escapeHtml(order.tracking), strong: true },
