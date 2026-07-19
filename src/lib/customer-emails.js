@@ -107,6 +107,48 @@ export async function sendBalanceDueEmail(order, { balance, payUrl }) {
   return send({ to: order.customer_email, subject: `Balance due on order ${num} — Syngyn`, text, html })
 }
 
+// Full-order card invoice (admin-initiated). For customers who can't use the
+// on-site rails — the admin creates the order from the Orders tab and emails
+// them a NoRamp hosted pay-link for the whole total. The order sits 'pending'
+// until the gateway callback finalizes it (inventory/affiliate/confirmation).
+export async function sendCardInvoiceEmail(order, { payUrl }) {
+  const amt = `$${Number(order.total || 0).toFixed(2)}`
+  const num = order.order_number
+  const itemLines = (Array.isArray(order.items) ? order.items : []).map(
+    (it) => `${it.quantity}× ${it.name} — $${(Number(it.price) * Number(it.quantity)).toFixed(2)}`
+  )
+  const text = [
+    `Here's your invoice for order ${num}.`,
+    ``,
+    ...itemLines,
+    ``,
+    `Total: ${amt}`,
+    ``,
+    `Pay securely by card here: ${payUrl}`,
+    ``,
+    `Your order ships once payment is received.`,
+    ``,
+    `— Syngyn`,
+  ].join('\n')
+  const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  const html = renderBrandedEmail({
+    preheader: `Invoice for order ${num}: ${amt}.`,
+    eyebrow: `Order ${num}`,
+    heading: 'Your invoice is ready',
+    paragraphs: [
+      `Here's your invoice for order ${num}:`,
+      itemLines.map(esc).join('<br/>'),
+      `Total: <strong>${amt}</strong>`,
+      `Click below to pay securely by card — your order ships once payment is received.`,
+    ],
+    cta: { text: `Pay ${amt}`, url: payUrl },
+    ctaSub: 'Secure card checkout · charge appears as SYNGYN.',
+    note: `Questions? Just reply to this email.`,
+    footerLines: emailFooterLines(),
+  })
+  return send({ to: order.customer_email, subject: `Invoice for order ${num} — Syngyn`, text, html })
+}
+
 export async function sendPasswordResetEmail(customer, token) {
   const url = `${SITE_URL}/account/reset?token=${encodeURIComponent(token)}`
   const text = [

@@ -11,12 +11,23 @@
 // admin record an arbitrary all-in total (negotiated / comped orders); when
 // set it becomes subtotal AND total with shipping/discount zeroed, and
 // affiliate commission computes off that override.
+//
+// Invoice mode (`invoice: true`, card only): for customers who can't pay on
+// the site rails. Instead of recording an already-collected payment, this
+// creates the order UNPAID ('pending' — the human-review lane, never
+// auto-expired), mints a NoRamp hosted pay-link for the full total, and emails
+// it to the customer. No inventory/affiliate/confirmation side effects happen
+// here — the NoRamp callback runs the normal finalizePaidOrder when they pay
+// (same path as a checkout card order), with the reconcile safety nets
+// (/checkout/success return + expire-awaiting cron) unchanged.
 
 import { supabaseAdmin } from '../../../../lib/supabase'
 import { validateSessionToken } from '../../../../lib/session'
 import { validateOrigin, rateLimit, validateEmail, validateString, validateZip } from '../../../../lib/security'
 import { calcShipping, getShippingTier } from '../../../../lib/shipping'
 import { finalizePaidOrder } from '../../../../lib/payments/finalizeOrder'
+import { createCheckoutSession } from '../../../../lib/payments/cardProcessor'
+import { sendCardInvoiceEmail } from '../../../../lib/customer-emails'
 import { PAYMENT_STATUS } from '../../../../lib/order-status'
 import { generateOrderNumber } from '../../../../lib/order-number'
 import { getCatalog } from '../../../../lib/catalog'
@@ -42,6 +53,7 @@ export default async function handler(req, res) {
       name, email, address, city, state, zip,
       items, affiliateCode, paymentMethod,
       priceOverride, sendConfirmation = true,
+      invoice = false, sendInvoice = true,
     } = req.body || {}
     // Shipping tier for the manual order (default 2-Day); validated against config.
     const shippingMethod = getShippingTier(req.body.shippingMethod).id
@@ -53,6 +65,9 @@ export default async function handler(req, res) {
     }
     if (!VALID_METHODS.has(paymentMethod)) {
       return res.status(400).json({ error: `Invalid paymentMethod (one of: ${[...VALID_METHODS].join(', ')})` })
+    }
+    if (invoice && paymentMethod !== 'card') {
+      return res.status(400).json({ error: 'Invoice mode is card-only (it emails a NoRamp pay-link)' })
     }
 
     // Recompute everything server-side from the catalog — never trust
@@ -161,12 +176,35 @@ export default async function handler(req, res) {
       payment_status: PAYMENT_STATUS.PENDING,
       payment_method: paymentMethod,
       fraud_status: 'unreviewed',
-      notes: 'Manual order entered by admin',
+      notes: invoice ? 'Card invoice sent by admin — awaiting payment' : 'Manual order entered by admin',
     }
     if (validatedAffiliateCode) {
       insertData.affiliate_code = validatedAffiliateCode
       insertData.discount = discount
       insertData.affiliate_commission_pct = validatedCommissionPct
+    }
+
+    // Invoice mode: mint the NoRamp pay-link BEFORE the insert so the session
+    // id lands in the same row write (and a gateway failure leaves no orphan
+    // order). Shipping address doubles as billing prefill, same as the
+    // balance-due invoice — the hosted page collects the card + AVS fields.
+    let invoiceSession = null
+    if (invoice) {
+      const site = process.env.NEXT_PUBLIC_SITE_URL || ''
+      try {
+        invoiceSession = await createCheckoutSession({
+          orderNumber,
+          amountCents: Math.round(total * 100),
+          currency: 'USD',
+          customer: { name, email, address, city, state, zip },
+          returnUrl: `${site}/checkout/success?order=${encodeURIComponent(orderNumber)}`,
+          cancelUrl: `${site}/checkout/cancel?order=${encodeURIComponent(orderNumber)}`,
+        })
+      } catch (e) {
+        console.error('[create-manual] invoice pay-link failed:', e.message)
+        return res.status(502).json({ error: `Card pay-link creation failed: ${e.message}` })
+      }
+      if (invoiceSession.sessionId) insertData.card_session_id = invoiceSession.sessionId
     }
 
     let { error: insertErr } = await supabaseAdmin
@@ -183,6 +221,31 @@ export default async function handler(req, res) {
     if (insertErr) {
       console.error('[create-manual] insert failed:', insertErr.message)
       return res.status(500).json({ error: insertErr.message })
+    }
+
+    // Invoice mode stops here — NO finalize. The order stays 'pending' until
+    // the NoRamp callback (or the /checkout/success reconcile) flips it, which
+    // is when inventory decrements, the affiliate credits, and the customer
+    // gets the confirmation email.
+    if (invoice) {
+      let emailed = false
+      if (sendInvoice !== false) {
+        emailed = await sendCardInvoiceEmail(
+          { order_number: orderNumber, customer_email: email, total, items: lineItems },
+          { payUrl: invoiceSession.redirectUrl }
+        ).catch((e) => {
+          console.error('[create-manual] invoice email failed:', e.message)
+          return false
+        })
+      }
+      return res.status(200).json({
+        ok: true,
+        order_number: orderNumber,
+        total,
+        affiliate_code: validatedAffiliateCode,
+        invoiceUrl: invoiceSession.redirectUrl,
+        emailed: !!emailed,
+      })
     }
 
     // Finalize: marks completed, decrements inventory (kit-aware), credits the

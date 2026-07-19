@@ -30,8 +30,13 @@ export async function reconcileCardOrder(orderNumber) {
 
   if (!order) return { ok: false, reason: 'order_not_found' }
   if (order.payment_method !== 'card') return { ok: false, reason: 'not_card' }
-  if (order.payment_status !== PAYMENT_STATUS.AWAITING_PAYMENT) {
-    return { ok: true, reason: 'not_awaiting', status: order.payment_status }
+  // Open states a card payment can legitimately sit in: awaiting_payment
+  // (checkout capture) or pending (admin card invoice — created unpaid, no
+  // expiry). Reconciling pending mirrors the webhook, which finalizes any
+  // non-balance_due order on payment.succeeded regardless of state; without
+  // it a paid invoice with a dropped callback would strand as pending.
+  if (order.payment_status !== PAYMENT_STATUS.AWAITING_PAYMENT && order.payment_status !== PAYMENT_STATUS.PENDING) {
+    return { ok: true, reason: 'not_open', status: order.payment_status }
   }
   if (!order.card_session_id) return { ok: false, reason: 'no_session_id' }
 

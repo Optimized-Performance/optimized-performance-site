@@ -333,6 +333,11 @@ export default function OrdersTab({ products = [], showSaveMsg, token }) {
     }
   }
 
+  // 'card_invoice' in the Paid-via select = invoice mode: the order is created
+  // UNPAID and the customer gets an emailed NoRamp card pay-link; everything
+  // else (inventory/affiliate/confirmation) fires when the payment lands.
+  const manualIsInvoice = manualForm.paymentMethod === 'card_invoice';
+
   async function submitManualOrder() {
     if (manualSubmitting) return;
     const items = manualForm.lines
@@ -360,9 +365,10 @@ export default function OrdersTab({ products = [], showSaveMsg, token }) {
           zip: manualForm.zip,
           items,
           affiliateCode: manualForm.affiliateCode.trim() || undefined,
-          paymentMethod: manualForm.paymentMethod,
+          paymentMethod: manualIsInvoice ? 'card' : manualForm.paymentMethod,
           priceOverride: manualForm.priceOverride.trim() || undefined,
           sendConfirmation: manualForm.sendConfirmation,
+          ...(manualIsInvoice ? { invoice: true, sendInvoice: manualForm.sendConfirmation } : {}),
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -374,11 +380,21 @@ export default function OrdersTab({ products = [], showSaveMsg, token }) {
       await fetchOrders({ silent: true });
       setManualOpen(false);
       setManualForm(MANUAL_FORM_BLANK);
-      showSaveMsg(
-        `Manual order ${data.order_number} created ($${Number(data.total).toFixed(2)}` +
-        `${data.affiliate_code ? `, ${data.affiliate_code} credited` : ''}` +
-        `${data.emailed ? ', customer emailed' : ', no email sent'}). Inventory decremented.`
-      );
+      if (data.invoiceUrl) {
+        let copied = false;
+        try { await navigator.clipboard.writeText(data.invoiceUrl); copied = true; } catch { /* clipboard unavailable — link is in the email */ }
+        showSaveMsg(
+          `Invoice ${data.order_number} created ($${Number(data.total).toFixed(2)}) — ` +
+          `pay-link ${data.emailed ? 'emailed to customer' : 'NOT emailed'}${copied ? ', copied to clipboard' : ''}. ` +
+          `Order finalizes automatically when paid.`
+        );
+      } else {
+        showSaveMsg(
+          `Manual order ${data.order_number} created ($${Number(data.total).toFixed(2)}` +
+          `${data.affiliate_code ? `, ${data.affiliate_code} credited` : ''}` +
+          `${data.emailed ? ', customer emailed' : ', no email sent'}). Inventory decremented.`
+        );
+      }
     } catch (err) {
       showSaveMsg(`Manual order failed: ${err.message}`);
     }
@@ -1833,7 +1849,9 @@ export default function OrdersTab({ products = [], showSaveMsg, token }) {
                   New manual order
                 </h3>
                 <p className="opp-meta-mono text-ink-mute mt-1 m-0">
-                  Off-platform payment (Zelle/Venmo/cash). Records the sale, decrements inventory, credits the affiliate.
+                  {manualIsInvoice
+                    ? 'Card invoice: creates the order unpaid + emails a secure pay-link. Inventory/affiliate/confirmation fire automatically when it’s paid.'
+                    : 'Off-platform payment (Zelle/Venmo/cash). Records the sale, decrements inventory, credits the affiliate.'}
                 </p>
               </div>
               <button
@@ -1938,7 +1956,8 @@ export default function OrdersTab({ products = [], showSaveMsg, token }) {
                   <option value="crypto">Crypto</option>
                   <option value="cash">Cash</option>
                   <option value="paypal">PayPal</option>
-                  <option value="card">Card</option>
+                  <option value="card">Card (already paid)</option>
+                  <option value="card_invoice">Card — email invoice (pay-link)</option>
                   <option value="other">Other</option>
                 </select>
               </div>
@@ -1964,7 +1983,7 @@ export default function OrdersTab({ products = [], showSaveMsg, token }) {
                 onChange={(e) => setManualField('sendConfirmation', e.target.checked)}
                 disabled={manualSubmitting}
               />
-              Send order-confirmation email to customer
+              {manualIsInvoice ? 'Email the invoice pay-link to the customer' : 'Send order-confirmation email to customer'}
             </label>
 
             <div className="flex justify-between items-center pt-4 border-t border-line">
@@ -1978,7 +1997,7 @@ export default function OrdersTab({ products = [], showSaveMsg, token }) {
                 onClick={submitManualOrder}
                 disabled={manualSubmitting}
               >
-                {manualSubmitting ? 'Creating…' : 'Create + finalize order'}
+                {manualSubmitting ? 'Creating…' : manualIsInvoice ? 'Create + send invoice' : 'Create + finalize order'}
               </button>
             </div>
           </div>
