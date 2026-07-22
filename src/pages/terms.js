@@ -81,8 +81,8 @@ export default function TermsOfService() {
               not guaranteed. {companyName} is not responsible for carrier delays.
             </p>
             <p className="text-sm text-ink-soft leading-relaxed mb-3">
-              Risk of loss and title pass to you upon delivery to the carrier. All shipments include
-              discrete packaging.
+              Risk of loss and title pass to you upon delivery to the carrier. All shipments use
+              plain, protective packaging appropriate for laboratory materials.
             </p>
             <p className="text-sm text-ink-soft leading-relaxed">
               <strong className="text-ink">International (Canadian) orders.</strong> Canadian orders ship at a

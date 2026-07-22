@@ -43,7 +43,9 @@ export default function ProductDetail({
   const [qty, setQty] = useState(1);
   // Per-SKU volume break at the selected quantity (replaces the old kit SKUs).
   // HGH is excluded (supply-constrained hero) — no tiers, always full price.
-  const volEligible = isVolumeEligible(product?.id);
+  // No consumer quantity-discount merchandising on approval-gated research
+  // materials (NoRamp/Stripe finding #3 — "buy more save more" reads consumer).
+  const volEligible = isVolumeEligible(product?.id) && !product?.purchaseApprovalRequired;
   const volPct = volEligible ? volumeTierPct(qty) : 0;
   const lineBase = (product?.price || 0) * qty;
   const lineTotal = lineBase * (1 - volPct / 100);
@@ -417,7 +419,7 @@ export default function ProductDetail({
           <div className="flex flex-wrap gap-x-4 gap-y-1.5 mt-3 opp-meta-mono text-ink-mute">
             <span className="inline-flex items-center gap-1"><Icon name="check" size={12} className="text-success" /> Third-party HPLC tested</span>
             <span className="inline-flex items-center gap-1"><Icon name="truck" size={12} className="text-success" /> Ships within 24h</span>
-            <span className="inline-flex items-center gap-1"><Icon name="lock" size={12} className="text-success" /> Discreet packaging</span>
+            <span className="inline-flex items-center gap-1"><Icon name="lock" size={12} className="text-success" /> Protective, insulated packaging</span>
           </div>
 
           {status === 'preorder' && (
@@ -498,7 +500,7 @@ export default function ProductDetail({
             </ComplianceRow>
             )}
             <ComplianceRow icon="truck" title="Shipping">
-              Ships within 1 business day in discrete, unbranded packaging.
+              Ships within 1 business day in protective, insulated packaging.
               {product.format === 'Lyophilized Powder' && ' Cold pack included for temperature-controlled transit.'}
               {' '}
               <Link href="/shipping" className="text-accent-strong hover:underline">Full policy</Link>.

@@ -14,7 +14,7 @@ export default function ShippingReturns() {
         <h1 className="font-display font-semibold tracking-display text-[clamp(36px,5vw,64px)] leading-none mt-3 mb-2 text-ink">
           Shipping &amp; Returns
         </h1>
-        <p className="text-ink-soft text-sm m-0">Fast, discrete shipping on all orders.</p>
+        <p className="text-ink-soft text-sm m-0">Fast, protected, carrier-tracked shipping on all orders.</p>
       </div>
 
       <div className="max-w-narrow mx-auto pt-12">
@@ -82,7 +82,7 @@ export default function ShippingReturns() {
 
           <Section title="Packaging & Cold Chain">
             <ul className="list-disc pl-5 space-y-1.5 text-sm text-ink-soft leading-relaxed">
-              <li>All orders are shipped in <strong className="text-ink">discrete, unbranded packaging</strong>.</li>
+              <li>All orders are shipped in <strong className="text-ink">plain, protective packaging</strong> appropriate for laboratory materials, with carrier tracking.</li>
               <li>Orders ship in an <strong className="text-ink">insulated thermal mailer</strong> built for short-transit temperature protection. The reflective interior insulation moderates package temperature through the 2-day transit window nationwide.</li>
               <li>Lyophilized peptides are stable for short periods at room temperature, and our packaging plus 2-day service are selected so vials arrive in good condition under typical transit conditions. Once received, vials should be stored at 2–8 °C until reconstitution.</li>
             </ul>

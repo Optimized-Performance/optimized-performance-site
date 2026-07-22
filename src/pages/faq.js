@@ -30,7 +30,7 @@ const faqs = [
     items: [
       { q: 'How fast do you ship?', a: 'Orders are processed and shipped within 1 business day. Standard delivery is 3–5 business days via USPS Priority Mail.' },
       { q: 'Do you ship internationally?', a: 'Currently we ship to US addresses only. International shipping may be available in the future.' },
-      { q: 'Is the packaging discrete?', a: 'Yes. All orders ship in plain, unbranded packaging with no indication of contents on the exterior.' },
+      { q: 'How is my order packaged?', a: 'Orders ship in plain, protective, insulated packaging appropriate for laboratory materials, with carrier tracking on every shipment.' },
       { q: 'How do I track my order?', a: 'You will receive a shipping confirmation email with a USPS tracking number once your order ships.' },
     ],
   },

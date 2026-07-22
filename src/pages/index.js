@@ -13,7 +13,7 @@ const METHOD_STEPS = [
   { n: '01', k: 'Synthesis', v: 'Solid-phase synthesis at an ISO-certified partner facility. Raw material logged by lot.' },
   { n: '02', k: 'HPLC & MS', v: 'Every batch analyzed by reverse-phase HPLC and mass spectrometry. Third-party verified.' },
   { n: '03', k: 'Lyophilization', v: 'Freeze-dried under vacuum, sealed under inert atmosphere, stored at −20°C.' },
-  { n: '04', k: 'Fulfillment', v: 'Packed with care and shipped discreetly within 1 business day.' },
+  { n: '04', k: 'Fulfillment', v: 'Packed with care and shipped within 1 business day.' },
 ];
 
 const TRUST = [
@@ -76,7 +76,7 @@ export default function Home({ visibleProducts }) {
             )}
             <p className="text-[17px] leading-relaxed text-ink-soft max-w-[500px] m-0 mb-9">
               {RESEARCH_MODE
-                ? 'Lyophilized powders for in-vitro research. 99% pure, US owned & operated, shipped discreetly within 24 hours.'
+                ? 'Lyophilized powders for in-vitro research. 99% pure, US owned & operated, shipped within 24 hours.'
                 : 'Glassware, consumables, cold-chain supplies, and analytical reference standards. US owned & operated, shipped within 24 hours.'}
             </p>
             <div className="flex gap-3 mb-14">

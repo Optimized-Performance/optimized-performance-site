@@ -10,7 +10,9 @@ import SEO from '../components/SEO';
 import { Icon } from '../components/Primitives';
 import { RESEARCH_MODE } from '../lib/brand';
 
-const ALL_CATEGORIES = ['All', 'GLPs', 'Peptides', 'GH Peptides', 'Combos', 'Tinctures', 'Ancillaries', 'Supplements', 'Supplies'];
+// 'Supplements' removed 2026-07-22 — it contradicted the compliance policy
+// (products are not dietary supplements). Those SKUs reclassified to Ancillaries.
+const ALL_CATEGORIES = ['All', 'GLPs', 'Peptides', 'GH Peptides', 'Combos', 'Tinctures', 'Ancillaries', 'Supplies'];
 
 export default function Shop({ inventory, visibleProducts: visibleProductsProp, cohortAllowed }) {
   const router = useRouter();

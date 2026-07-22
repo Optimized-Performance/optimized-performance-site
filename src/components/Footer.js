@@ -51,7 +51,7 @@ export default function Footer() {
           <FooterLink href="/shop">All products</FooterLink>
           <FooterLink href="/shop?cat=GLPs">GLPs</FooterLink>
           <FooterLink href="/shop?cat=Combos">Combos</FooterLink>
-          <FooterLink href="/shop?cat=Supplements">Supplements</FooterLink>
+          <FooterLink href="/shop?cat=Ancillaries">Ancillaries</FooterLink>
         </FooterCol>
 
         <FooterCol title="Resources">
