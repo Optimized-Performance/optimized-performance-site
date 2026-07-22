@@ -42,6 +42,13 @@ export async function createCheckoutSession(opts) {
 // checkout client keys off the create-response shape (card_intent vs
 // redirect_url), so flipping this env var + redeploy is the entire rollback.
 export function cardCheckoutExperience() {
+  // Stripe supports ONLY the redirect (hosted Checkout) experience today —
+  // inline (Payment Element) is NoRamp-connected-account shaped and unbuilt for
+  // direct Stripe. Force redirect for stripe so a stale CARD_EXPERIENCE=inline
+  // (left over from the NoRamp era) can't route the rail into the throwing
+  // inline path and 502 every card order. Remove this clamp when Stripe inline
+  // is actually wired.
+  if (PROCESSOR === 'stripe') return 'redirect'
   return process.env.CARD_EXPERIENCE === 'inline' ? 'inline' : 'redirect'
 }
 
