@@ -43,4 +43,8 @@ export default BRAND;
 // NEXT_PUBLIC_ so the value is identical on client and server — the checkout
 // UI and the server-side ack enforcement in /api/orders/create MUST agree, or
 // checkout 400s ("Research-use acknowledgment is required") with the UI hidden.
+//
+// ⚠️ NEXT_PUBLIC_ vars are INLINED AT BUILD TIME. Changing NEXT_PUBLIC_RESEARCH_MODE
+// in Vercel does NOT take effect on a cache-reused "Redeploy" — it needs a FRESH
+// build (redeploy with build cache off, or push a commit).
 export const RESEARCH_MODE = process.env.NEXT_PUBLIC_RESEARCH_MODE === 'true';
