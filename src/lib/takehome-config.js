@@ -84,6 +84,13 @@ export const PRODUCT_COST = {
   // Ancillary tablets — keyed by SKU (added via admin; per-30ct-bottle cost =
   // $/100ct × 30 + ~$0.50 pkg). Vendor: Tamox $22/100, Anas $21/100, Telmi $28/100.
   'OP-TAM-20MG-30CT': 7.10, 'OP-ANA-1MG-30CT': 6.80, 'OP-TEL-40MG-30CT': 8.90,
+  // 2026-07-22 safe-supplies catalog (clean card-facing SKUs) — per-unit
+  // wholesale estimates; confirm against the first PO invoices.
+  'sterile-water-10ml': 1.50, 'vial-empty-10ml-10pk': 4.50, 'vial-empty-3ml-10pk': 3.50,
+  'syringe-filter-022-10pk': 6.00, 'alcohol-pads-200': 2.50, 'nitrile-gloves-100': 6.00,
+  'sharps-1qt': 3.00, 'vial-box-100': 6.00, 'cold-ship-kit': 7.00, 'desiccant-50': 3.00,
+  'parafilm-roll': 8.00, 'microtube-500': 5.00, 'pipette-tips-1000': 4.50,
+  'ph-buffer-set': 8.00, 'cal-weight-set': 18.00, 'conductivity-std': 7.00,
 }
 
 const r2 = (n) => Math.round((Number(n) || 0) * 100) / 100
