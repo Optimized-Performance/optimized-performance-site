@@ -4,6 +4,7 @@ import { useRouter } from 'next/router';
 import { fontVariables } from '../lib/fonts';
 import { Analytics } from '@vercel/analytics/next';
 import { track } from '../lib/track';
+import { RESEARCH_MODE } from '../lib/brand';
 import { CartProvider } from '../context/CartContext';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
@@ -72,7 +73,7 @@ export default function App({ Component, pageProps }) {
               </div>
             </main>
             <Footer />
-            <AgeGate />
+            {RESEARCH_MODE && <AgeGate />}
             <LoginNudge />
             {!isCheckout && <MobileTabBar />}
           </>

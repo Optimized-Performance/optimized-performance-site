@@ -14,6 +14,7 @@ import { verifyRecoveryToken } from '../../../lib/recovery'
 import { generateOrderNumber } from '../../../lib/order-number'
 import { getCatalog } from '../../../lib/catalog'
 import { estimateOrderCogs } from '../../../lib/takehome-config'
+import { RESEARCH_MODE } from '../../../lib/brand'
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://syngyn.co'
 
@@ -145,20 +146,21 @@ export default async function handler(req, res) {
       return res.status(401).json({ error: 'Please sign in to complete your purchase.' })
     }
 
-    // Research-use acknowledgment (RUO + 21+ + no-consumption) must be explicitly confirmed.
-    // This is enforced server-side so the audit trail survives any client tampering —
-    // required for high-risk payment processor underwriting. Checked before DB so the
-    // server rejects bad requests without touching backend resources.
-    if (researchUseAck !== true) {
-      return res.status(400).json({ error: 'Research-use acknowledgment is required.' })
-    }
-
-    // Research-field declaration (parity with the ack — survives client tampering
-    // for the underwriting audit trail). Allowed list mirrors RESEARCH_FIELDS in
-    // src/pages/checkout.js; keep the two in sync.
-    const ALLOWED_RESEARCH_FIELDS = ['Pharmacology', 'Molecular Biology', 'Medicinal Chemistry', 'Biochemistry', 'Clinical Research', 'Other']
-    if (!ALLOWED_RESEARCH_FIELDS.includes(researchField)) {
-      return res.status(400).json({ error: 'A valid field of research is required.' })
+    // Research-use acknowledgment + field-of-research are enforced server-side
+    // ONLY in research mode (gated research SKUs). In the clean lab-supply
+    // posture (RESEARCH_MODE off, the default) the checkout UI hides these, so
+    // requiring them here would 400 every order — the two MUST agree.
+    if (RESEARCH_MODE) {
+      // RUO + 21+ + no-consumption must be explicitly confirmed. Enforced
+      // server-side so the audit trail survives client tampering.
+      if (researchUseAck !== true) {
+        return res.status(400).json({ error: 'Research-use acknowledgment is required.' })
+      }
+      // Allowed list mirrors RESEARCH_FIELDS in src/pages/checkout.js; keep in sync.
+      const ALLOWED_RESEARCH_FIELDS = ['Pharmacology', 'Molecular Biology', 'Medicinal Chemistry', 'Biochemistry', 'Clinical Research', 'Other']
+      if (!ALLOWED_RESEARCH_FIELDS.includes(researchField)) {
+        return res.status(400).json({ error: 'A valid field of research is required.' })
+      }
     }
 
     if (!supabaseAdmin) {

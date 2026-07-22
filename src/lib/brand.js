@@ -31,3 +31,16 @@ export const BRAND = {
 };
 
 export default BRAND;
+
+// Research-framing switch. OFF (default/unset) = the clean lab-supply /
+// analytical-reference storefront — the Stripe-approved posture as of
+// 2026-07-22: NO age gate, NO RUO/21+/"not for consumption" attestation, NO
+// field-of-research requirement, neutral copy throughout. Set
+// NEXT_PUBLIC_RESEARCH_MODE=true to bring the research-use framing back (age
+// gate, checkout attestation + field-of-research, RUO tags, "research peptide"
+// copy) if/when gated research SKUs return to the catalog.
+//
+// NEXT_PUBLIC_ so the value is identical on client and server — the checkout
+// UI and the server-side ack enforcement in /api/orders/create MUST agree, or
+// checkout 400s ("Research-use acknowledgment is required") with the UI hidden.
+export const RESEARCH_MODE = process.env.NEXT_PUBLIC_RESEARCH_MODE === 'true';

@@ -7,6 +7,7 @@ import { hasGatedAccess } from '../lib/gated-access';
 import ProductCard from '../components/ProductCard';
 import SEO from '../components/SEO';
 import { Vial, Icon } from '../components/Primitives';
+import { RESEARCH_MODE } from '../lib/brand';
 
 const METHOD_STEPS = [
   { n: '01', k: 'Synthesis', v: 'Solid-phase synthesis at an ISO-certified partner facility. Raw material logged by lot.' },
@@ -58,16 +59,25 @@ export default function Home({ visibleProducts }) {
             <div className="flex items-center gap-3 mb-7">
               <span className="opp-eyebrow">Est. 2024 · USA</span>
               <span className="text-ink-mute">/</span>
-              <span className="opp-eyebrow">Research Use Only</span>
+              <span className="opp-eyebrow">{RESEARCH_MODE ? 'Research Use Only' : 'Lab & Research Supplies'}</span>
             </div>
-            <h1 className="font-display font-semibold tracking-display leading-[0.98] text-balance text-[clamp(42px,6vw,88px)] m-0 mb-7 text-ink">
-              High-purity<br />
-              <em className="not-italic font-normal text-accent">research peptides,</em><br />
-              verified per batch.
-            </h1>
+            {RESEARCH_MODE ? (
+              <h1 className="font-display font-semibold tracking-display leading-[0.98] text-balance text-[clamp(42px,6vw,88px)] m-0 mb-7 text-ink">
+                High-purity<br />
+                <em className="not-italic font-normal text-accent">research peptides,</em><br />
+                verified per batch.
+              </h1>
+            ) : (
+              <h1 className="font-display font-semibold tracking-display leading-[0.98] text-balance text-[clamp(42px,6vw,88px)] m-0 mb-7 text-ink">
+                Laboratory<br />
+                <em className="not-italic font-normal text-accent">supplies &amp; standards,</em><br />
+                shipped fast.
+              </h1>
+            )}
             <p className="text-[17px] leading-relaxed text-ink-soft max-w-[500px] m-0 mb-9">
-              Lyophilized powders for in-vitro research. 99% pure, US owned &amp; operated,
-              shipped discreetly within 24 hours.
+              {RESEARCH_MODE
+                ? 'Lyophilized powders for in-vitro research. 99% pure, US owned & operated, shipped discreetly within 24 hours.'
+                : 'Glassware, consumables, cold-chain supplies, and analytical reference standards. US owned & operated, shipped within 24 hours.'}
             </p>
             <div className="flex gap-3 mb-14">
               <button className="btn-primary px-5 py-3.5 text-sm" onClick={() => router.push('/shop')}>
@@ -79,8 +89,8 @@ export default function Home({ visibleProducts }) {
             </div>
             <dl className="grid grid-cols-3 gap-6 border-t border-line pt-6 m-0">
               <div>
-                <dt className="opp-meta-mono uppercase mb-2">Average purity</dt>
-                <dd className="font-display font-semibold text-[36px] tracking-display leading-none text-ink m-0">99%</dd>
+                <dt className="opp-meta-mono uppercase mb-2">{RESEARCH_MODE ? 'Average purity' : 'Shipped from'}</dt>
+                <dd className="font-display font-semibold text-[36px] tracking-display leading-none text-ink m-0">{RESEARCH_MODE ? '99%' : 'USA'}</dd>
               </div>
               <div>
                 <dt className="opp-meta-mono uppercase mb-2">Active SKUs</dt>
@@ -116,7 +126,7 @@ export default function Home({ visibleProducts }) {
       {heroShowcase && (
         <section className="py-20">
           <div className="mb-10 text-center">
-            <span className="opp-eyebrow">Featured specimen</span>
+            <span className="opp-eyebrow">{RESEARCH_MODE ? 'Featured specimen' : 'Featured product'}</span>
             <h2 className="font-display font-semibold tracking-display text-[clamp(28px,3.5vw,48px)] leading-tight m-0 mt-2.5 text-balance text-ink">
               {heroShowcase.name} <span className="text-ink-soft">{heroShowcase.dosage}</span>
             </h2>
@@ -142,9 +152,9 @@ export default function Home({ visibleProducts }) {
             <div className="w-full max-w-[320px] px-5 py-4 bg-surface border border-line rounded-opp flex flex-col gap-2 opp-meta-mono">
               <SpecLine k="SKU" v={heroShowcase.sku} />
               <SpecLine k="CLASS" v={heroClass} />
-              <SpecLine k="PURITY" v={`${heroShowcase.purity ?? 99}%`} />
-              <SpecLine k="FORMAT" v={`${heroShowcase.format || 'Lyophilized'} / ${heroShowcase.vialSize || '2mL Vial'}`} />
-              <SpecLine k="STORAGE" v="-20°C" />
+              {RESEARCH_MODE && <SpecLine k="PURITY" v={`${heroShowcase.purity ?? 99}%`} />}
+              <SpecLine k="FORMAT" v={heroShowcase.format || (RESEARCH_MODE ? 'Lyophilized / 2mL Vial' : '—')} />
+              {RESEARCH_MODE && <SpecLine k="STORAGE" v="-20°C" />}
             </div>
             <Link
               href={`/products/${heroShowcase.id}`}
@@ -180,34 +190,45 @@ export default function Home({ visibleProducts }) {
       </section>
 
       {/* Method */}
-      <section className="py-20">
-        <div className="mb-10">
-          <span className="opp-eyebrow">Method</span>
-          <h2 className="font-display font-semibold tracking-display text-[clamp(28px,3.5vw,48px)] leading-tight max-w-xl m-0 mt-2.5 text-balance text-ink">
-            How a vial gets to your bench.
-          </h2>
-        </div>
-        <ol className="grid md:grid-cols-4 grid-cols-2 border-t border-line list-none p-0 m-0">
-          {METHOD_STEPS.map((s, i) => (
-            <li
-              key={s.n}
-              className={`p-8 pr-6 flex flex-col gap-3 ${i !== METHOD_STEPS.length - 1 ? 'md:border-r border-line' : ''} ${i === 0 ? 'md:pl-0' : ''}`}
-            >
-              <div className="opp-meta-mono">{s.n}</div>
-              <div className="font-display font-semibold text-[22px] tracking-display text-ink">{s.k}</div>
-              <div className="text-sm text-ink-soft leading-relaxed">{s.v}</div>
-            </li>
-          ))}
-        </ol>
-      </section>
+      {RESEARCH_MODE && (
+        <section className="py-20">
+          <div className="mb-10">
+            <span className="opp-eyebrow">Method</span>
+            <h2 className="font-display font-semibold tracking-display text-[clamp(28px,3.5vw,48px)] leading-tight max-w-xl m-0 mt-2.5 text-balance text-ink">
+              How a vial gets to your bench.
+            </h2>
+          </div>
+          <ol className="grid md:grid-cols-4 grid-cols-2 border-t border-line list-none p-0 m-0">
+            {METHOD_STEPS.map((s, i) => (
+              <li
+                key={s.n}
+                className={`p-8 pr-6 flex flex-col gap-3 ${i !== METHOD_STEPS.length - 1 ? 'md:border-r border-line' : ''} ${i === 0 ? 'md:pl-0' : ''}`}
+              >
+                <div className="opp-meta-mono">{s.n}</div>
+                <div className="font-display font-semibold text-[22px] tracking-display text-ink">{s.k}</div>
+                <div className="text-sm text-ink-soft leading-relaxed">{s.v}</div>
+              </li>
+            ))}
+          </ol>
+        </section>
+      )}
 
       {/* Manifesto */}
       <section className="my-10 mb-20 bg-surface border border-line text-ink p-20 px-8 md:px-20 rounded-opp-lg">
         <div className="max-w-3xl mx-auto">
           <span className="opp-eyebrow" style={{ color: 'var(--accent)' }}>No. 001</span>
           <p className="font-display font-semibold tracking-display text-[clamp(24px,3vw,40px)] leading-snug m-0 mt-4 text-balance">
-            Research deserves honest material. 99% purity, third-party verified, shipped the next business day.
-            <span className="text-accent"> If a batch doesn&apos;t meet spec, it doesn&apos;t ship.</span>
+            {RESEARCH_MODE ? (
+              <>
+                Research deserves honest material. 99% purity, third-party verified, shipped the next business day.
+                <span className="text-accent"> If a batch doesn&apos;t meet spec, it doesn&apos;t ship.</span>
+              </>
+            ) : (
+              <>
+                Lab work deserves reliable supply. Quality materials, honest pricing, shipped the next business day.
+                <span className="text-accent"> Stocked, verified, and ready for your bench.</span>
+              </>
+            )}
           </p>
         </div>
       </section>

@@ -37,7 +37,7 @@ const NON_VIAL_FORMATS = new Set([
   'Equipment', 'Consumable', 'Glassware', 'Filtration', 'Storage', 'Reference Standard',
 ]);
 
-export function Vial({ label = '—', dosage = '', size = 220, purity, kit = false, sku, subtitle = 'Research Peptide', image, format }) {
+export function Vial({ label = '—', dosage = '', size = 220, purity, kit = false, sku, subtitle = '', image, format }) {
   const lowerSku = sku ? String(sku).toLowerCase() : null;
   const candidates = image
     ? [image]
@@ -98,7 +98,7 @@ function LogoPlaceholder({ label = '', size = 220 }) {
   );
 }
 
-function VialFallback({ label = '—', dosage = '', size = 220, purity, kit = false, sku, subtitle = 'Research Peptide' }) {
+function VialFallback({ label = '—', dosage = '', size = 220, purity, kit = false, sku, subtitle = '' }) {
   // Tiny thumbnails: simplified render (cap + glass + small label) — text gets illegible below ~80px
   const tiny = size < 80;
 

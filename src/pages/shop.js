@@ -8,6 +8,7 @@ import { getVisibleCatalog } from '../lib/catalog';
 import { hasGatedAccess } from '../lib/gated-access';
 import SEO from '../components/SEO';
 import { Icon } from '../components/Primitives';
+import { RESEARCH_MODE } from '../lib/brand';
 
 const ALL_CATEGORIES = ['All', 'GLPs', 'Peptides', 'GH Peptides', 'Combos', 'Tinctures', 'Ancillaries', 'Supplements', 'Supplies'];
 
@@ -60,8 +61,10 @@ export default function Shop({ inventory, visibleProducts: visibleProductsProp, 
   return (
     <div className="max-w-container mx-auto px-8 pt-14 pb-20">
       <SEO
-        title="Shop Research Peptides"
-        description="Browse our catalog of research-grade peptides. BPC-157, TB-500, Ipamorelin, MT-2, NAD+, and combo kits. 99% average purity, fast shipping."
+        title={RESEARCH_MODE ? 'Shop Research Peptides' : 'Shop Laboratory Supplies'}
+        description={RESEARCH_MODE
+          ? 'Browse our catalog of research-grade peptides. BPC-157, TB-500, Ipamorelin, MT-2, NAD+, and combo kits. 99% average purity, fast shipping.'
+          : 'Laboratory supplies, glassware, consumables, and analytical reference standards. Sterile water, vials, syringe filters, calibration standards, and benchtop equipment. Ships from the USA.'}
         path="/shop"
       />
 
@@ -138,11 +141,12 @@ export default function Shop({ inventory, visibleProducts: visibleProductsProp, 
         ))}
       </div>
 
-      {/* RUO */}
+      {/* Catalog use-note */}
       <div className="text-center py-6 mt-10 border-t border-line">
-        <p className="font-mono text-[11px] text-danger font-medium tracking-wide leading-relaxed m-0">
-          FOR RESEARCH USE ONLY — Not for human consumption. Not for veterinary use.
-          All products are sold strictly for in-vitro research and laboratory use.
+        <p className="font-mono text-[11px] text-ink-mute font-medium tracking-wide leading-relaxed m-0">
+          {RESEARCH_MODE
+            ? 'FOR RESEARCH USE ONLY — Not for human consumption. Not for veterinary use. All products are sold strictly for in-vitro research and laboratory use.'
+            : 'Laboratory supplies and analytical reference standards. Sold for research, laboratory, and calibration use.'}
         </p>
       </div>
     </div>

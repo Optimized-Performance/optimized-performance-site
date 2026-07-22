@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { Logo } from './Primitives';
-import { BRAND } from '../lib/brand';
+import { BRAND, RESEARCH_MODE } from '../lib/brand';
 
 // Show the "Research inquiries" footer link only when explicitly enabled via
 // env var. Default is OFF — the /research-inquiries page is still reachable
@@ -89,12 +89,21 @@ export default function Footer() {
 
       <div className="border-t border-line max-w-container mx-auto px-8 py-6 flex flex-col gap-4">
         <div className="flex gap-3.5 items-start">
-          <span className="opp-ruo-tag">RUO</span>
-          <p className="text-xs text-ink-soft leading-relaxed m-0">
-            All products are intended strictly for in-vitro research, laboratory, and identification purposes only.
-            They are not drugs, foods, or cosmetics and are not intended for human or animal consumption, dosing,
-            injection, or ingestion. Purchasers must be 21 years of age or older.
-          </p>
+          {RESEARCH_MODE ? (
+            <>
+              <span className="opp-ruo-tag">RUO</span>
+              <p className="text-xs text-ink-soft leading-relaxed m-0">
+                All products are intended strictly for in-vitro research, laboratory, and identification purposes only.
+                They are not drugs, foods, or cosmetics and are not intended for human or animal consumption, dosing,
+                injection, or ingestion. Purchasers must be 21 years of age or older.
+              </p>
+            </>
+          ) : (
+            <p className="text-xs text-ink-soft leading-relaxed m-0">
+              Laboratory supplies, consumables, and analytical reference standards for research and calibration use.
+              Third-party verified where applicable. Shipped from the United States.
+            </p>
+          )}
         </div>
         <div className="flex justify-between font-mono text-[11px] text-ink-mute tracking-wide">
           <span>© {new Date().getFullYear()} {brand.legalName}</span>

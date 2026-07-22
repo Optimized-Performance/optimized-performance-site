@@ -6,6 +6,7 @@ import { isPreorderable, formatPreorderShipDate, getEffectiveStock, shouldShowRe
 import { useCart } from '../../context/CartContext';
 import SEO from '../../components/SEO';
 import { Vial, Icon } from '../../components/Primitives';
+import { BRAND, RESEARCH_MODE } from '../../lib/brand';
 import NotifyMe from '../../components/NotifyMe';
 import { supabaseAdmin } from '../../lib/supabase';
 import { getCohortFromRequest } from '../../lib/cohort-session';
@@ -180,7 +181,7 @@ export default function ProductDetail({
   return (
     <div className="max-w-container mx-auto px-8 pt-10 pb-20">
       <SEO
-        title={`${product.name} ${product.dosage} — Research Peptide`}
+        title={`${product.name} ${product.dosage}${RESEARCH_MODE ? ' — Research Peptide' : ''}`}
         description={product.description}
         path={`/products/${product.id}`}
       />
@@ -473,10 +474,16 @@ export default function ProductDetail({
               {' '}
               <Link href="/shipping" className="text-accent-strong hover:underline">Full policy</Link>.
             </ComplianceRow>
-            <ComplianceRow icon="lock" title="Research Use Only">
-              For in-vitro research and laboratory use only. Not a drug, food, or cosmetic.
-              Not intended for human or animal consumption. Must be 21+ to purchase.
-            </ComplianceRow>
+            {RESEARCH_MODE ? (
+              <ComplianceRow icon="lock" title="Research Use Only">
+                For in-vitro research and laboratory use only. Not a drug, food, or cosmetic.
+                Not intended for human or animal consumption. Must be 21+ to purchase.
+              </ComplianceRow>
+            ) : (
+              <ComplianceRow icon="lock" title="Laboratory Use">
+                Supplied for laboratory, research, and calibration use. Store as labeled.
+              </ComplianceRow>
+            )}
           </div>
         </div>
       </div>

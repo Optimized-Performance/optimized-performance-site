@@ -14,6 +14,7 @@ import AltPaySaveBanner from '../components/AltPaySaveBanner';
 import CardPaymentPanel from '../components/CardPaymentPanel';
 import AddressAutocomplete from '../components/AddressAutocomplete';
 import { useCohortUi } from '../lib/cohort-ui';
+import { RESEARCH_MODE } from '../lib/brand';
 import PaymentMethodTiles from '../components/PaymentMethodTiles';
 import { US_STATES, CA_PROVINCES } from '../lib/us-states';
 import { CANADA_SHIPPING_FLAT } from '../lib/shipping';
@@ -146,6 +147,10 @@ export default function Checkout() {
   // (?ref=) visitors; public/cold checkout stays free of savings-urgency copy.
   const cohort = useCohortUi();
   const [researchField, setResearchField] = useState('');
+  // Research-use ack + field are only required (and only shown) in research
+  // mode. In the clean lab-supply posture they're hidden, so they must NOT
+  // block the pay button. See RESEARCH_MODE in lib/brand.
+  const researchBlocks = RESEARCH_MODE && (!researchAck || !researchField);
   const [customer, setCustomer] = useState(null);
   const [authChecked, setAuthChecked] = useState(!requireAccount);
   const [railAvail, setRailAvail] = useState(null);
@@ -372,7 +377,7 @@ export default function Checkout() {
           Sign in to complete your order.
         </h1>
         <p className="text-ink-soft mb-6 max-w-md mx-auto">
-          An account is required to purchase research compounds. Sign in or create one — it only takes a moment.
+          An account is required to complete your order. Sign in or create one — it only takes a moment.
         </p>
         <button className="btn-primary" onClick={() => router.push('/account/login?next=/checkout')}>
           Sign in / Create account
@@ -396,11 +401,11 @@ export default function Checkout() {
       alert('Please complete the billing address, or check "Billing same as shipping".');
       return false;
     }
-    if (!researchField) {
+    if (RESEARCH_MODE && !researchField) {
       alert('Please select your field of research to proceed.');
       return false;
     }
-    if (!researchAck) {
+    if (RESEARCH_MODE && !researchAck) {
       alert('You must acknowledge the research-use terms (21+ and non-consumption) to proceed.');
       return false;
     }
@@ -789,35 +794,39 @@ export default function Checkout() {
               {affiliateError && <p className="opp-meta-mono text-danger mt-1.5 m-0">{affiliateError}</p>}
             </Field>
 
-            <Field label="Field of Research">
-              <select
-                className="input-field"
-                required
-                value={researchField}
-                onChange={(e) => setResearchField(e.target.value)}
-              >
-                <option value="" disabled>Select your field of research…</option>
-                {RESEARCH_FIELDS.map((f) => (
-                  <option key={f} value={f}>{f}</option>
-                ))}
-              </select>
-            </Field>
+            {RESEARCH_MODE && (
+              <Field label="Field of Research">
+                <select
+                  className="input-field"
+                  required
+                  value={researchField}
+                  onChange={(e) => setResearchField(e.target.value)}
+                >
+                  <option value="" disabled>Select your field of research…</option>
+                  {RESEARCH_FIELDS.map((f) => (
+                    <option key={f} value={f}>{f}</option>
+                  ))}
+                </select>
+              </Field>
+            )}
 
-            <label className="flex items-start gap-2.5 p-4 bg-surfaceAlt rounded-opp text-[13px] text-ink-soft leading-snug mt-4 mb-6">
-              <input
-                type="checkbox"
-                required
-                className="mt-0.5"
-                checked={researchAck}
-                onChange={(e) => setResearchAck(e.target.checked)}
-              />
-              <span>
-                I am 21 years of age or older. I confirm that I am purchasing these materials exclusively for
-                qualified laboratory research or analytical use. I will not use these materials for human or
-                animal consumption, therapeutic use, clinical use, diagnostic use, dietary supplementation,
-                dosing, injection, ingestion, or administration.
-              </span>
-            </label>
+            {RESEARCH_MODE && (
+              <label className="flex items-start gap-2.5 p-4 bg-surfaceAlt rounded-opp text-[13px] text-ink-soft leading-snug mt-4 mb-6">
+                <input
+                  type="checkbox"
+                  required
+                  className="mt-0.5"
+                  checked={researchAck}
+                  onChange={(e) => setResearchAck(e.target.checked)}
+                />
+                <span>
+                  I am 21 years of age or older. I confirm that I am purchasing these materials exclusively for
+                  qualified laboratory research or analytical use. I will not use these materials for human or
+                  animal consumption, therapeutic use, clinical use, diagnostic use, dietary supplementation,
+                  dosing, injection, ingestion, or administration.
+                </span>
+              </label>
+            )}
 
             {country === 'CA' && (
               <label className="flex items-start gap-3 mb-4 p-4 rounded-opp-lg border border-accent-strong bg-accent-soft text-[13px] leading-relaxed text-ink-soft cursor-pointer fade-rise">
@@ -885,7 +894,7 @@ export default function Checkout() {
                       <button
                         type="submit"
                         className="btn-primary btn-glow w-full py-4 text-base"
-                        disabled={submitting || !researchAck || !researchField}
+                        disabled={submitting || researchBlocks}
                       >
                         <Icon name="card" size={18} />
                         {submitting && submittingMethod === 'card'
@@ -899,7 +908,7 @@ export default function Checkout() {
                       type="button"
                       onClick={() => handleCheckout('crypto')}
                       className="btn-primary w-full py-4 text-base"
-                      disabled={submitting || !researchAck || !researchField}
+                      disabled={submitting || researchBlocks}
                     >
                       {submitting && submittingMethod === 'crypto'
                         ? 'Processing…'
@@ -912,7 +921,7 @@ export default function Checkout() {
                       previewAmount={altPayTotal}
                       recipient={ZELLE_RECIPIENT}
                       qrSrc={ZELLE_QR_SRC}
-                      disabled={!researchAck || !researchField}
+                      disabled={researchBlocks}
                       onCreateOrder={() => createInlineOrder('zelle')}
                       onDone={(orderNumber) => { window.location.href = `/checkout/success?order=${encodeURIComponent(orderNumber)}`; }}
                     />
@@ -922,7 +931,7 @@ export default function Checkout() {
                       method="venmo"
                       previewAmount={discountedTotal}
                       recipient={`@${VENMO_HANDLE}`}
-                      disabled={!researchAck || !researchField}
+                      disabled={researchBlocks}
                       onCreateOrder={() => createInlineOrder('venmo')}
                       onDone={(orderNumber) => { window.location.href = `/checkout/success?order=${encodeURIComponent(orderNumber)}`; }}
                     />
@@ -939,7 +948,7 @@ export default function Checkout() {
                         </div>
                       )}
                       <PaypalCheckoutButtons
-                        disabled={!researchAck || !researchField || submitting}
+                        disabled={researchBlocks || submitting}
                         validateBeforeCheckout={validateCheckoutForm}
                         createOrderOnServer={createPaypalOrderOnServer}
                         onSuccess={handlePaypalSuccess}
@@ -1099,7 +1108,7 @@ export default function Checkout() {
             </div>
             <div className="flex items-center gap-2">
               <span className="text-accent-strong"><Icon name="doc" size={12} /></span>
-              <span>RUO research compounds</span>
+              <span>{RESEARCH_MODE ? 'RUO research compounds' : 'Laboratory supplies & reference standards'}</span>
             </div>
             <div className="flex items-center gap-2">
               <span className="text-accent-strong"><Icon name="truck" size={12} /></span>
