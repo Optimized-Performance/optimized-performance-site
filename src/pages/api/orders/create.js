@@ -214,7 +214,7 @@ export default async function handler(req, res) {
     // actually prevents a non-research buyer from purchasing.
     if (cartNeedsApproval && !(await hasGatedAccess(req))) {
       return res.status(403).json({
-        error: 'These items require an approved research account. Apply for access, and once approved you can complete this order.',
+        error: 'These items require an approved research account. If you\'ve ordered with us before, sign in — your account may already be approved. New researchers can apply for access.',
         requires_research_approval: true,
       })
     }

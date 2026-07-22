@@ -11,6 +11,7 @@ import NotifyMe from '../../components/NotifyMe';
 import { supabaseAdmin } from '../../lib/supabase';
 import { getCohortFromRequest } from '../../lib/cohort-session';
 import { hasGatedAccess } from '../../lib/gated-access';
+import { getCustomerIdFromReq } from '../../lib/customer-session';
 import { isMemorialDaySaleActive, getSalePrice, MEMORIAL_DAY_DISCOUNT_PCT, isBogoProduct, VOLUME_TIERS, volumeTierPct, isVolumeEligible, isFlashProduct, getFlashPrice, FLASH_SALE_PCT } from '../../lib/sale';
 // Static import (NOT require) so Next keeps lib/catalog in this page's server
 // bundle — a dynamic require() of a module with no static importer tree-shakes
@@ -34,12 +35,16 @@ export default function ProductDetail({
   cohort,
   approvalRequired,
   approved,
+  loggedIn,
 }) {
   const router = useRouter();
   const { addToCart } = useCart();
   // Purchase-approval gate: listed but only buyable by an approved researcher.
-  // When gated + not approved, the buy action becomes "Apply for access".
+  // When gated + not approved, the buy action becomes "Apply for access" — or,
+  // for a signed-out visitor, "Sign in" (a grandfathered customer whose email
+  // is already on the allowlist just needs to log in).
   const needsApproval = !!approvalRequired && !approved;
+  const loginUrl = `/account/login?next=${encodeURIComponent(`/products/${product?.id || ''}`)}`;
   const [qty, setQty] = useState(1);
   // Per-SKU volume break at the selected quantity (replaces the old kit SKUs).
   // HGH is excluded (supply-constrained hero) — no tiers, always full price.
@@ -181,7 +186,9 @@ export default function ProductDetail({
     // instead of adding to cart (the server also refuses the order — this is
     // the friendly front door).
     if (needsApproval) {
-      router.push('/research-inquiries');
+      // Guest → sign in (email may already be approved); logged-in but not
+      // approved → apply for access.
+      router.push(loggedIn ? '/research-inquiries' : loginUrl);
       return;
     }
     const options = {
@@ -384,19 +391,38 @@ export default function ProductDetail({
           )}
 
           {needsApproval ? (
-            <>
-              <button
-                ref={ctaRef}
-                type="button"
-                onClick={handleAdd}
-                className="btn-primary w-full py-4 text-base"
-              >
-                <Icon name="doc" size={16} /> Apply for researcher access
-              </button>
-              <p className="opp-meta-mono text-ink-mute mt-2 leading-relaxed">
-                This material is available to verified researchers. Apply for an account — once approved, purchasing unlocks for this and all restricted items.
-              </p>
-            </>
+            !loggedIn ? (
+              <>
+                <button
+                  ref={ctaRef}
+                  type="button"
+                  onClick={() => router.push(loginUrl)}
+                  className="btn-primary w-full py-4 text-base"
+                >
+                  <Icon name="lock" size={16} /> Sign in to purchase
+                </button>
+                <p className="opp-meta-mono text-ink-mute mt-2 leading-relaxed">
+                  Ordered with us before? Your account is likely already approved — just{' '}
+                  <Link href={loginUrl} className="text-accent-strong hover:underline">sign in</Link>.
+                  New researcher?{' '}
+                  <Link href="/research-inquiries" className="text-accent-strong hover:underline">apply for access</Link>.
+                </p>
+              </>
+            ) : (
+              <>
+                <button
+                  ref={ctaRef}
+                  type="button"
+                  onClick={handleAdd}
+                  className="btn-primary w-full py-4 text-base"
+                >
+                  <Icon name="doc" size={16} /> Apply for researcher access
+                </button>
+                <p className="opp-meta-mono text-ink-mute mt-2 leading-relaxed">
+                  This material is available to verified researchers. Apply for access — once approved, purchasing unlocks for this and all restricted items.
+                </p>
+              </>
+            )
           ) : (
             <button
               ref={ctaRef}
@@ -725,6 +751,10 @@ export async function getServerSideProps(context) {
   // always purchasable (approved: true).
   const approvalRequired = !!product.purchaseApprovalRequired;
   const approved = approvalRequired ? await hasGatedAccess(context.req) : true;
+  // Logged-in vs guest — drives the gated CTA: a grandfathered customer whose
+  // email is already on the allowlist just needs to sign in, so guests get a
+  // "sign in" nudge rather than being sent to re-apply.
+  const loggedIn = !!getCustomerIdFromReq(context.req);
 
   return {
     props: {
@@ -738,6 +768,7 @@ export async function getServerSideProps(context) {
       cohort: cohortAllowed,
       approvalRequired,
       approved,
+      loggedIn,
     },
   };
 }
