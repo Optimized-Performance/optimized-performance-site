@@ -1281,7 +1281,12 @@ export default function OrdersTab({ products = [], showSaveMsg, token }) {
                           )}
                         </div>
                       </td>
-                      <td data-label="Date" className="px-4 py-3 text-ink-soft">{new Date(order.created_at).toLocaleDateString()}</td>
+                      <td data-label="Date" className="px-4 py-3 text-ink-soft">
+                        <div>{new Date(order.created_at).toLocaleDateString()}</div>
+                        <div className="text-[11px] text-ink-mute">
+                          {new Date(order.created_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                        </div>
+                      </td>
                       <td data-label="Customer" className="px-4 py-3">
                         <div className="font-semibold text-ink">{order.customer_name}</div>
                         <div className="text-[11px] text-ink-mute">{order.customer_email}</div>
@@ -1524,6 +1529,11 @@ export default function OrdersTab({ products = [], showSaveMsg, token }) {
                                 Shipping: {Number(order.shipping || 0) === 0 ? 'FREE' : `$${Number(order.shipping).toFixed(2)}`}
                               </div>
                               <div className="text-[13px] font-bold mt-1 text-ink">Total: ${Number(order.total || 0).toFixed(2)}</div>
+                              <div className="text-[12px] text-ink-mute mt-1">
+                                Placed {new Date(order.created_at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
+                                {order.updated_at && order.updated_at !== order.created_at &&
+                                  ` · last activity ${new Date(order.updated_at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}`}
+                              </div>
                               {order.refunded_at && (
                                 <div className="text-[13px] text-danger mt-2 leading-relaxed">
                                   <strong>Refunded:</strong> ${Number(order.refund_amount || 0).toFixed(2)} on{' '}
