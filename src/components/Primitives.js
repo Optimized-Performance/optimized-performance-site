@@ -20,11 +20,24 @@ export function Logo({ size = 28, full = false, className = '' }) {
 }
 
 // Vial renderer — prefers a real product image at /vials/<sku>.png.
-// Falls back to a lightweight SVG placeholder when the image isn't present.
-// Drop per-SKU PNGs into public/vials/ and they'll pick up automatically.
+// Falls back to a placeholder when no image is present:
+//   • vial-shaped products (kits + lyophilized/solution formats) → the vial SVG
+//   • everything else (equipment, consumables, filters, standards…) → the
+//     Syngyn logo, so a box of gloves never renders as a peptide vial.
+// Drop per-SKU JP/PNGs into public/vials/ and they'll pick up automatically.
 import { useState } from 'react';
 
-export function Vial({ label = '—', dosage = '', size = 220, purity, kit = false, sku, subtitle = 'Research Peptide', image }) {
+// Non-vial formats — ONLY these fall back to the logo. Everything else
+// (incl. any legacy/peptide format string and a missing format) keeps the
+// vial SVG, so no existing product can regress to the logo. This is a
+// denylist by design: the live catalog's format strings aren't fully known
+// here, so we opt specific new supply/equipment formats OUT of the vial art
+// rather than trying to allowlist every vial format.
+const NON_VIAL_FORMATS = new Set([
+  'Equipment', 'Consumable', 'Glassware', 'Filtration', 'Storage', 'Reference Standard',
+]);
+
+export function Vial({ label = '—', dosage = '', size = 220, purity, kit = false, sku, subtitle = 'Research Peptide', image, format }) {
   const lowerSku = sku ? String(sku).toLowerCase() : null;
   const candidates = image
     ? [image]
@@ -38,7 +51,7 @@ export function Vial({ label = '—', dosage = '', size = 220, purity, kit = fal
     return (
       <img
         src={src}
-        alt={`${label} ${dosage} vial`}
+        alt={`${label} ${dosage}`}
         width={size}
         height={size}
         onError={() => setIdx(idx + 1)}
@@ -53,7 +66,36 @@ export function Vial({ label = '—', dosage = '', size = 220, purity, kit = fal
     );
   }
 
+  // No real image → pick the placeholder by shape. Only the known non-vial
+  // supply/equipment formats show the Syngyn logo; kits and everything else
+  // keep the vial SVG (so existing products never regress).
+  if (!kit && format != null && NON_VIAL_FORMATS.has(format)) {
+    return <LogoPlaceholder label={label} size={size} />;
+  }
+
   return <VialFallback label={label} dosage={dosage} size={size} purity={purity} kit={kit} sku={sku} subtitle={subtitle} />;
+}
+
+// Branded fallback for non-vial products — the Syngyn logo centered on the
+// themed surface, sized to fill roughly the same footprint as the vial art.
+function LogoPlaceholder({ label = '', size = 220 }) {
+  const boxH = Math.round((size * 320) / 220); // match the vial's aspect box
+  return (
+    <div
+      role="img"
+      aria-label={label ? `${label}` : 'Syngyn'}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: size,
+        height: boxH,
+        maxWidth: '100%',
+      }}
+    >
+      <Logo size={Math.max(28, Math.round(size * 0.5))} className="opacity-70" />
+    </div>
+  );
 }
 
 function VialFallback({ label = '—', dosage = '', size = 220, purity, kit = false, sku, subtitle = 'Research Peptide' }) {

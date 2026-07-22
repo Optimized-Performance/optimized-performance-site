@@ -86,6 +86,7 @@ export default function ProductCard({ product, qty, cohort = false }) {
           kit={product.isKit}
           sku={product.sku}
           image={product.imageUrl}
+          format={product.format}
         />
       </Link>
       <div className="p-5 flex flex-col flex-1 gap-1">

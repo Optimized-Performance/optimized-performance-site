@@ -247,6 +247,7 @@ export default function ProductDetail({
             kit={product.isKit}
             sku={product.sku}
             image={product.imageUrl}
+            format={product.format}
           />
         </div>
 
@@ -502,7 +503,7 @@ export default function ProductDetail({
                 className="bg-surface border border-line rounded-opp-lg p-5 transition-all duration-200 hover:-translate-y-0.5 hover:border-ink flex flex-col gap-2"
               >
                 <div className="flex justify-center py-2 opp-product-stage rounded-opp">
-                  <Vial label={rp.name} dosage={rp.dosage} size={80} kit={rp.isKit} sku={rp.sku} image={rp.imageUrl} />
+                  <Vial label={rp.name} dosage={rp.dosage} size={80} kit={rp.isKit} sku={rp.sku} image={rp.imageUrl} format={rp.format} />
                 </div>
                 <div className="opp-meta-mono text-ink-mute">{rp.category}</div>
                 <div className="font-display font-semibold text-base text-ink leading-tight">

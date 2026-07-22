@@ -136,6 +136,7 @@ export default function Home({ visibleProducts }) {
                 kit={heroShowcase.isKit}
                 subtitle={heroSubtitle}
                 image={heroShowcase.imageUrl}
+                format={heroShowcase.format}
               />
             </Link>
             <div className="w-full max-w-[320px] px-5 py-4 bg-surface border border-line rounded-opp flex flex-col gap-2 opp-meta-mono">
