@@ -196,7 +196,7 @@ export default function ProductDetail({
   return (
     <div className="max-w-container mx-auto px-8 pt-10 pb-20">
       <SEO
-        title={`${product.name} ${product.dosage}${RESEARCH_MODE ? ' — Research Peptide' : ''}`}
+        title={`${product.name} ${product.dosage}`}
         description={product.description}
         path={`/products/${product.id}`}
       />
