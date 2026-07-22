@@ -50,6 +50,11 @@ function mapRow(r) {
     imageUrl: r.image_url,
     published: r.published,
     sortOrder: r.sort_order,
+    // Purchase-approval gate — decoupled from visibility so a SKU can be openly
+    // listed (de-cloaked) yet still require an approved-researcher account to
+    // buy. Enforced server-side in /api/orders/create. Undefined (column not
+    // yet migrated) → falsy → no gating, safe.
+    purchaseApprovalRequired: r.purchase_approval_required === true,
     // back-compat derived flags — existing consumers keep using these
     restricted: r.visibility_tier !== 'public',
     durableRailsOnly: r.rail_policy !== 'all',

@@ -6,6 +6,7 @@ import { isUsState, isCaProvince, isCaPostal } from '../../../lib/us-states'
 import { getShippingTier } from '../../../lib/shipping'
 import { runVelocityChecks, extractClientIP } from '../../../lib/fraud-checks'
 import { getCustomerIdFromReq } from '../../../lib/customer-session'
+import { hasGatedAccess } from '../../../lib/gated-access'
 import { computeOrderTotals } from '../../../lib/pricing'
 import { PAYMENT_STATUS } from '../../../lib/order-status'
 import { logMetric, startTimer } from '../../../lib/metrics'
@@ -184,6 +185,10 @@ export default async function handler(req, res) {
     // Per-cart rail policy: collect each non-'all' item's rail_policy to enforce
     // the allowed payment rails below.
     const cartRailPolicies = new Set()
+    // Purchase-approval gate: any item flagged purchaseApprovalRequired can only
+    // be bought by an approved-researcher account (the genuine preventive
+    // control — decoupled from listing so the SKU can still be openly crawlable).
+    let cartNeedsApproval = false
     // Server-validated line items (catalog price + isKit) feed both the pricing
     // module and the order record — never the client-supplied price.
     const lineItems = []
@@ -198,6 +203,20 @@ export default async function handler(req, res) {
       }
       lineItems.push({ id: product.id, sku: product.sku, price: product.price, quantity: qty, isKit: product.isKit === true })
       if (product.railPolicy && product.railPolicy !== 'all') cartRailPolicies.add(product.railPolicy)
+      if (product.purchaseApprovalRequired) cartNeedsApproval = true
+    }
+
+    // Enforce the purchase-approval gate BEFORE any order is created. A cart
+    // containing an approval-gated SKU requires a logged-in account whose email
+    // is on the researcher allowlist (hasGatedAccess). Fails closed — a guest or
+    // non-allowlisted account is refused. This is the server-authoritative
+    // control; the storefront also hides the buy action, but this is what
+    // actually prevents a non-research buyer from purchasing.
+    if (cartNeedsApproval && !(await hasGatedAccess(req))) {
+      return res.status(403).json({
+        error: 'These items require an approved research account. Apply for access, and once approved you can complete this order.',
+        requires_research_approval: true,
+      })
     }
 
     // Rail-policy enforcement. p2p_crypto (account-gated line) is ALWAYS enforced
