@@ -10,6 +10,7 @@ import { BRAND, RESEARCH_MODE } from '../../lib/brand';
 import NotifyMe from '../../components/NotifyMe';
 import { supabaseAdmin } from '../../lib/supabase';
 import { getCohortFromRequest } from '../../lib/cohort-session';
+import { hasGatedAccess } from '../../lib/gated-access';
 import { isMemorialDaySaleActive, getSalePrice, MEMORIAL_DAY_DISCOUNT_PCT, isBogoProduct, VOLUME_TIERS, volumeTierPct, isVolumeEligible, isFlashProduct, getFlashPrice, FLASH_SALE_PCT } from '../../lib/sale';
 // Static import (NOT require) so Next keeps lib/catalog in this page's server
 // bundle — a dynamic require() of a module with no static importer tree-shakes
@@ -31,9 +32,14 @@ export default function ProductDetail({
   coaQr,
   bacCrossSell,
   cohort,
+  approvalRequired,
+  approved,
 }) {
   const router = useRouter();
   const { addToCart } = useCart();
+  // Purchase-approval gate: listed but only buyable by an approved researcher.
+  // When gated + not approved, the buy action becomes "Apply for access".
+  const needsApproval = !!approvalRequired && !approved;
   const [qty, setQty] = useState(1);
   // Per-SKU volume break at the selected quantity (replaces the old kit SKUs).
   // HGH is excluded (supply-constrained hero) — no tiers, always full price.
@@ -169,6 +175,13 @@ export default function ProductDetail({
 
   const handleAdd = () => {
     if (status === 'out') return;
+    // Approval-gated + not approved → route to the researcher application
+    // instead of adding to cart (the server also refuses the order — this is
+    // the friendly front door).
+    if (needsApproval) {
+      router.push('/research-inquiries');
+      return;
+    }
     const options = {
       isPreorder: status === 'preorder',
       preorderShipDate: status === 'preorder' ? product.preorderShipDate || null : null,
@@ -188,7 +201,7 @@ export default function ProductDetail({
 
       {/* Sticky buy bar — mobile only (on desktop the pinned image + buy box
           keep the CTA reachable; a full-width bottom bar reads cheap there). */}
-      {status !== 'out' && (
+      {status !== 'out' && !needsApproval && (
         <div className={`lg:hidden fixed left-0 right-0 bottom-[calc(74px+env(safe-area-inset-bottom,0px))] sm:bottom-0 z-40 border-t border-line bg-paper/95 backdrop-blur-md transition-transform duration-300 ${ctaVisible ? 'translate-y-full' : 'translate-y-0'}`}>
           <div className="max-w-container mx-auto px-6 py-3 flex items-center gap-3">
             <div className="min-w-0 flex-1 hidden sm:block">
@@ -368,21 +381,37 @@ export default function ProductDetail({
           </div>
           )}
 
-          <button
-            ref={ctaRef}
-            type="button"
-            onClick={handleAdd}
-            className="btn-primary w-full py-4 text-base"
-            disabled={status === 'out'}
-          >
-            <Icon name="plus" size={16} />
-            {status === 'out'
-              ? 'Sold out'
-              : status === 'preorder'
-              ? `Preorder — $${lineTotal.toFixed(2)}`
-              : `Add to cart — $${lineTotal.toFixed(2)}`}
-            {volPct > 0 && <span className="ml-1 opacity-90">(-{volPct}%)</span>}
-          </button>
+          {needsApproval ? (
+            <>
+              <button
+                ref={ctaRef}
+                type="button"
+                onClick={handleAdd}
+                className="btn-primary w-full py-4 text-base"
+              >
+                <Icon name="doc" size={16} /> Apply for researcher access
+              </button>
+              <p className="opp-meta-mono text-ink-mute mt-2 leading-relaxed">
+                This material is available to verified researchers. Apply for an account — once approved, purchasing unlocks for this and all restricted items.
+              </p>
+            </>
+          ) : (
+            <button
+              ref={ctaRef}
+              type="button"
+              onClick={handleAdd}
+              className="btn-primary w-full py-4 text-base"
+              disabled={status === 'out'}
+            >
+              <Icon name="plus" size={16} />
+              {status === 'out'
+                ? 'Sold out'
+                : status === 'preorder'
+                ? `Preorder — $${lineTotal.toFixed(2)}`
+                : `Add to cart — $${lineTotal.toFixed(2)}`}
+              {volPct > 0 && <span className="ml-1 opacity-90">(-{volPct}%)</span>}
+            </button>
+          )}
 
           {/* Trust reinforcement at the decision point */}
           <div className="flex flex-wrap gap-x-4 gap-y-1.5 mt-3 opp-meta-mono text-ink-mute">
@@ -687,6 +716,14 @@ export async function getServerSideProps(context) {
     }
   }
 
+  // Purchase-approval gate: a SKU flagged purchaseApprovalRequired is listed
+  // fully (exposed/crawlable — no cloaking) but can only be BOUGHT by an
+  // approved-researcher account. Compute approval status here so the client can
+  // show "Apply for access" instead of the buy button. Non-gated SKUs are
+  // always purchasable (approved: true).
+  const approvalRequired = !!product.purchaseApprovalRequired;
+  const approved = approvalRequired ? await hasGatedAccess(context.req) : true;
+
   return {
     props: {
       product,
@@ -697,6 +734,8 @@ export async function getServerSideProps(context) {
       coaQr,
       bacCrossSell,
       cohort: cohortAllowed,
+      approvalRequired,
+      approved,
     },
   };
 }

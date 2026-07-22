@@ -63,6 +63,50 @@ export async function sendEmailAlert(items, level) {
   }
 }
 
+// Researcher-access application → email the operator so they can vet + approve
+// (manually add the email in the admin gated-emails allowlist). Manual review
+// is what keeps the purchase gate genuine. Plain-text to ALERT_EMAIL, same
+// SendGrid pattern as the stock alerts.
+export async function sendResearchAccessRequest(app) {
+  const apiKey = process.env.SENDGRID_API_KEY;
+  const toEmail = process.env.ALERT_EMAIL;
+  if (!apiKey || !toEmail) {
+    console.log('[alerts] Research-access request skipped (not configured) —', app?.email);
+    return false;
+  }
+  const lines = [
+    'New researcher-access application:',
+    '',
+    `Name:        ${app.name || '—'}`,
+    `Email:       ${app.email || '—'}`,
+    `Institution: ${app.institution || '—'}`,
+    `Role:        ${app.role || '—'}`,
+    `Intended use:`,
+    app.intendedUse || '—',
+    '',
+    'To approve: add this email in Admin → gated-emails allowlist. The account',
+    'then unlocks purchasing of restricted (research) SKUs.',
+  ].join('\n');
+  try {
+    const res = await fetch('https://api.sendgrid.com/v3/mail/send', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        personalizations: [{ to: [{ email: toEmail }] }],
+        from: { email: process.env.FROM_EMAIL || 'alerts@syngyn.co' },
+        reply_to: app.email ? { email: app.email } : undefined,
+        subject: `Researcher-access application — ${app.email || 'unknown'}`,
+        content: [{ type: 'text/plain', value: lines }],
+        tracking_settings: { click_tracking: { enable: false, enable_text: false } },
+      }),
+    });
+    return res.ok;
+  } catch (err) {
+    console.error('[alerts] Research-access request send failed:', err.message);
+    return false;
+  }
+}
+
 export async function sendSmsAlert(items, level) {
   const accountSid = process.env.TWILIO_ACCOUNT_SID;
   const authToken = process.env.TWILIO_AUTH_TOKEN;

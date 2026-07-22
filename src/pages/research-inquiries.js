@@ -1,100 +1,124 @@
+import { useState } from 'react';
 import Link from 'next/link';
 import SEO from '../components/SEO';
-import { Icon } from '../components/Primitives';
-import { getPrivateInquiryUrl } from '../data/catalog-client';
 
-// Public-facing "research inquiry" surface.
-//
-// This page is always available at /research-inquiries by direct URL, but the
-// footer link to it is only rendered when NEXT_PUBLIC_SHOW_INQUIRY_SURFACE is
-// "true". That separation lets you (a) keep the URL useful for affiliates and
-// existing community members at all times and (b) only expose it broadly when
-// you decide the catalog has been pared back enough to need a public path
-// to private-channel sourcing.
-//
-// Deliberately generic — no specific compounds named, no GLP/HGH references,
-// no claims that could trigger underwriter or regulatory attention. The
-// underlying message is: "we have more available; ask us."
+// Researcher-access application. Submitting it emails the operator, who vets
+// the applicant and grants purchase access (adds the email to the gated
+// allowlist). Restricted (research) SKUs are openly listed but can only be
+// bought by an approved account — this is the genuine preventive control.
 export default function ResearchInquiries() {
-  const inquiryUrl = getPrivateInquiryUrl();
+  const [form, setForm] = useState({ name: '', email: '', institution: '', role: '', intendedUse: '' });
+  const [submitting, setSubmitting] = useState(false);
+  const [done, setDone] = useState(false);
+  const [error, setError] = useState('');
+
+  const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
+
+  async function submit(e) {
+    e.preventDefault();
+    if (submitting) return;
+    setError('');
+    setSubmitting(true);
+    try {
+      const res = await fetch('/api/research-access/request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.error || 'Something went wrong — please try again.');
+        setSubmitting(false);
+        return;
+      }
+      setDone(true);
+    } catch {
+      setError('Something went wrong — please try again.');
+    }
+    setSubmitting(false);
+  }
 
   return (
     <div className="max-w-container mx-auto px-8 pt-14 pb-20">
       <SEO
-        title="Research Inquiries"
-        description="Inquiries for research compounds outside our public catalog."
+        title="Researcher Access"
+        description="Apply for a verified-researcher account to purchase restricted research materials."
         path="/research-inquiries"
       />
 
       <div className="pb-8 border-b border-line">
-        <span className="opp-eyebrow">Inquiries</span>
+        <span className="opp-eyebrow">Researcher Access</span>
         <h1 className="font-display font-semibold tracking-display text-[clamp(36px,5vw,64px)] leading-none mt-3 mb-2 text-ink">
-          Research Inquiries
+          Apply for researcher access
         </h1>
-        <p className="text-ink-soft text-sm m-0">
-          Compounds, quantities, and configurations not listed in our public catalog.
+        <p className="text-ink-soft text-sm m-0 max-w-2xl">
+          Restricted research materials are supplied only to verified researchers. Submit the
+          application below; once your account is approved, purchasing unlocks for all restricted
+          items. Reviewed within 1 business day.
         </p>
       </div>
 
       <div className="max-w-narrow mx-auto pt-12">
         <div className="card-premium p-8 md:p-12">
-          <p className="text-ink-soft leading-relaxed mb-5">
-            Our public catalog reflects the SKUs we&apos;ve made publicly available. For other
-            research compounds, bulk quantities, or specific configurations not shown
-            on the catalog, reach out directly. We&apos;ll confirm availability and provide
-            current batch and pricing details on a per-inquiry basis.
-          </p>
+          {done ? (
+            <div className="text-center py-6">
+              <h2 className="font-display font-semibold tracking-display text-2xl text-ink m-0 mb-3">Application received</h2>
+              <p className="text-ink-soft leading-relaxed max-w-md mx-auto">
+                Thanks — we&apos;ll review your application and email you once your account is approved.
+                Make sure you&apos;ve created an account with the same email so access applies the moment
+                it&apos;s granted.
+              </p>
+              <div className="mt-8">
+                <Link href="/shop" className="text-sm text-accent-strong hover:underline">← Back to catalog</Link>
+              </div>
+            </div>
+          ) : (
+            <form onSubmit={submit}>
+              <div className="grid md:grid-cols-2 gap-4 mb-4">
+                <label className="block">
+                  <span className="opp-meta-mono uppercase mb-1 block">Full name</span>
+                  <input className="input-field w-full" value={form.name} onChange={set('name')} disabled={submitting} required />
+                </label>
+                <label className="block">
+                  <span className="opp-meta-mono uppercase mb-1 block">Email</span>
+                  <input type="email" className="input-field w-full" value={form.email} onChange={set('email')} disabled={submitting} required />
+                </label>
+                <label className="block">
+                  <span className="opp-meta-mono uppercase mb-1 block">Institution / affiliation</span>
+                  <input className="input-field w-full" value={form.institution} onChange={set('institution')} disabled={submitting} required />
+                </label>
+                <label className="block">
+                  <span className="opp-meta-mono uppercase mb-1 block">Role <span className="text-ink-mute">(optional)</span></span>
+                  <input className="input-field w-full" value={form.role} onChange={set('role')} disabled={submitting} placeholder="e.g. Principal Investigator, Lab Manager" />
+                </label>
+              </div>
+              <label className="block mb-6">
+                <span className="opp-meta-mono uppercase mb-1 block">Intended research use</span>
+                <textarea className="input-field w-full" rows={4} value={form.intendedUse} onChange={set('intendedUse')} disabled={submitting} required
+                  placeholder="Briefly describe the research context and how the materials will be used." />
+              </label>
 
-          <p className="text-ink-soft leading-relaxed mb-8">
-            All inquiries are handled within 24 hours.
-          </p>
+              {error && <p className="opp-meta-mono text-danger mb-4 m-0">{error}</p>}
 
-          <a
-            href={inquiryUrl}
-            className="btn-primary inline-flex items-center gap-2 px-6 py-3.5 text-base"
-            target={inquiryUrl.startsWith('http') ? '_blank' : undefined}
-            rel={inquiryUrl.startsWith('http') ? 'noopener noreferrer' : undefined}
-          >
-            <Icon name="doc" size={16} /> Contact for research inquiry
-          </a>
+              <button type="submit" className="btn-primary w-full py-3.5 text-base disabled:opacity-40" disabled={submitting}>
+                {submitting ? 'Submitting…' : 'Submit application'}
+              </button>
 
-          <div className="mt-10 pt-8 border-t border-line">
-            <div className="opp-meta-mono text-ink-mute mb-3">What to include in your inquiry</div>
-            <ul className="list-disc pl-5 space-y-1.5 text-sm text-ink-soft leading-relaxed">
-              <li>Your research context (institution, project, end-use nature)</li>
-              <li>Specific compound or category of interest</li>
-              <li>Approximate quantity</li>
-              <li>Preferred contact method for follow-up</li>
-            </ul>
-          </div>
-
-          <div className="mt-10 pt-8 border-t border-line">
-            <div className="opp-meta-mono text-ink-mute mb-3">What to expect</div>
-            <ul className="list-disc pl-5 space-y-1.5 text-sm text-ink-soft leading-relaxed">
-              <li>Confirmation of availability within 24 hours</li>
-              <li>Current Certificate of Analysis (COA) from third-party testing</li>
-              <li>Pricing specific to quantity and current batch</li>
-              <li>Standard shipping and fulfillment terms (see{' '}
-                <Link href="/shipping" className="text-accent-strong hover:underline">
-                  Shipping &amp; Returns
-                </Link>
-                )
-              </li>
-            </ul>
-          </div>
-
-          <p className="font-mono text-[11px] text-ink-mute leading-relaxed mt-12 m-0">
-            All compounds are supplied strictly for in-vitro research and laboratory use only.
-            Not drugs, foods, or cosmetics. Not intended for human or animal consumption.
-            Must be 21 years of age or older. See our{' '}
-            <Link href="/terms" className="text-accent-strong hover:underline">Terms of Service</Link>{' '}
-            for full research-use commitments.
-          </p>
+              <p className="font-mono text-[11px] text-ink-mute leading-relaxed mt-8 m-0">
+                All materials are supplied strictly for in-vitro research and laboratory use only.
+                Not drugs, foods, or cosmetics. Not intended for human or animal consumption.
+                Applicants must be 21 years of age or older. See our{' '}
+                <Link href="/terms" className="text-accent-strong hover:underline">Terms of Service</Link>{' '}
+                and{' '}
+                <Link href="/compliance" className="text-accent-strong hover:underline">Compliance Policy</Link>.
+              </p>
+            </form>
+          )}
         </div>
 
         <div className="text-center mt-8">
           <Link href="/shop" className="text-sm text-ink-soft hover:text-ink transition-colors">
-            ← Back to public catalog
+            ← Back to catalog
           </Link>
         </div>
       </div>
