@@ -1,25 +1,38 @@
 import crypto from 'crypto'
+import Stripe from 'stripe'
 
 // Active card processor. NO default fallback — Bankful was MATCH-terminated
-// (2026-05-12), so a missing/unknown CARD_PROCESSOR must FAIL CLOSED, never
-// silently route a card to a dead rail (which is exactly what happened the
-// first time CARD_PROCESSOR was unset — the order hit Bankful's hosted page).
-// Only 'noramp' (the Whop-approved gateway) is supported; add new rails here
-// explicitly, deliberately.
+// (2026-05-12) and NoRamp/Stripe terminated us (2026-07-22), so a missing/
+// unknown CARD_PROCESSOR must FAIL CLOSED, never silently route a card to a
+// dead rail (which is exactly what happened the first time CARD_PROCESSOR was
+// unset — the order hit Bankful's hosted page).
+//
+// Supported: 'stripe' (direct Stripe Checkout — the lab-supply rail approved
+// 2026-07-22) and 'noramp' (retained inert; the gateway is dead). Add new
+// rails here explicitly, deliberately.
+//
+// ⚠️ SCOPE — this rail carries the CARD-ELIGIBLE catalog only. Card eligibility
+// is gated per-SKU by rail_policy (only rail_policy='all' items reach card;
+// peptides/compounds are rail_policy='zelle_crypto'/'p2p_crypto' and never
+// touch this processor). Do NOT widen rail_policy on compound SKUs to route
+// them here — that's the misrepresentation that ends this rail (and, via
+// Stripe's owner-level account linking, endangers the sibling storefront's
+// rail too).
 const PROCESSOR = process.env.CARD_PROCESSOR || ''
+const SUPPORTED = new Set(['stripe', 'noramp'])
 
 function assertSupportedProcessor() {
-  if (PROCESSOR !== 'noramp') {
+  if (!SUPPORTED.has(PROCESSOR)) {
     throw new Error(
-      `[cardProcessor] CARD_PROCESSOR must be 'noramp' (got: ${PROCESSOR || 'unset'}). ` +
-        'No default fallback — Bankful is terminated.'
+      `[cardProcessor] CARD_PROCESSOR must be one of ${[...SUPPORTED].join(', ')} ` +
+        `(got: ${PROCESSOR || 'unset'}). No default fallback — dead rails fail closed.`
     )
   }
 }
 
 export async function createCheckoutSession(opts) {
   assertSupportedProcessor()
-  return norampCreateSession(opts)
+  return PROCESSOR === 'stripe' ? stripeCreateSession(opts) : norampCreateSession(opts)
 }
 
 // Which card checkout experience the customer gets. 'redirect' (default) =
@@ -34,19 +47,135 @@ export function cardCheckoutExperience() {
 
 export async function createCardPaymentIntent(opts) {
   assertSupportedProcessor()
+  if (PROCESSOR === 'stripe') {
+    // Inline Payment Element isn't wired for direct Stripe yet (the client panel
+    // assumes NoRamp's connected-account shape). Fail closed + loud rather than
+    // render a broken pay panel — the redirect experience is the supported path.
+    throw new Error('[cardProcessor] CARD_EXPERIENCE=inline is not supported on stripe yet — use redirect')
+  }
   return norampCreatePaymentIntent(opts)
 }
 
 export async function parseWebhookEvent({ rawBody, headers }) {
   assertSupportedProcessor()
-  return norampParseWebhook({ rawBody, headers })
+  return PROCESSOR === 'stripe'
+    ? stripeParseWebhook({ rawBody, headers })
+    : norampParseWebhook({ rawBody, headers })
 }
 
 // Poll the gateway for a session's payment status (missed-callback safety net).
 // Returns { paid, status } and never throws.
 export async function reconcileCardSession(opts) {
   assertSupportedProcessor()
-  return norampReconcileSession(opts)
+  return PROCESSOR === 'stripe' ? stripeReconcileSession(opts) : norampReconcileSession(opts)
+}
+
+// ── Stripe (direct Checkout — lab-supply card rail, approved 2026-07-22) ──────
+// Hosted Checkout (redirect) flow: create a Checkout Session → customer pays on
+// Stripe's hosted page → Stripe POSTs signed events to /api/webhooks/stripe.
+// NO RUO/research compliance payload is sent (this rail is lab supplies, not
+// research compounds — the order stays a neutral single line = the order
+// total). Statement descriptor is set on the Stripe account (dashboard), with
+// an optional suffix via STRIPE_STATEMENT_DESCRIPTOR_SUFFIX.
+let _stripe = null
+function stripeClient() {
+  if (_stripe) return _stripe
+  const key = process.env.STRIPE_SECRET_KEY
+  if (!key) throw new Error('[stripe] STRIPE_SECRET_KEY not configured')
+  _stripe = new Stripe(key)
+  return _stripe
+}
+
+async function stripeCreateSession({ orderNumber, amountCents, currency, customer, returnUrl, cancelUrl }) {
+  const stripe = stripeClient()
+  const descriptorSuffix = process.env.STRIPE_STATEMENT_DESCRIPTOR_SUFFIX
+
+  const session = await stripe.checkout.sessions.create({
+    mode: 'payment',
+    // Single neutral line = the authoritative order total (order # + amount, no
+    // per-SKU screening surface). Stripe requires >= 1 line item.
+    line_items: [
+      {
+        quantity: 1,
+        price_data: {
+          currency: (currency || 'USD').toLowerCase(),
+          unit_amount: amountCents,
+          product_data: { name: `Order ${orderNumber}` },
+        },
+      },
+    ],
+    customer_email: customer?.email || undefined,
+    client_reference_id: String(orderNumber),
+    metadata: { order_number: String(orderNumber) },
+    // AVS: force billing-address collection so the bank's on-file address is
+    // checked (mirrors the NoRamp AVS posture). Shipping still drives fulfilment.
+    billing_address_collection: 'required',
+    payment_intent_data: {
+      metadata: { order_number: String(orderNumber) },
+      ...(descriptorSuffix ? { statement_descriptor_suffix: descriptorSuffix } : {}),
+    },
+    success_url: returnUrl,
+    cancel_url: cancelUrl,
+  })
+
+  if (!session.url) {
+    throw new Error('[stripe] checkout session created without a url')
+  }
+  return { redirectUrl: session.url, sessionId: session.id }
+}
+
+// Verify the Stripe-Signature HMAC via the SDK (constructEvent) — hand-rolling
+// this is error-prone. event.id (evt_…) is globally unique + stable across
+// replays → the webhook dedup key.
+async function stripeParseWebhook({ rawBody, headers }) {
+  const secret = process.env.STRIPE_WEBHOOK_SECRET
+  if (!secret) return { verified: false, reason: 'STRIPE_WEBHOOK_SECRET not configured' }
+  const signature = headers['stripe-signature']
+  if (!signature) return { verified: false, reason: 'Missing Stripe-Signature' }
+
+  let event
+  try {
+    event = stripeClient().webhooks.constructEvent(rawBody, signature, secret)
+  } catch (err) {
+    return { verified: false, reason: `Signature verification failed: ${err.message}` }
+  }
+
+  const obj = event.data?.object || {}
+  const orderNumber = String(obj.metadata?.order_number || obj.client_reference_id || '')
+  const paymentId = String(
+    (typeof obj.payment_intent === 'string' ? obj.payment_intent : obj.payment_intent?.id) || obj.id || ''
+  )
+
+  let status = 'pending'
+  if (event.type === 'checkout.session.completed') {
+    // Only 'paid' sessions finalize; async methods can complete unpaid.
+    status = obj.payment_status === 'paid' ? 'completed' : 'pending'
+  } else if (event.type === 'payment_intent.succeeded') {
+    status = 'completed'
+  } else if (event.type === 'checkout.session.expired' || event.type === 'payment_intent.payment_failed') {
+    status = 'failed'
+  }
+
+  return { verified: true, eventId: event.id, txId: paymentId, orderNumber, status }
+}
+
+// Missed-callback safety net → { paid, status, paymentId }. sessionId is EITHER
+// a Checkout Session id (cs_…) or a PaymentIntent id (pi_…) — route on prefix.
+// Never throws.
+async function stripeReconcileSession({ sessionId }) {
+  if (!sessionId) return { paid: false, status: 'no_session' }
+  try {
+    const stripe = stripeClient()
+    if (/^pi_/.test(String(sessionId))) {
+      const pi = await stripe.paymentIntents.retrieve(String(sessionId))
+      return { paid: pi.status === 'succeeded', status: pi.status || 'unknown', paymentId: pi.id }
+    }
+    const s = await stripe.checkout.sessions.retrieve(String(sessionId))
+    const paymentId = typeof s.payment_intent === 'string' ? s.payment_intent : (s.payment_intent?.id || s.id)
+    return { paid: s.payment_status === 'paid', status: s.payment_status || 'unknown', paymentId }
+  } catch (err) {
+    return { paid: false, status: 'error', error: err.message }
+  }
 }
 
 // ── NoRamp gateway (Whop-approved durable card rail) ──────────────────────────
