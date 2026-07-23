@@ -7,9 +7,10 @@ import SEO from '../components/SEO';
 // allowlist). Restricted (research) SKUs are openly listed but can only be
 // bought by an approved account — this is the genuine preventive control.
 export default function ResearchInquiries() {
-  const [form, setForm] = useState({ name: '', email: '', institution: '', role: '', intendedUse: '' });
+  const [form, setForm] = useState({ name: '', email: '', institution: '', role: '', intendedUse: '', password: '' });
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
+  const [accountCreated, setAccountCreated] = useState(false);
   const [error, setError] = useState('');
 
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
@@ -31,6 +32,7 @@ export default function ResearchInquiries() {
         setSubmitting(false);
         return;
       }
+      setAccountCreated(!!data.accountCreated);
       setDone(true);
     } catch {
       setError('Something went wrong — please try again.');
@@ -64,9 +66,9 @@ export default function ResearchInquiries() {
             <div className="text-center py-6">
               <h2 className="font-display font-semibold tracking-display text-2xl text-ink m-0 mb-3">Application received</h2>
               <p className="text-ink-soft leading-relaxed max-w-md mx-auto">
-                Thanks — we&apos;ll review your application and email you once your account is approved.
-                Make sure you&apos;ve created an account with the same email so access applies the moment
-                it&apos;s granted.
+                {accountCreated
+                  ? 'Thanks — your account is created and you’re signed in. We’ll review your application and email you the moment it’s approved; then you can order restricted items right away.'
+                  : 'Thanks — we’ll review your application and email you once approved. Sign in (or create an account) with this same email so access applies the moment it’s granted.'}
               </p>
               <div className="mt-8">
                 <Link href="/shop" className="text-sm text-accent-strong hover:underline">← Back to catalog</Link>
@@ -92,10 +94,19 @@ export default function ResearchInquiries() {
                   <input className="input-field w-full" value={form.role} onChange={set('role')} disabled={submitting} placeholder="e.g. Principal Investigator, Lab Manager" />
                 </label>
               </div>
-              <label className="block mb-6">
+              <label className="block mb-4">
                 <span className="opp-meta-mono uppercase mb-1 block">Intended research use</span>
                 <textarea className="input-field w-full" rows={4} value={form.intendedUse} onChange={set('intendedUse')} disabled={submitting} required
                   placeholder="Briefly describe the research context and how the materials will be used." />
+              </label>
+
+              <label className="block mb-6">
+                <span className="opp-meta-mono uppercase mb-1 block">Create a password <span className="text-ink-mute">(optional)</span></span>
+                <input type="password" className="input-field w-full" value={form.password} onChange={set('password')} disabled={submitting}
+                  autoComplete="new-password" placeholder="At least 8 characters" />
+                <span className="opp-meta-mono text-ink-mute block mt-1">
+                  Set one to create your account now (so you can order the moment you&apos;re approved). Already have an account? Leave blank.
+                </span>
               </label>
 
               {error && <p className="opp-meta-mono text-danger mb-4 m-0">{error}</p>}

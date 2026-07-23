@@ -9,6 +9,7 @@ import AffiliatesTab from './AffiliatesTab';
 import PayoutsTab from './PayoutsTab';
 import ChargebacksTab from './ChargebacksTab';
 import InboxTab from './InboxTab';
+import AccessRequestsTab from './AccessRequestsTab';
 import RailsTab from './RailsTab';
 import FunnelTab from './FunnelTab';
 import AnalyticsTab from './AnalyticsTab';
@@ -121,6 +122,7 @@ export default function AdminPage() {
     { id: 'analytics', label: 'Analytics' },
     { id: 'margins', label: 'Margins' },
     { id: 'broadcast', label: 'Broadcast' },
+    { id: 'access', label: 'Access Requests' },
     { id: 'inbox', label: 'Inbox' },
   ];
 
@@ -195,6 +197,7 @@ export default function AdminPage() {
         {activeTab === 'analytics' && <AnalyticsTab token={token} />}
         {activeTab === 'margins' && <MarginsTab token={token} />}
         {activeTab === 'broadcast' && <BroadcastTab products={catalog} showSaveMsg={showSaveMsg} token={token} />}
+        {activeTab === 'access' && <AccessRequestsTab showSaveMsg={showSaveMsg} token={token} />}
         {activeTab === 'inbox' && <InboxTab showSaveMsg={showSaveMsg} token={token} />}
         </div>
       </div>

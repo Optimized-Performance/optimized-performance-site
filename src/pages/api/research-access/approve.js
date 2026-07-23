@@ -27,6 +27,15 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: error.message })
   }
 
+  // Reflect the decision in the admin queue (best-effort — the allowlist is the
+  // source of truth for access; this just keeps the Requests tab in sync).
+  await supabaseAdmin
+    .from('research_access_requests')
+    .update({ status: 'approved', decided_at: new Date().toISOString() })
+    .eq('status', 'pending')
+    .ilike('email', email)
+    .then(({ error: e }) => { if (e) console.warn('[research-access/approve] queue sync skipped:', e.message) })
+
   // Notify the applicant (non-fatal) — closes their loop so they don't have to
   // guess when they're approved.
   sendResearchAccessApproved(email).catch((e) => console.warn('[research-access/approve] applicant notify failed:', e?.message))

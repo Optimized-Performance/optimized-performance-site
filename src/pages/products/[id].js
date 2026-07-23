@@ -402,9 +402,9 @@ export default function ProductDetail({
                   <Icon name="lock" size={16} /> Sign in to purchase
                 </button>
                 <p className="opp-meta-mono text-ink-mute mt-2 leading-relaxed">
-                  Ordered with us before? Your account is likely already approved — just{' '}
-                  <Link href={loginUrl} className="text-accent-strong hover:underline">sign in</Link>.
-                  New researcher?{' '}
+                  Ordered with us before? Your email is likely already approved —{' '}
+                  <Link href={loginUrl} className="text-accent-strong hover:underline">sign in or create an account</Link>{' '}
+                  with your order email. New researcher?{' '}
                   <Link href="/research-inquiries" className="text-accent-strong hover:underline">apply for access</Link>.
                 </p>
               </>
