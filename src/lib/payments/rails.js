@@ -31,7 +31,7 @@
 import { createCheckoutSession, createCardPaymentIntent, cardCheckoutExperience } from './cardProcessor'
 import { createCryptoCheckoutSession } from './cryptoProcessor'
 import { createPaypalCheckoutSession } from './paypalProcessor'
-import { sendZelleInstructions, sendVenmoInstructions } from '../alerts'
+import { sendZelleInstructions, sendVenmoInstructions, sendOrderReservedOwnerAlert } from '../alerts'
 
 const cents = (total) => Math.round(Number(total) * 100)
 
@@ -138,6 +138,12 @@ const RAILS = {
         try { await sendZelleInstructions(order) } catch (mailErr) {
           console.error('[rails/zelle] instructions email failed:', mailErr.message)
         }
+        // Owner heads-up at creation — on manual rails nothing else emails the
+        // operator until THEY mark the deposit received, so without this a new
+        // sale is invisible (the post-card-rail "no order alerts" gap).
+        try { await sendOrderReservedOwnerAlert(order) } catch (mailErr) {
+          console.error('[rails/zelle] owner reserved alert failed:', mailErr.message)
+        }
       }
       return { redirect_url: `${siteUrl}/checkout/zelle-instructions?order=${encodeURIComponent(orderNumber)}&amount=${total.toFixed(2)}` }
     },
@@ -150,6 +156,9 @@ const RAILS = {
       if (!resumeOrder) {
         try { await sendVenmoInstructions(order) } catch (mailErr) {
           console.error('[rails/venmo] instructions email failed:', mailErr.message)
+        }
+        try { await sendOrderReservedOwnerAlert(order) } catch (mailErr) {
+          console.error('[rails/venmo] owner reserved alert failed:', mailErr.message)
         }
       }
       return { redirect_url: `${siteUrl}/checkout/venmo-instructions?order=${encodeURIComponent(orderNumber)}&amount=${total.toFixed(2)}` }

@@ -111,9 +111,16 @@ export default async function handler(req, res) {
       if (qErr) console.warn('[research-access] queue insert skipped (migration not run?):', qErr.message)
     }
 
-    // ── operator notification (Approve button in manual mode; FYI in auto) ────
-    const send = await sendResearchAccessRequest(app, { autoApproved: approved })
-    if (!send?.ok) console.warn('[research-access] application not emailed:', JSON.stringify(send))
+    // ── operator notification (manual mode only, 2026-07-23) ─────────────────
+    // In instant-approval mode the per-signup FYI was pure inbox noise (every
+    // login-wall signup emailed the operator) — the admin Access Requests
+    // queue is the durable record. The email only goes out when the operator
+    // actually has to act: manual-review mode, or the auto-approve allowlist
+    // write failed and the application fell back to pending.
+    if (!approved) {
+      const send = await sendResearchAccessRequest(app)
+      if (!send?.ok) console.warn('[research-access] application not emailed:', JSON.stringify(send))
+    }
 
     // ── applicant notification (auto mode only — closes their loop) ──────────
     if (approved) {
