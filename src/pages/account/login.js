@@ -72,9 +72,9 @@ export default function AccountAuth() {
       </p>
 
       <div className="mb-6 px-4 py-3 bg-surfaceAlt border border-line rounded-opp text-[13px] text-ink-soft leading-snug">
-        <span className="font-semibold text-ink">New: customer accounts.</span> We just added accounts to the site.
-        If this is your first order <em>or you&apos;ve ordered with us before</em>, choose{' '}
-        <span className="font-semibold text-ink">Create account</span> — past orders aren&apos;t linked to a login yet.
+        <span className="font-semibold text-ink">Ordered with us before accounts existed?</span>{' '}
+        Choose <span className="font-semibold text-ink">Create account</span> using your order email —
+        your researcher access is tied to that address. Already have a login? Just sign in.
       </div>
 
       <form onSubmit={handleSubmit} className="card-premium p-8 flex flex-col gap-4">
