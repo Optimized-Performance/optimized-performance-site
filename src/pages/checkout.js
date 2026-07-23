@@ -143,8 +143,10 @@ export default function Checkout() {
   const [recoveryToken, setRecoveryToken] = useState(null);
   const [recoveryPct, setRecoveryPct] = useState(0);
   const [researchAck, setResearchAck] = useState(false);
-  // Cohort-only merchandising: alt-pay SAVE badge + banner show for cohort
-  // (?ref=) visitors; public/cold checkout stays free of savings-urgency copy.
+  // Cohort-only merchandising: the alt-pay banner shows for cohort (?ref=)
+  // visitors. (The tile SAVE badge went universal 2026-07-23 — the discount
+  // always applied to everyone, and with card down Zelle/crypto are the only
+  // rails, so the badge is the page's one incentive.)
   const cohort = useCohortUi();
   const [researchField, setResearchField] = useState('');
   // Research-use ack + field are only required (and only shown) in research
@@ -625,8 +627,11 @@ export default function Checkout() {
   const paymentMethods = [
     cardUp && { key: 'card', label: 'Card', price: discountedTotal },
     paypalUp && !intl && { key: 'paypal', label: 'PayPal', price: discountedTotal, sub: 'Pay Later & card too' },
-    cryptoUp && { key: 'crypto', label: 'Crypto', price: altPayTotal, perk: cohort ? `SAVE ${ALT_PAY_DISCOUNT_PCT}%` : undefined },
-    zelleUp && !intl && { key: 'zelle', label: 'Zelle', price: altPayTotal, perk: cohort ? `SAVE ${ALT_PAY_DISCOUNT_PCT}%` : undefined },
+    // SAVE badge shows for everyone (was cohort-only): the discount itself has
+    // always applied to all buyers (lib/sale calcAltPayDiscount), and with card
+    // down these are the only rails — the badge is the one incentive on the page.
+    cryptoUp && { key: 'crypto', label: 'Crypto', price: altPayTotal, perk: `SAVE ${ALT_PAY_DISCOUNT_PCT}%` },
+    zelleUp && !intl && { key: 'zelle', label: 'Zelle', price: altPayTotal, perk: `SAVE ${ALT_PAY_DISCOUNT_PCT}%` },
     venmoUp && !intl && { key: 'venmo', label: 'Venmo', price: discountedTotal },
   ].filter(Boolean);
   // Pre-select the first available rail so the action area is never empty.
