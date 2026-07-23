@@ -149,6 +149,38 @@ export async function sendCardInvoiceEmail(order, { payUrl }) {
   return send({ to: order.customer_email, subject: `Invoice for order ${num} — Syngyn`, text, html })
 }
 
+// Researcher-access approved — sent to the applicant when the operator taps
+// Approve. Tells them the exact email to use and points them to sign in /
+// create an account so purchasing unlocks.
+export async function sendResearchAccessApproved(email) {
+  const loginUrl = `${SITE_URL}/account/login?next=${encodeURIComponent('/shop')}`
+  const text = [
+    `Your researcher-access application is approved.`,
+    ``,
+    `Sign in (or create an account) with THIS email — ${email} — and you can`,
+    `order restricted research items. Access is tied to this address, so use it`,
+    `when you sign in or register.`,
+    ``,
+    `Sign in / create account: ${loginUrl}`,
+    ``,
+    `— Syngyn`,
+  ].join('\n')
+  const html = renderBrandedEmail({
+    preheader: 'Your researcher access is approved.',
+    eyebrow: 'Researcher access',
+    heading: 'You’re approved',
+    paragraphs: [
+      `Your researcher-access application is approved.`,
+      `Sign in — or create an account — with <strong>this email address</strong> (${email}), and purchasing unlocks for restricted research items. Access is tied to this address, so use it when you sign in or register.`,
+    ],
+    cta: { text: 'Sign in / create account', url: loginUrl },
+    ctaSub: 'Use the email this was sent to.',
+    note: `Questions? Just reply to this email.`,
+    footerLines: emailFooterLines(),
+  })
+  return send({ to: email, subject: 'You’re approved — Syngyn researcher access', text, html })
+}
+
 export async function sendPasswordResetEmail(customer, token) {
   const url = `${SITE_URL}/account/reset?token=${encodeURIComponent(token)}`
   const text = [

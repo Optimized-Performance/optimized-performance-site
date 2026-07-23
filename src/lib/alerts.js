@@ -3,6 +3,7 @@
 
 import { RECOVERY_DISCOUNT_PCT } from './recovery-config';
 import { renderBrandedEmail, emailDetailTable, escapeHtml, EMAIL_FONT } from './email-layout';
+import { signAccessToken } from './research-access-token';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://syngyn.co';
 
@@ -74,6 +75,11 @@ export async function sendResearchAccessRequest(app) {
     console.log('[alerts] Research-access request skipped (not configured) —', app?.email);
     return false;
   }
+  // One-tap approve: a signed link (binds this applicant's email + expiry) that
+  // opens a confirm screen on your phone — no admin login, can't be forged.
+  const token = signAccessToken(app.email);
+  const approveUrl = token ? `${SITE_URL}/research-access/approve?token=${encodeURIComponent(token)}` : '';
+
   const lines = [
     'New researcher-access application:',
     '',
@@ -84,9 +90,31 @@ export async function sendResearchAccessRequest(app) {
     `Intended use:`,
     app.intendedUse || '—',
     '',
-    'To approve: add this email in Admin → gated-emails allowlist. The account',
-    'then unlocks purchasing of restricted (research) SKUs.',
+    approveUrl
+      ? `Approve (opens a confirm screen): ${approveUrl}`
+      : 'To approve: add this email in Admin → gated-emails allowlist.',
+    '',
+    'To decline, just ignore this email — no access is granted.',
   ].join('\n');
+
+  // Click-tracking is OFF (below) so the signed token in the link is never
+  // rewritten through SendGrid's redirector (which would break verification).
+  const btn = approveUrl
+    ? `<a href="${approveUrl}" style="display:inline-block;background:#F5A623;color:#111;font-weight:700;text-decoration:none;padding:14px 28px;border-radius:8px;font-size:16px;">Approve access</a>`
+    : '';
+  const html = `<div style="font-family:${EMAIL_FONT};color:#111;max-width:560px;margin:0 auto;padding:8px;">
+    <h2 style="font-size:18px;margin:0 0 12px;">New researcher-access application</h2>
+    ${emailDetailTable([
+      ['Name', escapeHtml(app.name || '—')],
+      ['Email', escapeHtml(app.email || '—')],
+      ['Institution', escapeHtml(app.institution || '—')],
+      ['Role', escapeHtml(app.role || '—')],
+      ['Intended use', escapeHtml(app.intendedUse || '—')],
+    ])}
+    <div style="margin:22px 0 8px;">${btn}</div>
+    <p style="font-size:12px;color:#6E6D68;margin:6px 0 0;">Opens a confirm screen — one tap to grant purchasing access. To decline, just ignore this email.</p>
+  </div>`;
+
   try {
     const res = await fetch('https://api.sendgrid.com/v3/mail/send', {
       method: 'POST',
@@ -96,7 +124,10 @@ export async function sendResearchAccessRequest(app) {
         from: { email: process.env.FROM_EMAIL || 'alerts@syngyn.co' },
         reply_to: app.email ? { email: app.email } : undefined,
         subject: `Researcher-access application — ${app.email || 'unknown'}`,
-        content: [{ type: 'text/plain', value: lines }],
+        content: [
+          { type: 'text/plain', value: lines },
+          { type: 'text/html', value: html },
+        ],
         tracking_settings: { click_tracking: { enable: false, enable_text: false } },
       }),
     });
