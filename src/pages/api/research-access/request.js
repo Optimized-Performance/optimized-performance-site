@@ -77,10 +77,7 @@ export default async function handler(req, res) {
     const send = await sendResearchAccessRequest(app)
     if (!send?.ok) console.warn('[research-access] application not emailed:', JSON.stringify(send))
 
-    // TEMP diagnostic (gated): surface the SendGrid send result so email
-    // delivery can be diagnosed without prod logs. Remove after debugging.
-    const diag = req.query?.diag === 'sg-diag-7f3a91'
-    return res.status(200).json({ ok: true, accountCreated, ...(diag ? { emailResult: send } : {}) })
+    return res.status(200).json({ ok: true, accountCreated })
   } catch (err) {
     console.error('[research-access] error:', err)
     return res.status(500).json({ error: 'Something went wrong — please try again.' })
