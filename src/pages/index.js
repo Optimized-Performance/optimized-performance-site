@@ -4,6 +4,7 @@ import { supabaseAdmin } from '../lib/supabase';
 import { getCohortFromRequest } from '../lib/cohort-session';
 import { getVisibleCatalog } from '../lib/catalog';
 import { hasGatedAccess } from '../lib/gated-access';
+import { getCustomerIdFromReq } from '../lib/customer-session';
 import ProductCard from '../components/ProductCard';
 import SEO from '../components/SEO';
 import { Vial, Icon } from '../components/Primitives';
@@ -23,7 +24,7 @@ const TRUST = [
   { icon: 'lock', k: 'Secure Checkout', v: 'Card payments processed securely off-site. Crypto via NOWPayments.' },
 ];
 
-export default function Home({ visibleProducts }) {
+export default function Home({ visibleProducts, gatedAccess = false, loggedIn = false }) {
   const router = useRouter();
   const featured = visibleProducts.filter((p) => p.badge === 'HERO').slice(0, 3);
   const activeSkus = visibleProducts.filter((p) => !p.isKit).length;
@@ -184,7 +185,7 @@ export default function Home({ visibleProducts }) {
         </div>
         <div className="grid md:grid-cols-3 gap-6">
           {featured.map((p) => (
-            <ProductCard key={p.id} product={p} />
+            <ProductCard key={p.id} product={p} approved={gatedAccess} loggedIn={loggedIn} />
           ))}
         </div>
       </section>
@@ -258,6 +259,7 @@ export async function getServerSideProps(context) {
   // tree-shaken to {} in the prod build (that was the catalog-migration 500).
   const { cohortAllowed } = await getCohortFromRequest(context, supabaseAdmin);
   const gatedAccess = await hasGatedAccess(context.req);
+  const loggedIn = !!getCustomerIdFromReq(context.req);
   const visibleProducts = await getVisibleCatalog({ cohort: cohortAllowed, gatedAccess });
-  return { props: { visibleProducts } };
+  return { props: { visibleProducts, gatedAccess, loggedIn } };
 }

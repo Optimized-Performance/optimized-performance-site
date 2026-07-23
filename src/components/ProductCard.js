@@ -1,13 +1,20 @@
+import { useState } from 'react';
 import Link from 'next/link';
 import { useCart } from '../context/CartContext';
 import { isPreorderable, formatPreorderShipDate } from '../data/catalog-client';
 import { isMemorialDaySaleActive, getSalePrice, MEMORIAL_DAY_DISCOUNT_PCT, isBogoProduct, isFlashProduct, getFlashPrice, FLASH_SALE_PCT } from '../lib/sale';
 import { Vial, Icon } from './Primitives';
+import AccessGateModal from './AccessGateModal';
 
 const LOW_STOCK_THRESHOLD = 20;
 
-export default function ProductCard({ product, qty, cohort = false }) {
+// `approved` defaults to FALSE so any usage that doesn't pass real approval
+// status fails SAFE — a restricted item can never be added to cart without an
+// approved account. Pages that know the viewer's status (shop, home) pass it.
+export default function ProductCard({ product, qty, cohort = false, approved = false, loggedIn = false }) {
   const { addToCart } = useCart();
+  const [gateOpen, setGateOpen] = useState(false);
+  const gated = !!product.purchaseApprovalRequired && !approved;
   const stock = qty ?? product.stock ?? 0;
   // Merchandising (sale pricing, BOGO, promo badges, low-stock scarcity) shows
   // only to cohort (?ref=) visitors. The public/cold face stays clean for AUP
@@ -126,19 +133,24 @@ export default function ProductCard({ product, qty, cohort = false }) {
             className="btn-primary text-xs px-3 py-1.5 whitespace-nowrap"
             onClick={(e) => {
               e.stopPropagation();
-              if (status !== 'out') {
-                addToCart(product, {
-                  isPreorder: status === 'preorder',
-                  preorderShipDate: status === 'preorder' ? product.preorderShipDate || null : null,
-                });
-              }
+              if (status === 'out') return;
+              // Restricted + not approved → the wall drops here, at purchase
+              // intent, instead of at checkout.
+              if (gated) { setGateOpen(true); return; }
+              addToCart(product, {
+                isPreorder: status === 'preorder',
+                preorderShipDate: status === 'preorder' ? product.preorderShipDate || null : null,
+              });
             }}
             disabled={status === 'out'}
           >
-            <Icon name="plus" size={14} /> {status === 'preorder' ? 'Preorder' : 'Add'}
+            {gated
+              ? <><Icon name="lock" size={14} /> Access</>
+              : <><Icon name="plus" size={14} /> {status === 'preorder' ? 'Preorder' : 'Add'}</>}
           </button>
         </div>
       </div>
+      <AccessGateModal open={gateOpen} onClose={() => setGateOpen(false)} loggedIn={loggedIn} productId={product.id} />
     </article>
   );
 }

@@ -6,6 +6,7 @@ import { supabaseAdmin } from '../lib/supabase';
 import { getCohortFromRequest } from '../lib/cohort-session';
 import { getVisibleCatalog } from '../lib/catalog';
 import { hasGatedAccess } from '../lib/gated-access';
+import { getCustomerIdFromReq } from '../lib/customer-session';
 import SEO from '../components/SEO';
 import { Icon } from '../components/Primitives';
 import { RESEARCH_MODE } from '../lib/brand';
@@ -14,7 +15,7 @@ import { RESEARCH_MODE } from '../lib/brand';
 // (products are not dietary supplements). Those SKUs reclassified to Ancillaries.
 const ALL_CATEGORIES = ['All', 'GLPs', 'Peptides', 'GH Peptides', 'Combos', 'Tinctures', 'Ancillaries', 'Supplies'];
 
-export default function Shop({ inventory, visibleProducts: visibleProductsProp, cohortAllowed }) {
+export default function Shop({ inventory, visibleProducts: visibleProductsProp, cohortAllowed, gatedAccess = false, loggedIn = false }) {
   const router = useRouter();
   const initialCat = typeof router.query.cat === 'string' ? router.query.cat : 'All';
   const [cat, setCat] = useState(initialCat);
@@ -139,6 +140,8 @@ export default function Shop({ inventory, visibleProducts: visibleProductsProp, 
             product={p}
             qty={p.isKit ? getEffectiveStock(p, inventory) : inventory[p.id]}
             cohort={cohortAllowed}
+            approved={gatedAccess}
+            loggedIn={loggedIn}
           />
         ))}
       </div>
@@ -166,6 +169,7 @@ export async function getServerSideProps(context) {
   // tree-shaken to {} in the prod build (that was the catalog-migration 500).
   const { cohortAllowed } = await getCohortFromRequest(context, supabaseAdmin);
   const gatedAccess = await hasGatedAccess(context.req);
+  const loggedIn = !!getCustomerIdFromReq(context.req);
   const visibleProducts = await getVisibleCatalog({ cohort: cohortAllowed, gatedAccess });
 
   // Build the set of product_ids the inventory prop is allowed to expose.
@@ -190,12 +194,12 @@ export async function getServerSideProps(context) {
         inventory[item.product_id] = item.stock;
       }
     });
-    return { props: { inventory, visibleProducts, cohortAllowed } };
+    return { props: { inventory, visibleProducts, cohortAllowed, gatedAccess, loggedIn } };
   } catch {
     const inventory = {};
     visibleProducts.filter((p) => !p.isKit).forEach((p) => {
       inventory[p.id] = p.stock;
     });
-    return { props: { inventory, visibleProducts, cohortAllowed } };
+    return { props: { inventory, visibleProducts, cohortAllowed, gatedAccess, loggedIn } };
   }
 }
