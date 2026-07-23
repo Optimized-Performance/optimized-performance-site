@@ -2,7 +2,7 @@ import { validateOrigin, rateLimit, validateEmail, validateString, escapeLike } 
 import { sendResearchAccessRequest } from '../../../lib/alerts'
 import { sendResearchAccessApproved } from '../../../lib/customer-emails'
 import { supabaseAdmin } from '../../../lib/supabase'
-import { createCustomerToken, hashPassword, customerCookieHeader } from '../../../lib/customer-session'
+import { createCustomerToken, hashPassword, verifyPassword, customerCookieHeader } from '../../../lib/customer-session'
 import { grantCohortCookies } from '../../../lib/cohort-session'
 
 // Researcher-access application intake.
@@ -51,11 +51,16 @@ export default async function handler(req, res) {
     }
 
     // ── merged register (optional) ──────────────────────────────────────────
-    // Only when a password is given AND no account exists for this email.
+    // New email + password → create the account and sign them in. Existing
+    // email + matching password → sign them in (mirrors /api/customers/login,
+    // same rate limit), so the inline gate-modal flow ends unlocked either
+    // way. Existing email + wrong password → application still succeeds, they
+    // just have to sign in themselves.
     let accountCreated = false
+    let signedIn = false
     if (wantsAccount && supabaseAdmin) {
       const { data: existing } = await supabaseAdmin
-        .from('customers').select('id').ilike('email', escapeLike(cleanEmail)).maybeSingle()
+        .from('customers').select('id, password_hash').ilike('email', escapeLike(cleanEmail)).maybeSingle()
       if (!existing) {
         try {
           const { data: customer, error } = await supabaseAdmin
@@ -64,13 +69,16 @@ export default async function handler(req, res) {
             .select('id, email, name').single()
           if (!error && customer) {
             const token = createCustomerToken(customer.id)
-            if (token) { res.setHeader('Set-Cookie', customerCookieHeader(token)); grantCohortCookies(res); accountCreated = true }
+            if (token) { res.setHeader('Set-Cookie', customerCookieHeader(token)); grantCohortCookies(res); accountCreated = true; signedIn = true }
           } else if (error && error.code !== '23505') {
             console.warn('[research-access] account create skipped:', error.message)
           }
         } catch (e) {
           console.warn('[research-access] account create error (non-fatal):', e?.message)
         }
+      } else if (existing.password_hash && verifyPassword(password, existing.password_hash)) {
+        const token = createCustomerToken(existing.id)
+        if (token) { res.setHeader('Set-Cookie', customerCookieHeader(token)); grantCohortCookies(res); signedIn = true }
       }
     }
 
@@ -108,7 +116,7 @@ export default async function handler(req, res) {
       sendResearchAccessApproved(cleanEmail).catch((e) => console.warn('[research-access] applicant notify failed:', e?.message))
     }
 
-    return res.status(200).json({ ok: true, accountCreated, approved })
+    return res.status(200).json({ ok: true, accountCreated, signedIn, approved })
   } catch (err) {
     console.error('[research-access] error:', err)
     return res.status(500).json({ error: 'Something went wrong — please try again.' })

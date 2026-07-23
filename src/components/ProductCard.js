@@ -150,7 +150,17 @@ export default function ProductCard({ product, qty, cohort = false, approved = f
           </button>
         </div>
       </div>
-      <AccessGateModal open={gateOpen} onClose={() => setGateOpen(false)} loggedIn={loggedIn} productId={product.id} />
+      <AccessGateModal
+        open={gateOpen}
+        onClose={() => setGateOpen(false)}
+        loggedIn={loggedIn}
+        productId={product.id}
+        productName={status === 'out' ? '' : `${product.name} ${product.dosage}`}
+        onUnlocked={status === 'out' ? undefined : () => addToCart(product, {
+          isPreorder: status === 'preorder',
+          preorderShipDate: status === 'preorder' ? product.preorderShipDate || null : null,
+        })}
+      />
     </article>
   );
 }

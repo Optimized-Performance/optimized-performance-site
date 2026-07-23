@@ -8,6 +8,7 @@ import SEO from '../../components/SEO';
 import { Vial, Icon } from '../../components/Primitives';
 import { BRAND, RESEARCH_MODE } from '../../lib/brand';
 import NotifyMe from '../../components/NotifyMe';
+import AccessGateModal from '../../components/AccessGateModal';
 import { supabaseAdmin } from '../../lib/supabase';
 import { getCohortFromRequest } from '../../lib/cohort-session';
 import { hasGatedAccess } from '../../lib/gated-access';
@@ -46,6 +47,7 @@ export default function ProductDetail({
   const needsApproval = !!approvalRequired && !approved;
   const loginUrl = `/account/login?next=${encodeURIComponent(`/products/${product?.id || ''}`)}`;
   const [qty, setQty] = useState(1);
+  const [gateOpen, setGateOpen] = useState(false);
   // Per-SKU volume break at the selected quantity (replaces the old kit SKUs).
   // HGH is excluded (supply-constrained hero) — no tiers, always full price.
   // No consumer quantity-discount merchandising on approval-gated research
@@ -182,13 +184,11 @@ export default function ProductDetail({
 
   const handleAdd = () => {
     if (status === 'out') return;
-    // Approval-gated + not approved → route to the researcher application
-    // instead of adding to cart (the server also refuses the order — this is
-    // the friendly front door).
+    // Approval-gated + not approved → open the inline application/sign-in
+    // modal at purchase intent (the server also refuses the order — this is
+    // the friendly front door). On unlock the modal adds this item to cart.
     if (needsApproval) {
-      // Guest → sign in (email may already be approved); logged-in but not
-      // approved → apply for access.
-      router.push(loggedIn ? '/research-inquiries' : loginUrl);
+      setGateOpen(true);
       return;
     }
     const options = {
@@ -391,38 +391,23 @@ export default function ProductDetail({
           )}
 
           {needsApproval ? (
-            !loggedIn ? (
-              <>
-                <button
-                  ref={ctaRef}
-                  type="button"
-                  onClick={() => router.push(loginUrl)}
-                  className="btn-primary w-full py-4 text-base"
-                >
-                  <Icon name="lock" size={16} /> Sign in to purchase
-                </button>
-                <p className="opp-meta-mono text-ink-mute mt-2 leading-relaxed">
-                  Ordered with us before? Your email is likely already approved —{' '}
-                  <Link href={loginUrl} className="text-accent-strong hover:underline">sign in or create an account</Link>{' '}
-                  with your order email. New researcher?{' '}
-                  <Link href="/research-inquiries" className="text-accent-strong hover:underline">apply for access</Link>.
-                </p>
-              </>
-            ) : (
-              <>
-                <button
-                  ref={ctaRef}
-                  type="button"
-                  onClick={handleAdd}
-                  className="btn-primary w-full py-4 text-base"
-                >
-                  <Icon name="doc" size={16} /> Apply for researcher access
-                </button>
-                <p className="opp-meta-mono text-ink-mute mt-2 leading-relaxed">
-                  This material is available to verified researchers. Apply for access — once approved, purchasing unlocks for this and all restricted items.
-                </p>
-              </>
-            )
+            <>
+              <button
+                ref={ctaRef}
+                type="button"
+                onClick={handleAdd}
+                className="btn-primary w-full py-4 text-base"
+              >
+                <Icon name="lock" size={16} /> Get access to purchase
+              </button>
+              <p className="opp-meta-mono text-ink-mute mt-2 leading-relaxed">
+                {loggedIn
+                  ? 'This material is available to verified researchers. Apply for access — once approved, purchasing unlocks for this and all restricted items.'
+                  : <>Ordered with us before? Your email is likely already approved —{' '}
+                      <Link href={loginUrl} className="text-accent-strong hover:underline">sign in</Link>{' '}
+                      with your order email. New researcher? Apply above.</>}
+              </p>
+            </>
           ) : (
             <button
               ref={ctaRef}
@@ -587,6 +572,22 @@ export default function ProductDetail({
           ← Back to catalog
         </Link>
       </div>
+
+      {/* Inline researcher-access gate — on unlock, adds the selected qty to cart. */}
+      <AccessGateModal
+        open={gateOpen}
+        onClose={() => setGateOpen(false)}
+        loggedIn={loggedIn}
+        productId={product.id}
+        productName={status === 'out' ? '' : `${product.name} ${product.dosage}`}
+        onUnlocked={status === 'out' ? undefined : () => {
+          const options = {
+            isPreorder: status === 'preorder',
+            preorderShipDate: status === 'preorder' ? product.preorderShipDate || null : null,
+          };
+          for (let i = 0; i < qty; i++) addToCart(product, options);
+        }}
+      />
     </div>
   );
 }
