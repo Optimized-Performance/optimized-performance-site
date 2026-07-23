@@ -51,7 +51,7 @@ export async function sendEmailAlert(items, level) {
       headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         personalizations: [{ to: [{ email: toEmail }] }],
-        from: { email: process.env.FROM_EMAIL || 'alerts@syngyn.co' },
+        from: { email: process.env.FROM_EMAIL || 'orders@syngyn.co' },
         subject,
         content: [{ type: 'text/plain', value: body }],
         // Click tracking OFF — consistent with customer/marketing sends; the
@@ -121,7 +121,7 @@ export async function sendResearchAccessRequest(app) {
       headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         personalizations: [{ to: [{ email: toEmail }] }],
-        from: { email: process.env.FROM_EMAIL || 'alerts@syngyn.co' },
+        from: { email: process.env.FROM_EMAIL || 'orders@syngyn.co' },
         reply_to: app.email ? { email: app.email } : undefined,
         subject: `Researcher-access application — ${app.email || 'unknown'}`,
         content: [
