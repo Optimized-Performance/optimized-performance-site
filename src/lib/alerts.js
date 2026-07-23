@@ -7,6 +7,18 @@ import { signAccessToken } from './research-access-token';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://syngyn.co';
 
+// ALERT_EMAIL may hold several operator addresses (e.g. "matt@x.com, tris@y.com").
+// SendGrid needs each as its own recipient object — passing the joined string
+// as a single { email } is an invalid address and the whole send 400s (which
+// silently killed every operator alert). Split on comma/semicolon → one per.
+function alertRecipients(value) {
+  return String(value || '')
+    .split(/[,;]/)
+    .map((e) => e.trim())
+    .filter(Boolean)
+    .map((email) => ({ email }));
+}
+
 // Shared footer for branded customer emails. Exported for the customer
 // account emails (lib/customer-emails.js) so every customer-facing send
 // carries the identical footer.
@@ -50,7 +62,7 @@ export async function sendEmailAlert(items, level) {
       method: 'POST',
       headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        personalizations: [{ to: [{ email: toEmail }] }],
+        personalizations: [{ to: alertRecipients(toEmail) }],
         from: { email: process.env.FROM_EMAIL || 'orders@syngyn.co' },
         subject,
         content: [{ type: 'text/plain', value: body }],
@@ -73,7 +85,7 @@ export async function sendResearchAccessRequest(app) {
   const toEmail = process.env.ALERT_EMAIL;
   if (!apiKey || !toEmail) {
     console.log('[alerts] Research-access request skipped (not configured) —', app?.email);
-    return false;
+    return { ok: false, reason: `not_configured (apiKey:${!!apiKey}, ALERT_EMAIL:${!!toEmail})` };
   }
   // One-tap approve: a signed link (binds this applicant's email + expiry) that
   // opens a confirm screen on your phone — no admin login, can't be forged.
@@ -120,7 +132,7 @@ export async function sendResearchAccessRequest(app) {
       method: 'POST',
       headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        personalizations: [{ to: [{ email: toEmail }] }],
+        personalizations: [{ to: alertRecipients(toEmail) }],
         from: { email: process.env.FROM_EMAIL || 'orders@syngyn.co' },
         reply_to: app.email ? { email: app.email } : undefined,
         subject: `Researcher-access application — ${app.email || 'unknown'}`,
@@ -131,10 +143,15 @@ export async function sendResearchAccessRequest(app) {
         tracking_settings: { click_tracking: { enable: false, enable_text: false } },
       }),
     });
-    return res.ok;
+    if (!res.ok) {
+      const body = await res.text().catch(() => '');
+      console.error('[alerts] Research-access request SendGrid error', res.status, body.slice(0, 300));
+      return { ok: false, status: res.status, detail: body.slice(0, 300), recipients: alertRecipients(toEmail).length };
+    }
+    return { ok: true, status: res.status, recipients: alertRecipients(toEmail).length };
   } catch (err) {
     console.error('[alerts] Research-access request send failed:', err.message);
-    return false;
+    return { ok: false, detail: err.message };
   }
 }
 
