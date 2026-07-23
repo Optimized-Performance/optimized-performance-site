@@ -16,8 +16,8 @@ const CART_MAX_AGE_MS = 14 * 24 * 60 * 60 * 1000; // 14 days
 
 // Fields persisted per cart line so the cart rehydrates WITHOUT importing the
 // full product catalog into the client bundle. Importing `data/products` here
-// (as we used to) shipped every SKU — including restricted ones (HGH/GLP/Rx) —
-// into _app-*.js, defeating the cohort gate against any JS-aware scanner. The
+// (as we used to) shipped every SKU — including members-only ones (HGH/Rx) —
+// into _app-*.js, leaking gated SKUs into the public client bundle. The
 // CHARGE is always recomputed server-side from the catalog by id, so a stale
 // stored display price never affects what's billed.
 const LINE_FIELDS = [

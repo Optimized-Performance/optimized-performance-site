@@ -17,7 +17,7 @@ export default function MemorialDayBanner() {
   const [visible, setVisible] = useState(false)
 
   useEffect(() => {
-    // Cohort-only: the public/cold face never shows promo banners (AUP review).
+    // Members-only: promo banners show for signed-in customers.
     if (!cohort) return
     if (!isMemorialDaySaleActive()) return
     try {

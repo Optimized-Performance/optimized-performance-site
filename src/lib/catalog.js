@@ -51,7 +51,7 @@ function mapRow(r) {
     published: r.published,
     sortOrder: r.sort_order,
     // Purchase-approval gate — decoupled from visibility so a SKU can be openly
-    // listed (de-cloaked) yet still require an approved-researcher account to
+    // listed (public + crawlable) yet still require an approved-researcher account to
     // buy. Enforced server-side in /api/orders/create. Undefined (column not
     // yet migrated) → falsy → no gating, safe.
     purchaseApprovalRequired: r.purchase_approval_required === true,

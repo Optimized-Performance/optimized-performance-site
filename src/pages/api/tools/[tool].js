@@ -4,9 +4,8 @@ import { html as peptideDesigner } from '../../../lib/resources/tool-html-peptid
 import { html as peptideLibrary } from '../../../lib/resources/tool-html-peptide-library'
 
 // Serves the self-contained tool documents that the /resources/[tool] pages
-// iframe. STRICT cohort gate (see lib/resources/gate) — a cold visitor gets a
-// bare 404, indistinguishable from the route not existing, so the tool
-// content is invisible to AUP scanners crawling the domain.
+// iframe. Account gate (see lib/resources/gate) — a signed-out visitor gets a
+// bare 404; the member tools are part of the signed-in experience only.
 //
 // The HTML ships as generated string modules (static imports — always traced
 // into the serverless bundle, never in a client bundle). Regenerate with

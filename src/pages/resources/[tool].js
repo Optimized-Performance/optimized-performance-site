@@ -5,7 +5,7 @@ import { Icon } from '../../components/Primitives'
 import { TOOLS_META } from '../../lib/resources/tools-meta'
 import { resourcesAllowed } from '../../lib/resources/gate'
 
-// A single gated tool, iframed from /api/tools/[tool] (same strict gate on
+// A single gated tool, iframed from /api/tools/[tool] (same account gate on
 // both layers). The iframe document posts its scrollHeight up so the frame
 // grows with the content and the page scrolls as one surface.
 export default function ResourceTool({ slug }) {

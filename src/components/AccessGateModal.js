@@ -8,8 +8,7 @@ import { Icon } from './Primitives';
 // lives INLINE in the modal (no detour to /research-inquiries): the visitor
 // signs up, is approved instantly, signed in, and the item they clicked lands
 // in their cart via `onUnlocked`. Grandfathered customers still get the sign-in
-// fast path. Client-side only, so crawlers still see the underlying catalog
-// (keeps the de-cloaked posture).
+// fast path. Client-side only, so the openly-listed catalog stays crawlable.
 // Copy tracks the approval mode (instant by default; manual review when
 // NEXT_PUBLIC_RESEARCH_ACCESS_MANUAL_REVIEW=true — build-time var).
 const instantApproval = process.env.NEXT_PUBLIC_RESEARCH_ACCESS_MANUAL_REVIEW !== 'true';

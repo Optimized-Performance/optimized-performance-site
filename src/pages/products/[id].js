@@ -154,9 +154,9 @@ export default function ProductDetail({
 
   const preorderEnabled = stock === 0 && isPreorderable(product);
   const shipDate = preorderEnabled ? formatPreorderShipDate(product) : null;
-  // Merchandising (BOGO, promo badge, sale pricing, low-stock scarcity) shows
-  // only to cohort (?ref=) visitors; public/cold face stays clean for AUP
-  // review. `cohort` = cohortAllowed from getServerSideProps.
+  // Merchandising (BOGO, promo badge, sale pricing, low-stock scarcity) is a
+  // signed-in-member experience. `cohort` (legacy prop name) = the viewer's
+  // logged-in status from getServerSideProps.
   const bogoActive = isBogoProduct(product) && cohort;
 
   let status; // 'in' | 'low' | 'out' | 'preorder'
@@ -630,17 +630,21 @@ export async function getServerSideProps(context) {
     return { notFound: true };
   }
 
-  // Cohort detection runs first so a ?ref= or ?cohort= deep-link to a
-  // restricted product page sets the cookie + unlocks the page in one hop.
-  const { cohortAllowed } = await getCohortFromRequest(context, supabaseAdmin);
-  const restrictedVisible = shouldShowRestricted(cohortAllowed);
+  // getCohortFromRequest runs for its side effects — ?ref=CODE affiliate
+  // ATTRIBUTION (opp_ref cookie → commissions) rides the response. Restricted
+  // visibility itself is ACCOUNT-driven (2026-07-23): an approved-researcher
+  // account unlocks members-only detail pages, same members-area pattern as
+  // the catalog tiers.
+  await getCohortFromRequest(context, supabaseAdmin);
+  const gatedAccess = await hasGatedAccess(context.req);
+  const restrictedVisible = shouldShowRestricted(gatedAccess);
 
-  // Restricted SKU + cohort not allowed → serve a generic Private Inquiry
+  // Restricted SKU + viewer not approved → serve a generic Private Inquiry
   // view instead of the normal storefront detail. Critically, we DO NOT pass
   // the product name/description/dosage to the client — those values would
   // serialize into the rendered HTML (Next.js __NEXT_DATA__ blob) and leak
-  // restricted SKU identifiers to AUP scanners. The URL itself still reveals
-  // the slug (/products/glp3-10mg) but the page body is generic + noindex.
+  // members-only SKU identifiers into the public HTML. The URL itself still
+  // reveals the slug (/products/glp3-10mg) but the page body is generic + noindex.
   if (product.restricted && !restrictedVisible) {
     return {
       props: {
@@ -731,9 +735,8 @@ export async function getServerSideProps(context) {
 
   // BAC cross-sell for any lyophilized-powder peptide (skipped when viewing BAC itself
   // or when BAC is out of stock — silent fall-through, no broken cart adds).
-  // BAC is a restricted SKU now (gated from the public/cold face), so only
-  // surface the BAC cross-sell to cohort-cleared visitors — otherwise a public
-  // peptide PDP would expose a gated product.
+  // BAC is a members-only SKU, so only surface the BAC cross-sell to approved
+  // viewers — otherwise a public peptide PDP would expose a gated product.
   let bacCrossSell = null;
   if (product.format === 'Lyophilized Powder' && product.id !== 'bac-water-10ml' && restrictedVisible) {
     const bacProduct = products.find((p) => p.id === 'bac-water-10ml');
@@ -751,7 +754,7 @@ export async function getServerSideProps(context) {
   // show "Apply for access" instead of the buy button. Non-gated SKUs are
   // always purchasable (approved: true).
   const approvalRequired = !!product.purchaseApprovalRequired;
-  const approved = approvalRequired ? await hasGatedAccess(context.req) : true;
+  const approved = approvalRequired ? gatedAccess : true;
   // Logged-in vs guest — drives the gated CTA: a grandfathered customer whose
   // email is already on the allowlist just needs to sign in, so guests get a
   // "sign in" nudge rather than being sent to re-apply.
@@ -766,7 +769,7 @@ export async function getServerSideProps(context) {
       inquiryUrl: null,
       coaQr,
       bacCrossSell,
-      cohort: cohortAllowed,
+      cohort: loggedIn,
       approvalRequired,
       approved,
       loggedIn,

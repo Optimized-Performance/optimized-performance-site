@@ -16,10 +16,10 @@ export default function ProductCard({ product, qty, cohort = false, approved = f
   const [gateOpen, setGateOpen] = useState(false);
   const gated = !!product.purchaseApprovalRequired && !approved;
   const stock = qty ?? product.stock ?? 0;
-  // Merchandising (sale pricing, BOGO, promo badges, low-stock scarcity) shows
-  // only to cohort (?ref=) visitors. The public/cold face stays clean for AUP
-  // review — `cohort` is threaded from shop.js getServerSideProps so this is
-  // decided in the server HTML, not hidden client-side.
+  // Merchandising (sale pricing, BOGO, promo badges, low-stock scarcity) is a
+  // signed-in-member experience — `cohort` (legacy prop name) is the viewer's
+  // logged-in status, threaded from getServerSideProps so it's decided in the
+  // server HTML. The signed-out render is the plain, promotion-free storefront.
   // Flash (Tris birthday 24h) takes precedence on its SKUs: a flat 25% shown
   // as strikethrough. Falls back to the Memorial Day site sale otherwise.
   const flashOn = isFlashProduct(product) && cohort;

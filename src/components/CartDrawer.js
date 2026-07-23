@@ -41,8 +41,8 @@ export default function CartDrawer() {
     addToCart,
     cartTotal,
   } = useCart();
-  // Merchandising (free-ship progress bar, BAC cross-sell) is cohort-only;
-  // public/cold face stays clean. Hook must run before the early return.
+  // Merchandising (free-ship progress bar, BAC cross-sell) shows for signed-in
+  // members only. Hook must run before the early return.
   const cohort = useCohortUi();
 
   if (!isCartOpen) return null;

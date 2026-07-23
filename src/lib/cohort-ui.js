@@ -1,25 +1,30 @@
 import { useState, useEffect } from 'react';
 
-// Client-side cohort signal for MERCHANDISING decisions in globally-rendered
-// components (promo banners, cart free-ship bar, checkout alt-pay SAVE) that
-// don't receive the server `cohortAllowed` prop from getServerSideProps.
+// Client-side MEMBER signal for merchandising decisions in globally-rendered
+// components (promo banners, cart free-ship bar, checkout perks) that don't
+// receive a server prop from getServerSideProps.
 //
-// Reads the non-HttpOnly `opp_cohort_ui` cookie set by lib/cohort-session when
-// a visitor is cohort-allowed. Returns false during SSR + first paint, then the
-// real value after hydration — so the public/cold face renders merchandising-
-// free in the server HTML (clean for AUP crawl), and cohort (?ref=) visitors
-// get the conversion UI after mount.
+// Re-keyed 2026-07-23 from the referral (opp_cohort_ui) cookie to the account
+// marker: promotions and conversion UI are a signed-in-member experience — the
+// same members-area pattern as GymThingz. Reads the non-HttpOnly
+// `opp_customer_present` cookie that lib/customer-session sets alongside the
+// HttpOnly session token on every sign-in. Returns false during SSR + first
+// paint, then the real value after hydration — the signed-out render is the
+// plain storefront with no promotional merchandising.
 //
-// NOT a security control. The real catalog gate is server-side and never trusts
-// this cookie; this only toggles whether conversion UI is shown.
+// NOT a security control. Catalog visibility and purchase gating are enforced
+// server-side (lib/catalog getVisibleCatalog + /api/orders/create) and never
+// trust this cookie; this only toggles whether member merchandising is shown.
+// Hook name is legacy ("cohort") — the rename lands with the post-8/1 cohort
+// teardown.
 export function useCohortUi() {
-  const [isCohort, setIsCohort] = useState(false);
+  const [isMember, setIsMember] = useState(false);
   useEffect(() => {
     if (typeof document === 'undefined') return;
     const present = document.cookie
       .split('; ')
-      .some((c) => c.trim() === 'opp_cohort_ui=1');
-    setIsCohort(present);
+      .some((c) => c.trim() === 'opp_customer_present=1');
+    setIsMember(present);
   }, []);
-  return isCohort;
+  return isMember;
 }

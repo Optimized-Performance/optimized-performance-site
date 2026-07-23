@@ -24,14 +24,16 @@ propagate here automatically.
    (committed, statically imported by `pages/api/tools/[tool].js`).
 3. Commit both the source edit and the regenerated module.
 
-## Gating (why this doesn't leak to AUP scanners)
+## Gating (members-only access)
 
 - Pages (`/resources`, `/resources/[tool]`) and the serving API route both
-  404 for cold visitors via the STRICT cohort check in
-  `src/lib/resources/gate.js` — strict means the `COHORT_GATE_OFF` catalog
-  kill-switch is ignored; only a real `?cohort=` / `?ref=` / cookie opens it.
+  404 for signed-out visitors via the ACCOUNT gate in
+  `src/lib/resources/gate.js` (re-keyed 2026-07-23) — a valid customer
+  session is the only credential; the tools are part of the signed-in
+  member experience.
 - Nav entry points (Header "Resources", tab bar) render client-side only for
-  cohort sessions (`useCohortUi`) — cold server HTML never mentions the path.
+  member sessions (`useCohortUi`, keyed to the account marker) — signed-out
+  server HTML never mentions the path.
 - Not in the sitemap; `noindex` everywhere; tool responses are
   `Cache-Control: private, no-store`.
 - Kill-switch: set `RESOURCES_OFF=true` in Vercel to 404 the whole surface.

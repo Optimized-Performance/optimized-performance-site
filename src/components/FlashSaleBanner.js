@@ -4,8 +4,8 @@ import { isFlashSaleActive, flashWindowLabel, FLASH_SALE_PCT } from '../lib/sale
 import { useCohortUi } from '../lib/cohort-ui'
 
 // Site-wide banner for the Tris birthday 24-hour flash (25% off Reta / MT-2 /
-// HGH 10iu). Auto-hides outside the window (isFlashSaleActive false). Cohort-
-// only — the public/cold face never shows promo banners (AUP review).
+// HGH 10iu). Auto-hides outside the window (isFlashSaleActive false).
+// Members-only — promo banners are part of the signed-in experience.
 // Dismissible with its own localStorage key, independent of the other banners.
 
 const STORAGE_KEY = 'syn-flash-birthday-banner-dismissed-2026-07'

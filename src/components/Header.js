@@ -18,9 +18,9 @@ export default function Header() {
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
   const path = router.asPath.split('?')[0];
-  // Cohort-only nav: /resources never appears in server-rendered HTML (cold
-  // visitors + AUP scanners see the standard nav), and mounts client-side for
-  // cohort sessions after hydration. The pages themselves are server-gated.
+  // Members-only nav: /resources is a signed-in feature, so the link mounts
+  // client-side for member sessions after hydration (signed-out visitors get
+  // the standard nav). The pages themselves are server-gated by account.
   const isCohort = useCohortUi();
   const nav = isCohort ? [...NAV, { href: '/resources', label: 'Resources' }] : NAV;
 

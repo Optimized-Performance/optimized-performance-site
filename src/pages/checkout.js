@@ -143,10 +143,10 @@ export default function Checkout() {
   const [recoveryToken, setRecoveryToken] = useState(null);
   const [recoveryPct, setRecoveryPct] = useState(0);
   const [researchAck, setResearchAck] = useState(false);
-  // Cohort-only merchandising: the alt-pay banner shows for cohort (?ref=)
-  // visitors. (The tile SAVE badge went universal 2026-07-23 — the discount
-  // always applied to everyone, and with card down Zelle/crypto are the only
-  // rails, so the badge is the page's one incentive.)
+  // Member merchandising: the alt-pay banner shows for signed-in customers
+  // (useCohortUi is the logged-in signal — legacy hook name). The tile SAVE
+  // badge went universal 2026-07-23: the discount always applied to everyone,
+  // and with card down Zelle/crypto are the only rails.
   const cohort = useCohortUi();
   const [researchField, setResearchField] = useState('');
   // Research-use ack + field are only required (and only shown) in research

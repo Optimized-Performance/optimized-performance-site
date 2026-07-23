@@ -4,21 +4,21 @@ import { RECOVERY_COOKIE, RECOVERY_QUERY_PARAM } from './recovery-config'
 import { CUSTOMER_COOKIE, validateCustomerToken } from './customer-session'
 
 // =========================================
-// Cohort gate — referral-token-aware catalog visibility
+// Referral session — affiliate attribution + legacy referral unlock
 // =========================================
 //
-// Replaces the binary NEXT_PUBLIC_HIDE_RESTRICTED env flag with a per-session
-// signed cookie. Public unreferred URL → restricted-hidden catalog (Square's
-// AUP-scanning view). URL with valid referral token (?ref=CODE / ?cohort=TOKEN)
-// → full catalog including GLP-3 + HGH 191AA.
+// Since the 2026-07-23 login wall, ACCESS is account-driven: catalog tiers key
+// off the approved-account allowlist (lib/catalog getVisibleCatalog), member
+// merchandising and /resources key off the customer session, and the entry
+// gate requires sign-in. This module's live job is ?ref=CODE affiliate
+// ATTRIBUTION (opp_ref cookie → commission at checkout) plus the legacy
+// referral-unlock cookie, which today only feeds the unused 'cohort'
+// visibility tier and back-fills automatically for any signed-in customer.
+// Full teardown of the unlock half is scheduled post-8/1 (affiliate cron).
 //
 // The cookie is a stateless HMAC over a version tag + issued-at timestamp.
 // We don't store WHICH token granted access — just that A valid token did.
 // To revoke all cohort cookies, rotate COHORT_SESSION_SECRET.
-//
-// Threat model: this is obfuscation against automated AUP scanners, not
-// authentication. A determined investigator who finds an affiliate link
-// posted publicly can get past the gate. See COHORT-GATE-CONTEXT.md.
 
 const SECRET = process.env.COHORT_SESSION_SECRET || process.env.AFFILIATE_SESSION_SECRET || ''
 const COOKIE_NAME = 'opp_cohort'
@@ -117,13 +117,11 @@ function buildSetCookieHeader(value, { secure = true } = {}) {
 }
 
 // Companion cookie signaling "this visitor is cohort-allowed" for CLIENT-SIDE
-// merchandising decisions only (promo banners, free-ship bar, alt-pay SAVE,
-// product badges in globally-rendered components). NOT HttpOnly so client JS
-// can read it; NOT a security control — the real catalog gate is server-side
-// and never trusts this. Tampering only toggles whether conversion UI shows,
-// never what catalog/SKUs are accessible. Set whenever cohortAllowed=true so
-// the public/cold face stays merchandising-free for AUP review while cohort
-// (?ref=) visitors get the full conversion experience. Same 90-day TTL.
+// LEGACY merchandising signal. Client merchandising re-keyed 2026-07-23 to the
+// opp_customer_present account marker (lib/cohort-ui) — member promos are a
+// signed-in experience. This cookie is still issued for back-compat but no
+// longer drives display. NOT HttpOnly; NOT a security control — the catalog
+// gate is server-side and never trusts this. Same 90-day TTL.
 function buildCohortUiCookieHeader({ secure = true } = {}) {
   const maxAge = Math.floor(COOKIE_TTL_MS / 1000)
   const parts = [
@@ -230,29 +228,25 @@ async function applyAffiliateRef(query, res, supabaseAdmin) {
       return data.code
     }
   } catch (err) {
-    // Don't fail the page render if the lookup blows up — bot scanners
-    // shouldn't be hitting ?ref= anyway.
+    // Don't fail the page render if the lookup blows up — attribution is
+    // best-effort, never worth a 500.
     console.warn('[cohort-session] affiliate lookup failed:', err.message)
   }
   return null
 }
 
 // opts.strict — ignore the COHORT_GATE_OFF kill-switch and require a REAL
-// credential (cohort/ref/recover param or valid cookie). Used by surfaces
-// that must stay hidden from cold visitors even while the catalog gate is
-// open for conversion (e.g. /resources tools): COHORT_GATE_OFF makes
-// cohortAllowed=true for EVERYONE, which is correct for the catalog but
-// would expose members-only pages to AUP scanners.
+// credential (cohort/ref/recover param, valid cookie, or customer session).
+// Legacy option: /resources moved to a plain account gate 2026-07-23
+// (lib/resources/gate), so no caller depends on strict mode today.
 export async function getCohortFromRequest(context, supabaseAdmin, { strict = false } = {}) {
   const { req, res, query } = context
 
-  // Master kill-switch. The cohort gate is AUP-scanner armor (hides GLP-3/HGH
-  // from unreferred visitors so a card processor's automated catalog scan sees
-  // a clean storefront). When COHORT_GATE_OFF=true it's disabled and the FULL
-  // catalog renders for EVERYONE — the July-migration posture, where blocking
-  // unreferred buyers would cost conversion. Flip it back on (unset / !=true)
-  // the moment a processor AUP inspection is imminent. Server-side env
-  // (getServerSideProps), so no NEXT_PUBLIC prefix needed.
+  // Legacy master kill-switch for the referral unlock. COHORT_GATE_OFF=true
+  // returns cohortAllowed for everyone; with catalog visibility account-driven
+  // (0 cohort-tier SKUs) this is inert either way, but the branch still runs
+  // ?ref attribution below. Server-side env (getServerSideProps), so no
+  // NEXT_PUBLIC prefix needed.
   if (!strict && process.env.COHORT_GATE_OFF === 'true') {
     // Catalog gate disabled (full catalog public for conversion), but STILL
     // honor ?ref so affiliate commission attribution works — attribution is
@@ -307,12 +301,11 @@ export async function getCohortFromRequest(context, supabaseAdmin, { strict = fa
     return { cohortAllowed: true, source: 'cookie' }
   }
 
-  // Logged-in customer = cohort credential (2026-07-14). Accounts are
-  // human-created (AUP scanners don't register), so a valid opp_customer
-  // session unlocks the catalog and back-fills the cohort cookie — covers
-  // returning customers whose original ?ref cookie expired or who signed in
-  // on a new device. Counts in strict mode too: it's a real server-verified
-  // credential, unlike the COHORT_GATE_OFF blanket.
+  // Logged-in customer = referral-equivalent credential (2026-07-14): a valid
+  // opp_customer session back-fills the cohort cookies, so member state never
+  // drifts from account state — covers returning customers whose original
+  // ?ref cookie expired or who signed in on a new device. Counts in strict
+  // mode too: it's a real server-verified credential.
   if (validateCustomerToken(cookies[CUSTOMER_COOKIE])) {
     grantCohortCookies(res)
     return { cohortAllowed: true, source: 'customer_session' }

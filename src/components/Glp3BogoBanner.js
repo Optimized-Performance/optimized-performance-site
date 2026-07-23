@@ -15,7 +15,7 @@ export default function Glp3BogoBanner() {
   const [visible, setVisible] = useState(false)
 
   useEffect(() => {
-    // Cohort-only: the public/cold face never shows promo banners (AUP review).
+    // Members-only: promo banners show for signed-in customers.
     if (!cohort) return
     if (!isGlp3BogoActive()) return
     try {

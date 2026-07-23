@@ -15,17 +15,16 @@ import { RESEARCH_MODE } from '../lib/brand';
 // (products are not dietary supplements). Those SKUs reclassified to Ancillaries.
 const ALL_CATEGORIES = ['All', 'GLPs', 'Peptides', 'GH Peptides', 'Combos', 'Tinctures', 'Ancillaries', 'Supplies'];
 
-export default function Shop({ inventory, visibleProducts: visibleProductsProp, cohortAllowed, gatedAccess = false, loggedIn = false }) {
+export default function Shop({ inventory, visibleProducts: visibleProductsProp, gatedAccess = false, loggedIn = false }) {
   const router = useRouter();
   const initialCat = typeof router.query.cat === 'string' ? router.query.cat : 'All';
   const [cat, setCat] = useState(initialCat);
   const [search, setSearch] = useState('');
   const [sort, setSort] = useState('default');
 
-  // Cohort-aware visible products are computed server-side and passed as a
-  // prop. The cookie / ?ref= / ?cohort= decision happens in getCohortFromRequest
-  // before this component renders, so the HTML never contains restricted SKU
-  // markup for unflagged visitors.
+  // Visible products are computed server-side (account/approval-tiered — see
+  // lib/catalog getVisibleCatalog) and passed as a prop, so the HTML only ever
+  // contains the SKUs this viewer may see.
   const visibleProducts = visibleProductsProp;
 
   // Hide any category that has zero visible SKUs so the filter row doesn't
@@ -139,7 +138,7 @@ export default function Shop({ inventory, visibleProducts: visibleProductsProp, 
             key={p.id}
             product={p}
             qty={p.isKit ? getEffectiveStock(p, inventory) : inventory[p.id]}
-            cohort={cohortAllowed}
+            cohort={loggedIn}
             approved={gatedAccess}
             loggedIn={loggedIn}
           />
@@ -159,9 +158,10 @@ export default function Shop({ inventory, visibleProducts: visibleProductsProp, 
 }
 
 export async function getServerSideProps(context) {
-  // Cohort detection runs first so a Set-Cookie can ride on this response if
-  // the visitor arrived via ?ref=CODE / ?cohort=TOKEN. Subsequent visits read
-  // the cookie; no DB roundtrip required.
+  // getCohortFromRequest runs first for its side effects — ?ref=CODE affiliate
+  // ATTRIBUTION (opp_ref cookie → commissions) rides a Set-Cookie on this
+  // response. Its cohortAllowed result still feeds the (currently unused)
+  // 'cohort' visibility tier; catalog visibility is account/approval-driven.
   // Catalog + gated-access come from the server catalog layer, STATICALLY
   // imported at top (Next strips gSSP-only imports from the client bundle, and
   // neither module contains the catalog array, so nothing leaks). MUST be static,
@@ -177,8 +177,8 @@ export async function getServerSideProps(context) {
   // resolve effective stock from the parent SKU's inventory row). Anything
   // NOT in this set must be stripped before returning props — Next.js
   // serializes the entire props object into __NEXT_DATA__ in the rendered
-  // HTML, so an unfiltered inventory map leaks restricted SKU IDs to AUP
-  // scanners parsing the HTML.
+  // HTML, so an unfiltered inventory map would leak members-only SKU IDs
+  // into the public HTML.
   const allowedInventoryIds = new Set();
   visibleProducts.forEach((p) => {
     allowedInventoryIds.add(p.id);
@@ -194,12 +194,12 @@ export async function getServerSideProps(context) {
         inventory[item.product_id] = item.stock;
       }
     });
-    return { props: { inventory, visibleProducts, cohortAllowed, gatedAccess, loggedIn } };
+    return { props: { inventory, visibleProducts, gatedAccess, loggedIn } };
   } catch {
     const inventory = {};
     visibleProducts.filter((p) => !p.isKit).forEach((p) => {
       inventory[p.id] = p.stock;
     });
-    return { props: { inventory, visibleProducts, cohortAllowed, gatedAccess, loggedIn } };
+    return { props: { inventory, visibleProducts, gatedAccess, loggedIn } };
   }
 }

@@ -2,9 +2,9 @@ import { getVisibleCatalog } from '../lib/catalog';
 
 const SITE_URL = 'https://syngyn.co';
 
-// Public sitemap. Always omits restricted SKUs (GLP-3, HGH 191AA) — search
-// engines never see these URLs regardless of cohort gate state. Keeps the
-// public-internet view clean of AUP-flagged products.
+// Public sitemap. Lists the public catalog + marketing pages; members-only
+// SKUs are account-gated pages and are omitted — the standard pattern for any
+// members-area store.
 //
 // Static marketing pages + non-restricted product detail pages are listed.
 // /admin, /affiliate, /api are deliberately excluded.

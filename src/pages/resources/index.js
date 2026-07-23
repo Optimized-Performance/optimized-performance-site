@@ -4,12 +4,11 @@ import { Icon } from '../../components/Primitives'
 import { TOOLS_META } from '../../lib/resources/tools-meta'
 import { resourcesAllowed } from '../../lib/resources/gate'
 
-// Members-only research tools hub. Server-gated: cold visitors get a real 404
-// from getServerSideProps (strict cohort check — the COHORT_GATE_OFF catalog
-// kill-switch is deliberately ignored here), so this page and everything under
-// it never exists for unreferred traffic. Never link to /resources from any
-// server-rendered public surface — nav entry points are client-side
-// cohort-only (useCohortUi) by design.
+// Members-only research tools hub. Server-gated by ACCOUNT (lib/resources/
+// gate): signed-out visitors get a real 404 from getServerSideProps, so this
+// page and everything under it only exists for signed-in members. Never link
+// to /resources from any server-rendered public surface — the nav entry point
+// mounts client-side for member sessions (useCohortUi) by design.
 export default function Resources() {
   return (
     <>
