@@ -181,30 +181,58 @@ export async function sendResearchAccessApproved(email) {
   return send({ to: email, subject: 'You’re approved — Syngyn researcher access', text, html })
 }
 
-export async function sendPasswordResetEmail(customer, token) {
+// isNew = true → this address was a prior guest-checkout customer who never had
+// a login account (grandfathered for purchase but account-less). The reset link
+// SETS their first password rather than resetting one, so the copy is framed as
+// "finish setting up your account."
+export async function sendPasswordResetEmail(customer, token, { isNew = false } = {}) {
   const url = `${SITE_URL}/account/reset?token=${encodeURIComponent(token)}`
-  const text = [
-    `Someone requested a password reset for this account.`,
-    ``,
-    `Reset your password: ${url}`,
-    ``,
-    `The link is valid for 1 hour and stops working as soon as the password`,
-    `changes. If you didn't request this, you can ignore it — your current`,
-    `password stays active.`,
-    ``,
-    `— Syngyn`,
-  ].join('\n')
+  const text = isNew
+    ? [
+        `You've ordered with us before, but accounts are new to Syngyn — so you`,
+        `don't have a password set yet. Set one to sign in:`,
+        ``,
+        `Set your password: ${url}`,
+        ``,
+        `Your researcher access carries over to this email automatically, so once`,
+        `you're signed in you can order right away. The link is valid for 1 hour.`,
+        ``,
+        `If this wasn't you, you can ignore it — nothing changes.`,
+        ``,
+        `— Syngyn`,
+      ].join('\n')
+    : [
+        `Someone requested a password reset for this account.`,
+        ``,
+        `Reset your password: ${url}`,
+        ``,
+        `The link is valid for 1 hour and stops working as soon as the password`,
+        `changes. If you didn't request this, you can ignore it — your current`,
+        `password stays active.`,
+        ``,
+        `— Syngyn`,
+      ].join('\n')
   const html = renderBrandedEmail({
-    preheader: 'Reset your Syngyn password.',
+    preheader: isNew ? 'Set your Syngyn password to sign in.' : 'Reset your Syngyn password.',
     eyebrow: 'Account',
-    heading: 'Reset your password',
-    paragraphs: [
-      `Someone (hopefully you) requested a password reset for this account. Click below to set a new one.`,
-    ],
-    cta: { text: 'Reset password', url },
-    ctaSub: 'Valid for 1 hour · dies once the password changes.',
-    note: `Didn't request this? Ignore it — your current password stays active.`,
+    heading: isNew ? 'Set your password' : 'Reset your password',
+    paragraphs: isNew
+      ? [
+          `You've ordered with us before, but accounts are new to Syngyn — so there's no password on this email yet. Set one below to sign in.`,
+          `Your researcher access already applies to this email, so you can order as soon as you're signed in.`,
+        ]
+      : [
+          `Someone (hopefully you) requested a password reset for this account. Click below to set a new one.`,
+        ],
+    cta: { text: isNew ? 'Set password' : 'Reset password', url },
+    ctaSub: 'Valid for 1 hour.',
+    note: isNew ? `Didn't order with us? Ignore this — nothing changes.` : `Didn't request this? Ignore it — your current password stays active.`,
     footerLines: emailFooterLines(),
   })
-  return send({ to: customer.email, subject: 'Reset your password — Syngyn', text, html })
+  return send({
+    to: customer.email,
+    subject: isNew ? 'Set your password to sign in — Syngyn' : 'Reset your password — Syngyn',
+    text,
+    html,
+  })
 }

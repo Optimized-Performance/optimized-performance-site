@@ -125,7 +125,13 @@ export default function AgeGate() {
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
-          setError(data.error || 'Email or password didn’t match.');
+          // Common case behind the login wall: a prior guest-checkout customer
+          // who never had a login account. Point them at the reset flow, which
+          // now creates the account + sets a first password for known emails.
+          setError(
+            (data.error || 'Email or password didn’t match.') +
+            ' Ordered with us before accounts existed? You may not have a password yet — use “Forgot password?” below to set one, or “New researcher” to create an account with your order email.'
+          );
           setSubmitting(false);
           return;
         }
@@ -303,7 +309,7 @@ export default function AgeGate() {
 
             <div className="flex flex-col gap-2 mt-5">
               {mode === 'signin' && (
-                <a href="/account/login" className="text-[12px] text-ink-mute hover:text-ink-soft underline-offset-2 hover:underline">
+                <a href="/account/forgot" className="text-[12px] text-ink-mute hover:text-ink-soft underline-offset-2 hover:underline">
                   Forgot password?
                 </a>
               )}
