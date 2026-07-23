@@ -25,7 +25,10 @@ const LaunchBanner = dynamic(() => import('../components/LaunchBanner'), { ssr: 
 const MemorialDayBanner = dynamic(() => import('../components/MemorialDayBanner'), { ssr: false });
 const Glp3BogoBanner = dynamic(() => import('../components/Glp3BogoBanner'), { ssr: false });
 const FlashSaleBanner = dynamic(() => import('../components/FlashSaleBanner'), { ssr: false });
-const LoginNudge = dynamic(() => import('../components/LoginNudge'), { ssr: false });
+// LoginNudge retired 2026-07-23: the research gate is now a login wall
+// (AgeGate), so a "log in to see the full catalog" popup can only misfire —
+// everyone browsing the walled catalog is already signed in (and a customer
+// session back-fills the cohort cookies server-side on every visit).
 
 export default function App({ Component, pageProps }) {
   const router = useRouter();
@@ -74,7 +77,6 @@ export default function App({ Component, pageProps }) {
             </main>
             <Footer />
             {RESEARCH_MODE && <AgeGate />}
-            <LoginNudge />
             {!isCheckout && <MobileTabBar />}
           </>
         )}

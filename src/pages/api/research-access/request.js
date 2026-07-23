@@ -24,7 +24,11 @@ import { grantCohortCookies } from '../../../lib/cohort-session'
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end()
   if (!validateOrigin(req)) return res.status(403).json({ error: 'Forbidden' })
-  if (!rateLimit(req, { maxRequests: 5, windowMs: 60000 })) {
+  // 10/min per IP (was 5, bumped 2026-07-23): this endpoint is now the site's
+  // front-door signup (login-wall gate), so a shared NAT (gym/campus wifi
+  // during an affiliate drop) must not 429 the wall. Still bounded — each
+  // request costs two SendGrid sends.
+  if (!rateLimit(req, { maxRequests: 10, windowMs: 60000 })) {
     return res.status(429).json({ error: 'Too many requests — please try again shortly.' })
   }
 

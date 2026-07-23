@@ -8,14 +8,17 @@ import SEO from '../../components/SEO'
 // account-required-to-purchase gate (NEXT_PUBLIC_REQUIRE_ACCOUNT).
 export default function AccountAuth() {
   const router = useRouter()
-  // Default to 'register': the account gate just went live, so most visitors —
-  // including returning guest-checkout buyers — don't have an account yet.
-  const [mode, setMode] = useState('register') // 'login' | 'register'
+  // Default to 'login' (flipped 2026-07-23): account creation now happens at
+  // the research gate's application form (AgeGate / AccessGateModal), so the
+  // links that land here — "sign in" nudges for grandfathered customers,
+  // approval emails, password reset — all mean SIGN IN. Register stays as a
+  // reachable tab for edge cases.
+  const [mode, setMode] = useState('login') // 'login' | 'register'
 
-  // ?mode=login deep link (the LoginNudge "Sign in" CTA targets returning
-  // customers). Query isn't populated on first render, so sync in an effect.
+  // ?mode= deep link. Query isn't populated on first render, so sync in an effect.
   useEffect(() => {
     if (router.query.mode === 'login') setMode('login')
+    if (router.query.mode === 'register') setMode('register')
   }, [router.query.mode])
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
