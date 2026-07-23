@@ -1,4 +1,4 @@
-import { createCustomerToken, verifyPassword, customerCookieHeader } from '../../../lib/customer-session'
+import { createCustomerToken, verifyPassword, customerSessionCookies } from '../../../lib/customer-session'
 import { grantCohortCookies } from '../../../lib/cohort-session'
 import { supabaseAdmin } from '../../../lib/supabase'
 import { validateOrigin, rateLimit, validateEmail, escapeLike } from '../../../lib/security'
@@ -50,7 +50,7 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'Server error — session unavailable.' })
   }
 
-  res.setHeader('Set-Cookie', customerCookieHeader(token))
+  res.setHeader('Set-Cookie', customerSessionCookies(token))
   // Having an account unlocks the cohort gate (see lib/cohort-session) — set
   // the cookies here so the very next page render shows the full catalog.
   grantCohortCookies(res)

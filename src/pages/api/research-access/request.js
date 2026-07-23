@@ -2,7 +2,7 @@ import { validateOrigin, rateLimit, validateEmail, validateString, escapeLike } 
 import { sendResearchAccessRequest } from '../../../lib/alerts'
 import { sendResearchAccessApproved } from '../../../lib/customer-emails'
 import { supabaseAdmin } from '../../../lib/supabase'
-import { createCustomerToken, hashPassword, verifyPassword, customerCookieHeader } from '../../../lib/customer-session'
+import { createCustomerToken, hashPassword, verifyPassword, customerSessionCookies } from '../../../lib/customer-session'
 import { grantCohortCookies } from '../../../lib/cohort-session'
 
 // Researcher-access application intake.
@@ -69,7 +69,7 @@ export default async function handler(req, res) {
             .select('id, email, name').single()
           if (!error && customer) {
             const token = createCustomerToken(customer.id)
-            if (token) { res.setHeader('Set-Cookie', customerCookieHeader(token)); grantCohortCookies(res); accountCreated = true; signedIn = true }
+            if (token) { res.setHeader('Set-Cookie', customerSessionCookies(token)); grantCohortCookies(res); accountCreated = true; signedIn = true }
           } else if (error && error.code !== '23505') {
             console.warn('[research-access] account create skipped:', error.message)
           }
@@ -78,7 +78,7 @@ export default async function handler(req, res) {
         }
       } else if (existing.password_hash && verifyPassword(password, existing.password_hash)) {
         const token = createCustomerToken(existing.id)
-        if (token) { res.setHeader('Set-Cookie', customerCookieHeader(token)); grantCohortCookies(res); signedIn = true }
+        if (token) { res.setHeader('Set-Cookie', customerSessionCookies(token)); grantCohortCookies(res); signedIn = true }
       }
     }
 

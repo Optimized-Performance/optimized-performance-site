@@ -8,8 +8,13 @@ import { RESEARCH_MODE } from '../lib/brand';
 // style would just leave a stray "research-gate" reference in the HTML source
 // for no reason, so we omit it entirely when RESEARCH_MODE is off.
 const HIDE_GATE_STYLE = '.rg-verified #research-gate{display:none!important}';
+// The gate is a LOGIN WALL (2026-07-23): hidden pre-paint only when a customer
+// session exists, signalled by the non-HttpOnly opp_customer_present marker
+// cookie (set/cleared alongside the HttpOnly session cookie — see
+// lib/customer-session). The old localStorage attestation flag no longer
+// hides the gate on its own; attestation happens as part of sign-up/sign-in.
 const HIDE_GATE_SCRIPT =
-  "try{if(localStorage.getItem('opp-research-gate-v1')==='true'){document.documentElement.classList.add('rg-verified')}}catch(e){}";
+  "try{if(document.cookie.indexOf('opp_customer_present=1')!==-1){document.documentElement.classList.add('rg-verified')}}catch(e){}";
 
 export default function Document() {
   return (

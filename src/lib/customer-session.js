@@ -10,8 +10,17 @@ import crypto from 'crypto'
 export { hashPassword, verifyPassword } from './affiliate-session'
 
 const SECRET = process.env.CUSTOMER_SESSION_SECRET || ''
-const TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000 // 30 days
+// 90 days (was 30, bumped 2026-07-23): the research gate is now a login wall,
+// so sessions must genuinely persist across visits — a lapsed cookie means the
+// customer re-attests + signs in again. Rotate CUSTOMER_SESSION_SECRET to
+// force-revoke all sessions.
+const TOKEN_TTL_MS = 90 * 24 * 60 * 60 * 1000 // 90 days
 export const CUSTOMER_COOKIE = 'opp_customer'
+// Non-HttpOnly presence marker set/cleared ALONGSIDE the session cookie.
+// Carries no data (literal "1") — it exists so pre-paint client code (the
+// research-gate hide script in _document) and the AgeGate component can know
+// a session exists without being able to read the HttpOnly token.
+export const CUSTOMER_MARKER_COOKIE = 'opp_customer_present'
 
 // Token format: <customerId>.<issuedAt>.<hmac>
 //   hmac = HMAC-SHA256( SECRET, `${customerId}.${issuedAt}` )
@@ -68,6 +77,24 @@ export function customerCookieHeader(token) {
 
 export function clearCustomerCookieHeader() {
   return `${CUSTOMER_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Secure; Max-Age=0`
+}
+
+export function customerMarkerCookieHeader() {
+  return `${CUSTOMER_MARKER_COOKIE}=1; Path=/; SameSite=Lax; Secure; Max-Age=${COOKIE_MAX_AGE}`
+}
+
+export function clearCustomerMarkerCookieHeader() {
+  return `${CUSTOMER_MARKER_COOKIE}=; Path=/; SameSite=Lax; Secure; Max-Age=0`
+}
+
+// Every sign-in path should set BOTH cookies (session + marker) — pass this
+// array straight to res.setHeader('Set-Cookie', ...). Logout clears both.
+export function customerSessionCookies(token) {
+  return [customerCookieHeader(token), customerMarkerCookieHeader()]
+}
+
+export function clearCustomerSessionCookies() {
+  return [clearCustomerCookieHeader(), clearCustomerMarkerCookieHeader()]
 }
 
 // Read + validate the customer session cookie from a Next.js API request.

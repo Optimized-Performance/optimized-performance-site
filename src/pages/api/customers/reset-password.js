@@ -1,5 +1,5 @@
 import { verifyResetToken, peekCustomerId } from '../../../lib/customer-tokens'
-import { hashPassword, createCustomerToken, customerCookieHeader } from '../../../lib/customer-session'
+import { hashPassword, createCustomerToken, customerSessionCookies } from '../../../lib/customer-session'
 import { supabaseAdmin } from '../../../lib/supabase'
 import { validateOrigin, rateLimit } from '../../../lib/security'
 
@@ -65,6 +65,6 @@ export default async function handler(req, res) {
     console.error('[customers/reset-password] session mint failed:', e)
     return res.status(200).json({ ok: true, signedIn: false })
   }
-  res.setHeader('Set-Cookie', customerCookieHeader(sessionToken))
+  res.setHeader('Set-Cookie', customerSessionCookies(sessionToken))
   return res.status(200).json({ ok: true, signedIn: true })
 }
