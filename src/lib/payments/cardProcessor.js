@@ -1,8 +1,9 @@
 import crypto from 'crypto'
 import Stripe from 'stripe'
 
-// Active card processor. NO default fallback — Bankful was MATCH-terminated
-// (2026-05-12) and NoRamp/Stripe terminated us (2026-07-22), so a missing/
+// Active card processor. NO default fallback — Bankful was terminated
+// (2026-05-12, an ordinary account closure — NOT a MATCH/TMF listing) and
+// NoRamp/Stripe terminated us (2026-07-22, also not MATCH), so a missing/
 // unknown CARD_PROCESSOR must FAIL CLOSED, never silently route a card to a
 // dead rail (which is exactly what happened the first time CARD_PROCESSOR was
 // unset — the order hit Bankful's hosted page).
