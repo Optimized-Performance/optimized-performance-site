@@ -2,15 +2,20 @@ import { useState } from 'react';
 import Link from 'next/link';
 import SEO from '../components/SEO';
 
-// Researcher-access application. Submitting it emails the operator, who vets
-// the applicant and grants purchase access (adds the email to the gated
-// allowlist). Restricted (research) SKUs are openly listed but can only be
-// bought by an approved account — this is the genuine preventive control.
+// Researcher-access application. Restricted (research) SKUs are openly listed
+// but can only be bought by an approved account — this is the genuine
+// preventive control. In instant-approval mode (default since 2026-07-23, see
+// api/research-access/request.js) access is granted at submit; with
+// NEXT_PUBLIC_RESEARCH_ACCESS_MANUAL_REVIEW=true the operator vets each
+// application first.
+const instantApproval = process.env.NEXT_PUBLIC_RESEARCH_ACCESS_MANUAL_REVIEW !== 'true';
+
 export default function ResearchInquiries() {
   const [form, setForm] = useState({ name: '', email: '', institution: '', role: '', intendedUse: '', password: '' });
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
   const [accountCreated, setAccountCreated] = useState(false);
+  const [approved, setApproved] = useState(false);
   const [error, setError] = useState('');
 
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
@@ -33,6 +38,7 @@ export default function ResearchInquiries() {
         return;
       }
       setAccountCreated(!!data.accountCreated);
+      setApproved(!!data.approved);
       setDone(true);
     } catch {
       setError('Something went wrong — please try again.');
@@ -56,7 +62,7 @@ export default function ResearchInquiries() {
         <p className="text-ink-soft text-sm m-0 max-w-2xl">
           Restricted research materials are supplied only to verified researchers. Submit the
           application below; once your account is approved, purchasing unlocks for all restricted
-          items. Reviewed within 1 business day.
+          items. {instantApproval ? 'Approval is instant — you can order right after applying.' : 'Reviewed within 1 business day.'}
         </p>
       </div>
 
@@ -64,14 +70,32 @@ export default function ResearchInquiries() {
         <div className="card-premium p-8 md:p-12">
           {done ? (
             <div className="text-center py-6">
-              <h2 className="font-display font-semibold tracking-display text-2xl text-ink m-0 mb-3">Application received</h2>
+              <h2 className="font-display font-semibold tracking-display text-2xl text-ink m-0 mb-3">
+                {approved ? 'You’re approved' : 'Application received'}
+              </h2>
               <p className="text-ink-soft leading-relaxed max-w-md mx-auto">
-                {accountCreated
-                  ? 'Thanks — your account is created and you’re signed in. We’ll review your application and email you the moment it’s approved; then you can order restricted items right away.'
-                  : 'Thanks — we’ll review your application and email you once approved. Sign in (or create an account) with this same email so access applies the moment it’s granted.'}
+                {approved
+                  ? (accountCreated
+                    ? 'Your account is created, you’re signed in, and purchasing is unlocked — you can order restricted items right now.'
+                    : 'Purchasing is unlocked for this email. Sign in (or create an account) with this same address and you can order restricted items immediately.')
+                  : (accountCreated
+                    ? 'Thanks — your account is created and you’re signed in. We’ll review your application and email you the moment it’s approved; then you can order restricted items right away.'
+                    : 'Thanks — we’ll review your application and email you once approved. Sign in (or create an account) with this same email so access applies the moment it’s granted.')}
               </p>
               <div className="mt-8">
-                <Link href="/shop" className="text-sm text-accent-strong hover:underline">← Back to catalog</Link>
+                {approved ? (
+                  accountCreated ? (
+                    <Link href="/shop" className="btn-primary inline-flex items-center justify-center px-8 py-3.5 text-base">
+                      Browse the catalog
+                    </Link>
+                  ) : (
+                    <Link href={`/account/login?next=${encodeURIComponent('/shop')}`} className="btn-primary inline-flex items-center justify-center px-8 py-3.5 text-base">
+                      Sign in to start ordering
+                    </Link>
+                  )
+                ) : (
+                  <Link href="/shop" className="text-sm text-accent-strong hover:underline">← Back to catalog</Link>
+                )}
               </div>
             </div>
           ) : (

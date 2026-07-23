@@ -80,7 +80,7 @@ export async function sendEmailAlert(items, level) {
 // (manually add the email in the admin gated-emails allowlist). Manual review
 // is what keeps the purchase gate genuine. Plain-text to ALERT_EMAIL, same
 // SendGrid pattern as the stock alerts.
-export async function sendResearchAccessRequest(app) {
+export async function sendResearchAccessRequest(app, { autoApproved = false } = {}) {
   const apiKey = process.env.SENDGRID_API_KEY;
   const toEmail = process.env.ALERT_EMAIL;
   if (!apiKey || !toEmail) {
@@ -89,11 +89,15 @@ export async function sendResearchAccessRequest(app) {
   }
   // One-tap approve: a signed link (binds this applicant's email + expiry) that
   // opens a confirm screen on your phone — no admin login, can't be forged.
-  const token = signAccessToken(app.email);
+  // In instant-approval mode access is already granted, so the email is an FYI
+  // with revoke instructions instead of an Approve button.
+  const token = autoApproved ? null : signAccessToken(app.email);
   const approveUrl = token ? `${SITE_URL}/research-access/approve?token=${encodeURIComponent(token)}` : '';
 
   const lines = [
-    'New researcher-access application:',
+    autoApproved
+      ? 'Researcher access AUTO-GRANTED (instant-approval mode):'
+      : 'New researcher-access application:',
     '',
     `Name:        ${app.name || '—'}`,
     `Email:       ${app.email || '—'}`,
@@ -102,11 +106,15 @@ export async function sendResearchAccessRequest(app) {
     `Intended use:`,
     app.intendedUse || '—',
     '',
-    approveUrl
-      ? `Approve (opens a confirm screen): ${approveUrl}`
-      : 'To approve: add this email in Admin → gated-emails allowlist.',
-    '',
-    'To decline, just ignore this email — no access is granted.',
+    ...(autoApproved
+      ? ['Purchasing access was granted automatically at application time. If this looks wrong, revoke it: Admin → Access Requests (deny) or remove the email from the gated-emails allowlist.']
+      : [
+          approveUrl
+            ? `Approve (opens a confirm screen): ${approveUrl}`
+            : 'To approve: add this email in Admin → gated-emails allowlist.',
+          '',
+          'To decline, just ignore this email — no access is granted.',
+        ]),
   ].join('\n');
 
   // Click-tracking is OFF (below) so the signed token in the link is never
@@ -115,7 +123,7 @@ export async function sendResearchAccessRequest(app) {
     ? `<a href="${approveUrl}" style="display:inline-block;background:#F5A623;color:#111;font-weight:700;text-decoration:none;padding:14px 28px;border-radius:8px;font-size:16px;">Approve access</a>`
     : '';
   const html = `<div style="font-family:${EMAIL_FONT};color:#111;max-width:560px;margin:0 auto;padding:8px;">
-    <h2 style="font-size:18px;margin:0 0 12px;">New researcher-access application</h2>
+    <h2 style="font-size:18px;margin:0 0 12px;">${autoApproved ? 'Researcher access auto-granted' : 'New researcher-access application'}</h2>
     ${emailDetailTable([
       ['Name', escapeHtml(app.name || '—')],
       ['Email', escapeHtml(app.email || '—')],
@@ -123,8 +131,10 @@ export async function sendResearchAccessRequest(app) {
       ['Role', escapeHtml(app.role || '—')],
       ['Intended use', escapeHtml(app.intendedUse || '—')],
     ])}
-    <div style="margin:22px 0 8px;">${btn}</div>
-    <p style="font-size:12px;color:#6E6D68;margin:6px 0 0;">Opens a confirm screen — one tap to grant purchasing access. To decline, just ignore this email.</p>
+    ${autoApproved
+      ? `<p style="font-size:13px;color:#111;margin:22px 0 0;">Purchasing access was <strong>granted automatically</strong> at application time (instant-approval mode). If this looks wrong, revoke it in <strong>Admin → Access Requests</strong> or remove the email from the gated-emails allowlist.</p>`
+      : `<div style="margin:22px 0 8px;">${btn}</div>
+    <p style="font-size:12px;color:#6E6D68;margin:6px 0 0;">Opens a confirm screen — one tap to grant purchasing access. To decline, just ignore this email.</p>`}
   </div>`;
 
   try {
@@ -135,7 +145,9 @@ export async function sendResearchAccessRequest(app) {
         personalizations: [{ to: alertRecipients(toEmail) }],
         from: { email: process.env.FROM_EMAIL || 'orders@syngyn.co' },
         reply_to: app.email ? { email: app.email } : undefined,
-        subject: `Researcher-access application — ${app.email || 'unknown'}`,
+        subject: autoApproved
+          ? `Researcher access auto-granted — ${app.email || 'unknown'}`
+          : `Researcher-access application — ${app.email || 'unknown'}`,
         content: [
           { type: 'text/plain', value: lines },
           { type: 'text/html', value: html },

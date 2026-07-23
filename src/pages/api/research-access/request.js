@@ -1,17 +1,26 @@
 import { validateOrigin, rateLimit, validateEmail, validateString, escapeLike } from '../../../lib/security'
 import { sendResearchAccessRequest } from '../../../lib/alerts'
+import { sendResearchAccessApproved } from '../../../lib/customer-emails'
 import { supabaseAdmin } from '../../../lib/supabase'
 import { createCustomerToken, hashPassword, customerCookieHeader } from '../../../lib/customer-session'
 import { grantCohortCookies } from '../../../lib/cohort-session'
 
 // Researcher-access application intake.
 //  - Records the application in research_access_requests (the admin queue).
-//  - Emails the operator with a one-tap Approve button (lib/alerts).
+//  - Emails the operator (one-tap Approve button when in manual-review mode).
 //  - MERGED REGISTER: if a password is supplied and no account exists for the
 //    email, creates the customer account + signs them in, so the applicant
 //    leaves already registered — when approved they can order immediately with
 //    no separate sign-up step. (Existing-account emails skip creation; they
-//    just sign in.) No auto-approval — manual review keeps the gate genuine.
+//    just sign in.)
+//  - INSTANT APPROVAL (default ON, 2026-07-23): the launch-week manual queue
+//    held every new buyer for up to a business day at purchase intent — with
+//    card rails down it zeroed new-customer conversion. Access is now granted
+//    at application time; the gate stays genuine (application on record,
+//    attestation, operator notified on every grant, per-email revoke in
+//    Admin → Access Requests / gated-emails). Set
+//    NEXT_PUBLIC_RESEARCH_ACCESS_MANUAL_REVIEW=true and redeploy (build-time
+//    var) to restore human pre-review.
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end()
   if (!validateOrigin(req)) return res.status(403).json({ error: 'Forbidden' })
@@ -65,19 +74,41 @@ export default async function handler(req, res) {
       }
     }
 
+    // ── instant approval (default ON — see header comment) ──────────────────
+    // Falls back to the manual-review flow if the allowlist write fails, so a
+    // DB hiccup degrades to "reviewed within 1 business day", never a dead end.
+    const instantApproval = process.env.NEXT_PUBLIC_RESEARCH_ACCESS_MANUAL_REVIEW !== 'true'
+    let approved = false
+    if (instantApproval && supabaseAdmin) {
+      const { error: gErr } = await supabaseAdmin
+        .from('gated_emails')
+        .upsert(
+          { email: cleanEmail.toLowerCase(), note: `auto-approved on application ${new Date().toISOString().slice(0, 10)}` },
+          { onConflict: 'email' }
+        )
+      if (gErr) console.warn('[research-access] auto-approve upsert failed — falling back to manual review:', gErr.message)
+      else approved = true
+    }
+
     // ── queue record (non-fatal — the email flow still works without it) ─────
     if (supabaseAdmin) {
       const { error: qErr } = await supabaseAdmin.from('research_access_requests').insert({
         name: app.name, email: cleanEmail, institution: app.institution, role: app.role, intended_use: app.intendedUse,
+        status: approved ? 'approved' : 'pending', decided_at: approved ? new Date().toISOString() : null,
       })
       if (qErr) console.warn('[research-access] queue insert skipped (migration not run?):', qErr.message)
     }
 
-    // ── operator notification with one-tap Approve button ────────────────────
-    const send = await sendResearchAccessRequest(app)
+    // ── operator notification (Approve button in manual mode; FYI in auto) ────
+    const send = await sendResearchAccessRequest(app, { autoApproved: approved })
     if (!send?.ok) console.warn('[research-access] application not emailed:', JSON.stringify(send))
 
-    return res.status(200).json({ ok: true, accountCreated })
+    // ── applicant notification (auto mode only — closes their loop) ──────────
+    if (approved) {
+      sendResearchAccessApproved(cleanEmail).catch((e) => console.warn('[research-access] applicant notify failed:', e?.message))
+    }
+
+    return res.status(200).json({ ok: true, accountCreated, approved })
   } catch (err) {
     console.error('[research-access] error:', err)
     return res.status(500).json({ error: 'Something went wrong — please try again.' })

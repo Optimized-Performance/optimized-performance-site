@@ -7,6 +7,10 @@ import { Icon } from './Primitives';
 // purchase intent — long before checkout. Two ways forward: sign in (a
 // grandfathered/approved account) or request access. Client-side only, so
 // crawlers still see the underlying catalog (keeps the de-cloaked posture).
+// Copy tracks the approval mode (instant by default; manual review when
+// NEXT_PUBLIC_RESEARCH_ACCESS_MANUAL_REVIEW=true — build-time var).
+const instantApproval = process.env.NEXT_PUBLIC_RESEARCH_ACCESS_MANUAL_REVIEW !== 'true';
+
 export default function AccessGateModal({ open, onClose, loggedIn = false, productId = '' }) {
   const nextPath = productId ? `/products/${encodeURIComponent(productId)}` : '/shop';
   const loginUrl = `/account/login?next=${encodeURIComponent(nextPath)}`;
@@ -40,8 +44,8 @@ export default function AccessGateModal({ open, onClose, loggedIn = false, produ
         <p className="text-ink-soft text-sm leading-relaxed mb-7">
           Restricted research materials can only be purchased by an approved account.
           {loggedIn
-            ? ' Your account isn’t approved yet — request access below and we’ll review it.'
-            : ' Sign in if you already have access, or request it — reviewed within 1 business day.'}
+            ? ` Your account isn’t approved yet — request access below${instantApproval ? '; it takes under a minute.' : ' and we’ll review it.'}`
+            : ` Sign in if you already have access, or request it — ${instantApproval ? 'approval takes under a minute.' : 'reviewed within 1 business day.'}`}
         </p>
 
         <div className="flex flex-col gap-3">
