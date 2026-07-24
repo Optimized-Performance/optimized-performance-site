@@ -17,6 +17,41 @@ import SEO from '../../../components/SEO'
 
 const COA_BUCKET = 'coas'
 
+// Legacy/renamed SKU → product_id aliases. The catalog DB migration re-keyed
+// `batches.sku` to the product_id (e.g. 'glp3-20mg'), but QR codes printed on
+// vials encode the catalog SKU (e.g. 'OP-GLP-RT3-20MG') or an even older
+// pre-rebrand SKU (GLP-3 → GLP-RT3). The products-table resolver below handles
+// any CURRENT sku automatically; this map covers PAST skus no longer in the
+// products table. Keys are lowercased. Extend as old labels surface.
+const LEGACY_SKU_ALIASES = {
+  'op-glp-3-20mg': 'glp3-20mg',
+  'op-glp-3-10mg': 'glp3-10mg',
+  'op-glp-3-30mg': 'glp3-30mg',
+  'op-glp-3-50mg': 'glp3-50mg',
+}
+
+// Resolve whatever a QR encoded (product_id, current catalog sku, or a legacy
+// sku) to the sku string batches are actually keyed under (the product_id).
+// Falls back to the input unchanged so an unknown value still gets a lookup.
+async function canonicalBatchSku(input) {
+  const s = String(input).trim()
+  const key = s.toLowerCase()
+  if (LEGACY_SKU_ALIASES[key]) return LEGACY_SKU_ALIASES[key]
+  try {
+    // Match the products table by id OR current sku (case-insensitive, exact).
+    const esc = escapeLike(s)
+    const { data } = await supabaseAdmin
+      .from('products')
+      .select('id')
+      .or(`id.ilike.${esc},sku.ilike.${esc}`)
+      .maybeSingle()
+    if (data?.id) return data.id
+  } catch (e) {
+    console.warn('[coa] sku resolve failed, using raw sku:', e?.message)
+  }
+  return s
+}
+
 export async function getServerSideProps(context) {
   const { sku, lot } = context.params
   const { res } = context
@@ -25,12 +60,16 @@ export async function getServerSideProps(context) {
     return { props: { error: 'database_unavailable', sku, lot } }
   }
 
+  // Normalize the scanned SKU to the product_id batches are keyed under, so a
+  // QR encoding the catalog SKU (or a renamed legacy SKU) still resolves.
+  const batchSku = await canonicalBatchSku(sku)
+
   // SKU + lot both case-normalize because QR codes may render in either case
   // depending on the printer driver. lot_number is YYMMDD or YYMMDD-A.
   let { data: batch, error } = await supabaseAdmin
     .from('batches')
     .select('sku, lot_number, production_date, expiry_date, coa_pdf_path, coa_uploaded_at')
-    .ilike('sku', escapeLike(String(sku)))
+    .ilike('sku', escapeLike(batchSku))
     .ilike('lot_number', escapeLike(String(lot)))
     .maybeSingle()
 
@@ -50,7 +89,7 @@ export async function getServerSideProps(context) {
     const { data: alt } = await supabaseAdmin
       .from('batches')
       .select('sku, lot_number, production_date, expiry_date, coa_pdf_path, coa_uploaded_at')
-      .ilike('sku', escapeLike(String(sku)))
+      .ilike('sku', escapeLike(batchSku))
       .not('coa_pdf_path', 'is', null)
       .order('production_date', { ascending: false })
       .limit(1)
