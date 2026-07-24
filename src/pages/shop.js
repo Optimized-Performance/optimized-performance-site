@@ -7,6 +7,7 @@ import { getCohortFromRequest } from '../lib/cohort-session';
 import { getVisibleCatalog } from '../lib/catalog';
 import { hasGatedAccess } from '../lib/gated-access';
 import { getCustomerIdFromReq } from '../lib/customer-session';
+import { isAllowedCrawler } from '../lib/crawler';
 import SEO from '../components/SEO';
 import { Icon } from '../components/Primitives';
 import { RESEARCH_MODE } from '../lib/brand';
@@ -170,7 +171,22 @@ export async function getServerSideProps(context) {
   const { cohortAllowed } = await getCohortFromRequest(context, supabaseAdmin);
   const gatedAccess = await hasGatedAccess(context.req);
   const loggedIn = !!getCustomerIdFromReq(context.req);
-  const visibleProducts = await getVisibleCatalog({ cohort: cohortAllowed, gatedAccess });
+
+  // Server-enforced login wall. The catalog is serialized into the page ONLY
+  // for a signed-in customer OR an allowlisted crawler (search engines +
+  // payment-processor / compliance scanners — see lib/crawler). A signed-out
+  // human gets an EMPTY catalog: the AgeGate overlay still forces sign-in +
+  // attestation on top, but there is nothing in the rendered HTML / __NEXT_DATA__
+  // to scrape without an account (closes the no-JS / view-source / pre-paint
+  // leak that let the full list be read without signing in). Crawlers get the
+  // exact public-tier set an anonymous visitor used to receive, so the store
+  // stays verifiably crawlable and doesn't read as cloaked inventory.
+  let visibleProducts = [];
+  if (loggedIn || gatedAccess) {
+    visibleProducts = await getVisibleCatalog({ cohort: cohortAllowed, gatedAccess });
+  } else if (isAllowedCrawler(context.req)) {
+    visibleProducts = await getVisibleCatalog({ cohort: cohortAllowed, gatedAccess: false });
+  }
 
   // Build the set of product_ids the inventory prop is allowed to expose.
   // Visible products themselves PLUS the parent_ids of visible kits (kits

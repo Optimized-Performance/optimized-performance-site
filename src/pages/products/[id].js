@@ -13,6 +13,7 @@ import { supabaseAdmin } from '../../lib/supabase';
 import { getCohortFromRequest } from '../../lib/cohort-session';
 import { hasGatedAccess } from '../../lib/gated-access';
 import { getCustomerIdFromReq } from '../../lib/customer-session';
+import { isAllowedCrawler } from '../../lib/crawler';
 import { isMemorialDaySaleActive, getSalePrice, MEMORIAL_DAY_DISCOUNT_PCT, isBogoProduct, VOLUME_TIERS, volumeTierPct, isVolumeEligible, isFlashProduct, getFlashPrice, FLASH_SALE_PCT } from '../../lib/sale';
 // Static import (NOT require) so Next keeps lib/catalog in this page's server
 // bundle — a dynamic require() of a module with no static importer tree-shakes
@@ -637,6 +638,18 @@ export async function getServerSideProps(context) {
   // the catalog tiers.
   await getCohortFromRequest(context, supabaseAdmin);
   const gatedAccess = await hasGatedAccess(context.req);
+  const loggedIn = !!getCustomerIdFromReq(context.req);
+
+  // Server-enforced login wall (same policy as /shop and / — see lib/crawler).
+  // A signed-out human may not pull a product page out of the server: return
+  // notFound so no name/description/price/SKU is ever serialized into the HTML
+  // without an account. Allowlisted crawlers (search + payment-processor /
+  // compliance scanners) and signed-in customers get the full page, so product
+  // pages stay verifiably crawlable and don't read as hidden inventory.
+  if (!loggedIn && !gatedAccess && !isAllowedCrawler(context.req)) {
+    return { notFound: true };
+  }
+
   const restrictedVisible = shouldShowRestricted(gatedAccess);
 
   // Restricted SKU + viewer not approved → serve a generic Private Inquiry
@@ -755,10 +768,9 @@ export async function getServerSideProps(context) {
   // always purchasable (approved: true).
   const approvalRequired = !!product.purchaseApprovalRequired;
   const approved = approvalRequired ? gatedAccess : true;
-  // Logged-in vs guest — drives the gated CTA: a grandfathered customer whose
-  // email is already on the allowlist just needs to sign in, so guests get a
-  // "sign in" nudge rather than being sent to re-apply.
-  const loggedIn = !!getCustomerIdFromReq(context.req);
+  // `loggedIn` (computed above with the login-wall check) drives the gated CTA:
+  // a grandfathered customer whose email is already on the allowlist just needs
+  // to sign in, so guests get a "sign in" nudge rather than being sent to re-apply.
 
   return {
     props: {

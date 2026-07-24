@@ -5,6 +5,7 @@ import { getCohortFromRequest } from '../lib/cohort-session';
 import { getVisibleCatalog } from '../lib/catalog';
 import { hasGatedAccess } from '../lib/gated-access';
 import { getCustomerIdFromReq } from '../lib/customer-session';
+import { isAllowedCrawler } from '../lib/crawler';
 import ProductCard from '../components/ProductCard';
 import SEO from '../components/SEO';
 import { Vial, Icon } from '../components/Primitives';
@@ -260,6 +261,16 @@ export async function getServerSideProps(context) {
   const { cohortAllowed } = await getCohortFromRequest(context, supabaseAdmin);
   const gatedAccess = await hasGatedAccess(context.req);
   const loggedIn = !!getCustomerIdFromReq(context.req);
-  const visibleProducts = await getVisibleCatalog({ cohort: cohortAllowed, gatedAccess });
+
+  // Server-enforced login wall — same policy as /shop (see the note there and
+  // lib/crawler). Signed-out humans get an EMPTY catalog (featured/hero sections
+  // self-hide), so nothing leaks into the homepage HTML; allowlisted crawlers
+  // and signed-in customers get the real set.
+  let visibleProducts = [];
+  if (loggedIn || gatedAccess) {
+    visibleProducts = await getVisibleCatalog({ cohort: cohortAllowed, gatedAccess });
+  } else if (isAllowedCrawler(context.req)) {
+    visibleProducts = await getVisibleCatalog({ cohort: cohortAllowed, gatedAccess: false });
+  }
   return { props: { visibleProducts, gatedAccess, loggedIn } };
 }
