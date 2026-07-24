@@ -12,6 +12,7 @@ import AccessGateModal from '../../components/AccessGateModal';
 import { supabaseAdmin } from '../../lib/supabase';
 import { getCohortFromRequest } from '../../lib/cohort-session';
 import { hasGatedAccess } from '../../lib/gated-access';
+import { isReviewer } from '../../lib/reviewer';
 import { getCustomerIdFromReq } from '../../lib/customer-session';
 import { isMemorialDaySaleActive, getSalePrice, MEMORIAL_DAY_DISCOUNT_PCT, isBogoProduct, VOLUME_TIERS, volumeTierPct, isVolumeEligible, isFlashProduct, getFlashPrice, FLASH_SALE_PCT } from '../../lib/sale';
 // Static import (NOT require) so Next keeps lib/catalog in this page's server
@@ -637,7 +638,11 @@ export async function getServerSideProps(context) {
   // the catalog tiers.
   await getCohortFromRequest(context, supabaseAdmin);
   const gatedAccess = await hasGatedAccess(context.req);
-  const restrictedVisible = shouldShowRestricted(gatedAccess);
+  const reviewer = await isReviewer(context.req);
+  // Reviewer/underwriter: scope VISIBILITY to public (account_gated PDPs fall
+  // back to the generic private-inquiry view), while approval below stays real
+  // so they can still transact the public SKUs.
+  const restrictedVisible = shouldShowRestricted(reviewer ? false : gatedAccess);
 
   // Restricted SKU + viewer not approved → serve a generic Private Inquiry
   // view instead of the normal storefront detail. Critically, we DO NOT pass

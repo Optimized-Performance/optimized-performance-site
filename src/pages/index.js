@@ -4,6 +4,7 @@ import { supabaseAdmin } from '../lib/supabase';
 import { getCohortFromRequest } from '../lib/cohort-session';
 import { getVisibleCatalog } from '../lib/catalog';
 import { hasGatedAccess } from '../lib/gated-access';
+import { isReviewer } from '../lib/reviewer';
 import { getCustomerIdFromReq } from '../lib/customer-session';
 import ProductCard from '../components/ProductCard';
 import SEO from '../components/SEO';
@@ -259,7 +260,12 @@ export async function getServerSideProps(context) {
   // tree-shaken to {} in the prod build (that was the catalog-migration 500).
   const { cohortAllowed } = await getCohortFromRequest(context, supabaseAdmin);
   const gatedAccess = await hasGatedAccess(context.req);
+  const reviewer = await isReviewer(context.req);
   const loggedIn = !!getCustomerIdFromReq(context.req);
-  const visibleProducts = await getVisibleCatalog({ cohort: cohortAllowed, gatedAccess });
+  // Reviewer/underwriter: approved to transact, but visibility scoped to public.
+  const visibleProducts = await getVisibleCatalog({
+    cohort: reviewer ? false : cohortAllowed,
+    gatedAccess: reviewer ? false : gatedAccess,
+  });
   return { props: { visibleProducts, gatedAccess, loggedIn } };
 }

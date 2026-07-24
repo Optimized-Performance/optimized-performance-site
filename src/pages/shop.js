@@ -6,6 +6,7 @@ import { supabaseAdmin } from '../lib/supabase';
 import { getCohortFromRequest } from '../lib/cohort-session';
 import { getVisibleCatalog } from '../lib/catalog';
 import { hasGatedAccess } from '../lib/gated-access';
+import { isReviewer } from '../lib/reviewer';
 import { getCustomerIdFromReq } from '../lib/customer-session';
 import SEO from '../components/SEO';
 import { Icon } from '../components/Primitives';
@@ -169,8 +170,15 @@ export async function getServerSideProps(context) {
   // tree-shaken to {} in the prod build (that was the catalog-migration 500).
   const { cohortAllowed } = await getCohortFromRequest(context, supabaseAdmin);
   const gatedAccess = await hasGatedAccess(context.req);
+  const reviewer = await isReviewer(context.req);
   const loggedIn = !!getCustomerIdFromReq(context.req);
-  const visibleProducts = await getVisibleCatalog({ cohort: cohortAllowed, gatedAccess });
+  // Reviewer/underwriter accounts: approved to transact (gatedAccess prop stays
+  // real, so the 26 public purchase-gated SKUs show Add), but catalog VISIBILITY
+  // is scoped to public only — the account_gated line is hidden from them.
+  const visibleProducts = await getVisibleCatalog({
+    cohort: reviewer ? false : cohortAllowed,
+    gatedAccess: reviewer ? false : gatedAccess,
+  });
 
   // Build the set of product_ids the inventory prop is allowed to expose.
   // Visible products themselves PLUS the parent_ids of visible kits (kits
